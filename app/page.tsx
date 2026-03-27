@@ -385,10 +385,9 @@ export default function Home() {
   const healthScore = active ? (() => {
     const m = active
     let score = 100
-    let reasons: string[] = []
     // STFT (weight 20) - most immediate indicator
     const stft = m.stft_above15_pct ?? 0
-    if (stft > 15) { score -= 20; reasons.push('STFT critical') }
+    if (stft > 15) { score -= 20; // stft critical }
     else if (stft > 5) { score -= 10 }
     else if (stft > 2) { score -= 4 }
     // LTFT (weight 15)
@@ -682,7 +681,7 @@ export default function Home() {
               
               </>
               )}
-{showSec('diagnosis') && (<>
+{showSec('sec_diagnosis') && (<>
               {/* 10. Diagnosis */}
               <SectionHeader title={t('sec_diagnosis')} accent={C.red} />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -696,9 +695,9 @@ export default function Home() {
                   </div>
                 ))}
               </div>
-            </div>
               </>
               )}
+            </div>
           )}
 
           {/* -- TIMELINE -- */}
