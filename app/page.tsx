@@ -3,391 +3,590 @@
 import { useEffect, useState, useCallback } from 'react'
 import KpiCard from '@/components/KpiCard'
 import TimelineChart from '@/components/TimelineChart'
-import UploadZone from '@/components/UploadZone'
 import { parseCSVFile, BASELINE } from '@/lib/parser'
 import { generateAlerts } from '@/lib/alerts'
 import type { LogSession } from '@/lib/supabase'
 
+// â”€â”€â”€ i18n (no accented chars hardcoded - all via this dict) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 type Lang = 'en' | 'pt'
 const T: Record<Lang, Record<string, string>> = {
   en: {
-    sessions:'Sessions', overview:'Overview', timeline:'Timeline', table:'Table',
-    records:'records', imported:'imported', temp:'Temperature',
-    mixture:'Mixture & Fuel Trim', consump_sec:'Consumption & Distance',
-    elec:'Electrical & Status', diagnosis:'Diagnosis', noFaults:'No active faults',
-    active_str:'ACTIVE', filter_charts:'Filter Charts', select_all:'All', clear_sel:'Clear',
-    sessions_header:'Sessions', all_logs:'All logs', ignition_sec:'Ignition & Engine Load',
-    upload_drag:'Drag CSV or click to import',
-    upload_sub:'HondsH OBD1 Â· English or Portuguese\nMultiple files at once',
-    collapse:'Collapse', expand:'Expand',
-    ect_avg:'ECT Avg', iat_avg:'IAT Avg', ect_hot:'ECT > 95Â°C',
-    ltft_lbl:'LTFT', stft_lbl:'STFT > +15%', lambda_lbl:'Lambda', iacv_lbl:'IACV',
-    adv_lbl:'Ign. Advance', adv_max_lbl:'Adv. Max',
-    knock_lbl:'Knock', map_lbl:'MAP', map_wot_lbl:'MAP @ WOT', clv_lbl:'Calc. Load',
-    rev_max_lbl:'Rev Max', inj_dur_lbl:'Inj. Duration', inj_dc_lbl:'Inj. Duty Cycle',
-    egr_lbl:'EGR Active', flow_lbl:'Fuel Flow', consump_lbl:'Consumption',
-    km_lbl:'Est. Distance', vtec_lbl:'VTEC', bat_lbl:'Battery', eld_lbl:'ELD Current',
-    alt_lbl:'Alternator FR', cl_lbl:'Closed Loop', mil_lbl:'Check Engine',
-    vmax_lbl:'Max Speed', ac_lbl:'A/C Active', fan_lbl:'Fan Active',
-    ch_ltft:'LTFT â€” Long Term Fuel Trim', ch_stft:'STFT â€” Extreme Correction (>+15%)',
-    ch_lambda:'Lambda (Oâ‚‚)', ch_iacv:'IACV â€” Idle Air Control',
-    ch_ect:'ECT â€” Coolant Temp', ch_iat:'IAT â€” Intake Air Temp',
-    ch_bat:'Battery Min', ch_vtec:'VTEC Active Time',
-    ch_adv:'Ignition Advance (avg)', ch_adv_max:'Ignition Advance (max)',
-    ch_knock:'Knock Events', ch_map:'MAP â€” Manifold Pressure',
-    ch_map_wot:'MAP @ WOT', ch_clv:'Calculated Load Value',
-    ch_rev:'Engine RPM (max)', ch_inj:'Injection Duration',
-    ch_inj_dc:'Injector Duty Cycle', ch_egr:'EGR Active Time',
-    ch_flow:'Fuel Flow (l/h)', ch_consump:'Consumption (km/l)',
-    ch_km:'Est. Distance per session', ch_accel:'Longitudinal Acceleration',
-    ch_vmax:'Max Speed', ch_eld:'ELD Current',
+    sessions: 'Sessions', overview: 'Overview', timeline: 'Timeline', table: 'Table',
+    imported: 'imported', noFaults: 'No active faults', active_str: 'ACTIVE',
+    filter_charts: 'Filter Charts', select_all: 'All', clear_sel: 'Clear',
+    sessions_header: 'Sessions', all_logs: 'All logs', collapse: 'Collapse', expand: 'Expand',
+    upload_drag: 'Drag CSV or click to import',
+    upload_sub: 'HondsH OBD1 Â· EN or PT Â· Multiple files',
+    // Section headers
+    sec_elec: 'Electrical & Charging',
+    sec_fuel: 'Fuel & Injection',
+    sec_air: 'Air / Intake / Load',
+    sec_afr: 'Mixture & Correction',
+    sec_ign: 'Ignition',
+    sec_temp: 'Temperature & Cooling',
+    sec_idle: 'Idle Control',
+    sec_motion: 'Motion & Dynamics',
+    sec_trans: 'Transmission',
+    sec_act: 'Actuators & Emissions',
+    sec_vtec: 'VTEC',
+    sec_sw: 'Sensors & Switches',
+    sec_diag: 'Diagnosis / System',
+    sec_diagnosis: 'Diagnosis',
+    // KPI labels
+    bat: 'Battery', alt_fr: 'Alternator FR', alt_frv: 'Alt. FR Voltage', alt_ctrl: 'Alt. Control',
+    eld_curr: 'ELD Current', eld_volt: 'ELD Voltage',
+    fuel_pump: 'Fuel Pump Relay', fuel_ss: 'Fuel System Status', fuel_flow: 'Fuel Flow', fuel_inst: 'Consumption',
+    inj_dur: 'Inj. Duration', inj_dc: 'Inj. Duty Cycle', inj_fr: 'Inj. Flow Rate',
+    map_psi: 'MAP', map_volt: 'MAP Voltage', map_clv: 'MAP Load',
+    baro: 'Baro Pressure', baro_volt: 'Baro Voltage',
+    iat: 'IAT', iat_volt: 'IAT Voltage',
+    tps: 'TPS', tps_volt: 'TPS Voltage',
+    clv: 'Calc. Load', iab: 'IAB Valve',
+    o2s_volt: 'O2S Voltage', stft: 'STFT', ltft: 'LTFT',
+    afr: 'Air Fuel Ratio', lambda: 'Lambda', afr_cmd: 'AFR Command',
+    fls: 'Feedback Loop', hc: 'O2 Heater',
+    ign_adv: 'Ign. Advance', ign_lim: 'Ign. Limit', knock: 'Knock',
+    ect: 'ECT', ect_volt: 'ECT Voltage', fan: 'Radiator Fan',
+    iacv_dc: 'IACV Duty Cycle', iacv_curr: 'IACV Current', idle_cmd: 'Idle Command',
+    rev: 'Engine RPM', vss: 'Vehicle Speed', vss_cal: 'Speed (Cal.)',
+    gps_spd: 'GPS Speed', lng_accel: 'Long. Acceleration',
+    gear: 'Gear', at_mnt: 'A/T Mounts', at_ppn: 'A/T Gear Pos.',
+    egr_volt: 'EGR Voltage', egr_cmd: 'EGR Command', egr_pos: 'EGR Position',
+    pcs: 'EVAP PCS', pcs_pos: 'PCS Position',
+    vtec_il: 'VTEC Lamp', vtec_psw: 'VTEC Press. SW', vtec_sv: 'VTEC Solenoid', vtec_sf: 'VTEC Feedback',
+    brake: 'Brake Switch', starter: 'Starter Switch',
+    ac_relay: 'A/C Relay', ac_sw: 'A/C Switch', pspsw: 'P/S Oil Press.',
+    mil: 'Check Engine', scs: 'Service Check', lat: 'Comm. Latency',
+    // Chart titles
+    ch_ltft: 'LTFT - Long Term Fuel Trim', ch_stft: 'STFT - Extreme Correction (>+15%)',
+    ch_lambda: 'Lambda (O2)', ch_iacv: 'IACV - Idle Air Control',
+    ch_ect: 'ECT - Coolant Temp', ch_iat: 'IAT - Intake Air Temp',
+    ch_bat: 'Battery Min', ch_vtec: 'VTEC Active Time',
+    ch_adv: 'Ignition Advance (avg)', ch_adv_max: 'Ignition Advance (max)',
+    ch_knock: 'Knock Events', ch_map: 'MAP - Manifold Pressure',
+    ch_map_wot: 'MAP at WOT', ch_clv: 'Calculated Load Value',
+    ch_rev: 'Engine RPM (max)', ch_inj: 'Injection Duration',
+    ch_inj_dc: 'Injector Duty Cycle', ch_egr: 'EGR Active Time',
+    ch_flow: 'Fuel Flow (l/h)', ch_consump: 'Consumption (km/l)',
+    ch_km: 'Est. Distance per session', ch_accel: 'Longitudinal Acceleration',
+    ch_vmax: 'Max Speed', ch_eld: 'ELD Current',
+    // Table headers
+    th_session: 'Session', th_km: 'Km', th_ect_avg: 'ECT avg', th_ect_max: 'ECT max',
+    th_iat: 'IAT', th_ltft: 'LTFT', th_stft: 'STFT%', th_lambda: 'Lambda',
+    th_iacv: 'IACV', th_map_wot: 'MAP wot', th_adv: 'Adv', th_knock: 'Knock',
+    th_inj: 'Inj ms', th_lh: 'l/h', th_kml: 'km/l', th_vtec: 'VTEC%',
+    th_bat: 'Bat V', th_mil: 'MIL',
+    // Misc
+    records: 'records', charts_visible: 'charts visible',
+    no_charts: 'No charts selected.',
+    time_above: 'time above 95',
+    ideal: 'ideal',
+    expected: 'expected 30-38%',
+    max_str: 'max',
+    avg_str: 'avg',
+    this_session: 'this session',
+    high_rpm: 'high RPM time',
+    stopped: 'stopped',
+    elec_load: 'electrical load',
+    alt_load: 'alternator load',
+    closed_loop: 'ECU closed loop',
+    no_faults: 'no active faults',
+    cruise_avg: 'cruise avg',
   },
   pt: {
-    sessions:'SessÃµes', overview:'VisÃ£o Geral', timeline:'Linha do Tempo', table:'Tabela',
-    records:'registros', imported:'importado(s)', temp:'Temperatura',
-    mixture:'Mistura & Fuel Trim', consump_sec:'Consumo & DistÃ¢ncia',
-    elec:'ElÃ©trico & Status', diagnosis:'DiagnÃ³stico', noFaults:'Sem falhas ativas',
-    active_str:'ATIVO', filter_charts:'Filtrar GrÃ¡ficos', select_all:'Todos', clear_sel:'Limpar',
-    sessions_header:'SessÃµes', all_logs:'Todos os logs', ignition_sec:'IgniÃ§Ã£o & Carga do Motor',
-    upload_drag:'Arrastar CSV ou clicar para importar',
-    upload_sub:'HondsH OBD1 Â· InglÃªs ou PortuguÃªs\nMÃºltiplos arquivos simultÃ¢neos',
-    collapse:'Recolher', expand:'Expandir',
-    ect_avg:'ECT MÃ©dia', iat_avg:'IAT MÃ©dia', ect_hot:'ECT > 95Â°C',
-    ltft_lbl:'LTFT', stft_lbl:'STFT > +15%', lambda_lbl:'Lambda', iacv_lbl:'IACV',
-    adv_lbl:'AvanÃ§o Ign.', adv_max_lbl:'AvanÃ§o MÃ¡x.',
-    knock_lbl:'Knock', map_lbl:'MAP', map_wot_lbl:'MAP @ WOT', clv_lbl:'Carga Calc.',
-    rev_max_lbl:'RotaÃ§Ã£o MÃ¡x.', inj_dur_lbl:'Dur. InjeÃ§Ã£o', inj_dc_lbl:'DC InjeÃ§Ã£o',
-    egr_lbl:'EGR Ativo', flow_lbl:'Fluxo Comb.', consump_lbl:'Consumo',
-    km_lbl:'Dist. Estimada', vtec_lbl:'VTEC', bat_lbl:'Bateria', eld_lbl:'Corrente ELD',
-    alt_lbl:'FR Alternador', cl_lbl:'Malha Fechada', mil_lbl:'Check Engine',
-    vmax_lbl:'Vel. MÃ¡x.', ac_lbl:'A/C Ativo', fan_lbl:'Ventoinha',
-    ch_ltft:'LTFT â€” Trim Longo Prazo', ch_stft:'STFT â€” CorreÃ§Ã£o Extrema (>+15%)',
-    ch_lambda:'Lambda (Sonda Oâ‚‚)', ch_iacv:'IACV â€” VÃ¡lvula Marcha Lenta',
-    ch_ect:'ECT â€” Temperatura Motor', ch_iat:'IAT â€” Temperatura AdmissÃ£o',
-    ch_bat:'Bateria MÃ­nima', ch_vtec:'VTEC Ativo',
-    ch_adv:'AvanÃ§o IgniÃ§Ã£o (mÃ©dia)', ch_adv_max:'AvanÃ§o IgniÃ§Ã£o (mÃ¡x)',
-    ch_knock:'Eventos Knock', ch_map:'MAP â€” PressÃ£o Coletor',
-    ch_map_wot:'MAP @ AceleraÃ§Ã£o Total', ch_clv:'Valor Calculado Carga',
-    ch_rev:'RotaÃ§Ã£o MÃ¡xima', ch_inj:'DuraÃ§Ã£o InjeÃ§Ã£o',
-    ch_inj_dc:'Duty Cycle Injetor', ch_egr:'EGR Ativo',
-    ch_flow:'Fluxo CombustÃ­vel (l/h)', ch_consump:'Consumo (km/l)',
-    ch_km:'DistÃ¢ncia Estimada por SessÃ£o', ch_accel:'AceleraÃ§Ã£o Longitudinal',
-    ch_vmax:'Velocidade MÃ¡xima', ch_eld:'Corrente ELD',
+    sessions: 'Sessoes', overview: 'Visao Geral', timeline: 'Linha do Tempo', table: 'Tabela',
+    imported: 'importado(s)', noFaults: 'Sem falhas ativas', active_str: 'ATIVO',
+    filter_charts: 'Filtrar Graficos', select_all: 'Todos', clear_sel: 'Limpar',
+    sessions_header: 'Sessoes', all_logs: 'Todos os logs', collapse: 'Recolher', expand: 'Expandir',
+    upload_drag: 'Arrastar CSV ou clicar para importar',
+    upload_sub: 'HondsH OBD1 Â· EN ou PT Â· Multiplos arquivos',
+    sec_elec: 'Eletrica / Carregamento',
+    sec_fuel: 'Combustivel / Injecao',
+    sec_air: 'Ar / Admissao / Carga',
+    sec_afr: 'Mistura e Correcao',
+    sec_ign: 'Ignicao',
+    sec_temp: 'Temperatura e Arrefecimento',
+    sec_idle: 'Marcha Lenta / Controle de Ar',
+    sec_motion: 'Movimento / Dinamica',
+    sec_trans: 'Transmissao / Drivetrain',
+    sec_act: 'Atuadores e Emissoes',
+    sec_vtec: 'VTEC',
+    sec_sw: 'Sensores e Interruptores',
+    sec_diag: 'Diagnostico / Sistema',
+    sec_diagnosis: 'Diagnostico',
+    bat: 'Bateria', alt_fr: 'Alternador FR', alt_frv: 'Alt. FR Tensao', alt_ctrl: 'Alt. Controle',
+    eld_curr: 'ELD Corrente', eld_volt: 'ELD Tensao',
+    fuel_pump: 'Rele Bomba', fuel_ss: 'Status Combustivel', fuel_flow: 'Fluxo Comb.', fuel_inst: 'Consumo',
+    inj_dur: 'Dur. Injecao', inj_dc: 'DC Injecao', inj_fr: 'Fluxo Injetor',
+    map_psi: 'MAP', map_volt: 'MAP Tensao', map_clv: 'MAP Carga',
+    baro: 'Pressao Barom.', baro_volt: 'Baro Tensao',
+    iat: 'IAT', iat_volt: 'IAT Tensao',
+    tps: 'TPS', tps_volt: 'TPS Tensao',
+    clv: 'Carga Calc.', iab: 'Valv. IAB',
+    o2s_volt: 'O2S Tensao', stft: 'STFT', ltft: 'LTFT',
+    afr: 'Relacao A/F', lambda: 'Lambda', afr_cmd: 'Cmd AFR',
+    fls: 'Loop Feedback', hc: 'Aquec. O2',
+    ign_adv: 'Avanco Ign.', ign_lim: 'Limite Ign.', knock: 'Knock',
+    ect: 'ECT', ect_volt: 'ECT Tensao', fan: 'Ventoinha Rad.',
+    iacv_dc: 'IACV Duty Cycle', iacv_curr: 'IACV Corrente', idle_cmd: 'Cmd Marcha Lenta',
+    rev: 'Rotacao Motor', vss: 'Velocidade', vss_cal: 'Velocidade (Cal.)',
+    gps_spd: 'Veloc. GPS', lng_accel: 'Acel. Longitudinal',
+    gear: 'Marcha', at_mnt: 'A/T Montagens', at_ppn: 'A/T Posicao',
+    egr_volt: 'EGR Tensao', egr_cmd: 'EGR Comando', egr_pos: 'EGR Posicao',
+    pcs: 'EVAP PCS', pcs_pos: 'PCS Posicao',
+    vtec_il: 'VTEC Lampada', vtec_psw: 'VTEC Press. SW', vtec_sv: 'VTEC Solenoide', vtec_sf: 'VTEC Feedback',
+    brake: 'Interruptor Freio', starter: 'Interruptor Partida',
+    ac_relay: 'Rele A/C', ac_sw: 'Interruptor A/C', pspsw: 'Press. Oleo Dir.',
+    mil: 'Check Engine', scs: 'Verificacao Servico', lat: 'Latencia Comm.',
+    ch_ltft: 'LTFT - Trim Longo Prazo', ch_stft: 'STFT - Correcao Extrema (>+15%)',
+    ch_lambda: 'Lambda (Sonda O2)', ch_iacv: 'IACV - Valvula Marcha Lenta',
+    ch_ect: 'ECT - Temperatura Motor', ch_iat: 'IAT - Temperatura Admissao',
+    ch_bat: 'Bateria Minima', ch_vtec: 'VTEC Ativo',
+    ch_adv: 'Avanco Ignicao (media)', ch_adv_max: 'Avanco Ignicao (max)',
+    ch_knock: 'Eventos Knock', ch_map: 'MAP - Pressao Coletor',
+    ch_map_wot: 'MAP Aceleracao Total', ch_clv: 'Valor Calculado Carga',
+    ch_rev: 'Rotacao Maxima', ch_inj: 'Duracao Injecao',
+    ch_inj_dc: 'Duty Cycle Injetor', ch_egr: 'EGR Ativo',
+    ch_flow: 'Fluxo Combustivel (l/h)', ch_consump: 'Consumo (km/l)',
+    ch_km: 'Distancia Est. por Sessao', ch_accel: 'Aceleracao Longitudinal',
+    ch_vmax: 'Velocidade Maxima', ch_eld: 'Corrente ELD',
+    th_session: 'Sessao', th_km: 'Km', th_ect_avg: 'ECT med', th_ect_max: 'ECT max',
+    th_iat: 'IAT', th_ltft: 'LTFT', th_stft: 'STFT%', th_lambda: 'Lambda',
+    th_iacv: 'IACV', th_map_wot: 'MAP wot', th_adv: 'Avanco', th_knock: 'Knock',
+    th_inj: 'Inj ms', th_lh: 'l/h', th_kml: 'km/l', th_vtec: 'VTEC%',
+    th_bat: 'Bat V', th_mil: 'MIL',
+    records: 'registros', charts_visible: 'graficos visiveis',
+    no_charts: 'Nenhum grafico selecionado.',
+    time_above: 'tempo acima de 95',
+    ideal: 'ideal',
+    expected: 'esperado 30-38%',
+    max_str: 'max',
+    avg_str: 'media',
+    this_session: 'nesta sessao',
+    high_rpm: 'tempo em alto RPM',
+    stopped: 'parado',
+    elec_load: 'carga eletrica',
+    alt_load: 'carga alternador',
+    closed_loop: 'ECU malha fechada',
+    no_faults: 'sem falhas ativas',
+    cruise_avg: 'media cruzeiro',
   },
 }
 
+// â”€â”€â”€ Chart defs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 type ChartDef = {
-  id: string; group: 'fuel'|'temp'|'ignition'|'consumption'|'electrical'
-  titleKey: string; unit?: string; yMin?: number; yMax?: number
-  refLine?: { value: number; labelKey: string; color: string }
-  datasets: { labelKey: string; field: keyof LogSession; color: string }[]
+  id: string; group: string; titleKey: string; unit?: string
+  yMin?: number; yMax?: number
+  refLine?: { value: number; label: string; color: string }
+  datasets: { label: string; field: keyof LogSession; color: string }[]
 }
+
+// HondaSH color palette from screenshots
+const C = {
+  cyan:   '#00cfff', teal:   '#00b4a0', green:  '#00e060', lime:   '#80e000',
+  yellow: '#ffe000', orange: '#ff9000', red:    '#ff3030', pink:   '#ff60a0',
+  purple: '#c060ff', blue:   '#4080ff', indigo: '#6060ff', gray:   '#8090a0',
+}
+
 const CHART_DEFS: ChartDef[] = [
-  { id:'ltft',    group:'fuel',        titleKey:'ch_ltft',    unit:'%',   yMin:0,  refLine:{value:1.5,labelKey:'ideal',color:'rgba(22,163,74,0.5)'},  datasets:[{labelKey:'ltft_lbl',   field:'ltft',             color:'#ea580c'}] },
-  { id:'stft',    group:'fuel',        titleKey:'ch_stft',    unit:'%',   yMin:0,  datasets:[{labelKey:'stft_lbl',  field:'stft_above15_pct',  color:'#dc2626'}] },
-  { id:'lambda',  group:'fuel',        titleKey:'ch_lambda',              yMin:0.95,yMax:1.35, refLine:{value:1.0,labelKey:'stoich',color:'rgba(22,163,74,0.5)'}, datasets:[{labelKey:'lambda_lbl',field:'lambda',            color:'#16a34a'}] },
-  { id:'iacv',    group:'fuel',        titleKey:'ch_iacv',    unit:'%',   yMin:0,yMax:85, refLine:{value:38,labelKey:'max normal',color:'rgba(37,99,235,0.5)'}, datasets:[{labelKey:'iacv_lbl',  field:'iacv_mean',        color:'#2563eb'}] },
-  { id:'ect',     group:'temp',        titleKey:'ch_ect',     unit:'Â°C',  yMin:65, refLine:{value:100,labelKey:'100Â°C',color:'rgba(220,38,38,0.5)'}, datasets:[{labelKey:'ect_avg',   field:'ect_max',  color:'#dc2626'},{labelKey:'ect_avg',field:'ect_mean',color:'#ea580c'}] },
-  { id:'iat',     group:'temp',        titleKey:'ch_iat',     unit:'Â°C',  yMin:25, datasets:[{labelKey:'iat_avg',   field:'iat_mean',         color:'#ca8a04'}] },
-  { id:'adv',     group:'ignition',    titleKey:'ch_adv',     unit:'Â°',   datasets:[{labelKey:'adv_lbl',   field:'adv_mean',         color:'#7c3aed'}] },
-  { id:'adv_max', group:'ignition',    titleKey:'ch_adv_max', unit:'Â°',   datasets:[{labelKey:'adv_max_lbl',field:'adv_max',          color:'#9333ea'}] },
-  { id:'knock',   group:'ignition',    titleKey:'ch_knock',               datasets:[{labelKey:'knock_lbl', field:'knock_events',     color:'#dc2626'}] },
-  { id:'map',     group:'ignition',    titleKey:'ch_map',     unit:'PSI', datasets:[{labelKey:'map_lbl',   field:'map_mean',         color:'#6366f1'}] },
-  { id:'map_wot', group:'ignition',    titleKey:'ch_map_wot', unit:'PSI', datasets:[{labelKey:'map_wot_lbl',field:'map_wot',         color:'#4f46e5'}] },
-  { id:'clv',     group:'ignition',    titleKey:'ch_clv',     unit:'%',   datasets:[{labelKey:'clv_lbl',   field:'clv_mean',         color:'#64748b'}] },
-  { id:'rev',     group:'ignition',    titleKey:'ch_rev',     unit:'rpm', datasets:[{labelKey:'rev_max_lbl',field:'rev_max',         color:'#db2777'}] },
-  { id:'inj',     group:'ignition',    titleKey:'ch_inj',     unit:'ms',  yMin:2,  datasets:[{labelKey:'inj_dur_lbl',field:'inj_dur',         color:'#9d174d'}] },
-  { id:'inj_dc',  group:'ignition',    titleKey:'ch_inj_dc',  unit:'%',   datasets:[{labelKey:'inj_dc_lbl',field:'inj_dc_mean',      color:'#be185d'}] },
-  { id:'egr',     group:'ignition',    titleKey:'ch_egr',     unit:'%',   datasets:[{labelKey:'egr_lbl',   field:'egr_active_pct',   color:'#475569'}] },
-  { id:'flow',    group:'consumption', titleKey:'ch_flow',    unit:'l/h', yMin:0,  datasets:[{labelKey:'flow_lbl',  field:'fuel_flow_mean',   color:'#ea580c'}] },
-  { id:'consump', group:'consumption', titleKey:'ch_consump', unit:'km/l',yMin:0,  datasets:[{labelKey:'consump_lbl',field:'inst_consumption', color:'#16a34a'}] },
-  { id:'km',      group:'consumption', titleKey:'ch_km',      unit:'km',  yMin:0,  datasets:[{labelKey:'km_lbl',    field:'km_estimated',     color:'#0284c7'}] },
-  { id:'vmax',    group:'consumption', titleKey:'ch_vmax',    unit:'km/h',yMin:0,  datasets:[{labelKey:'vmax_lbl',  field:'vss_max',          color:'#0369a1'}] },
-  { id:'accel',   group:'consumption', titleKey:'ch_accel',   unit:'G',   datasets:[{labelKey:'adv_max_lbl',field:'lng_accel_max',    color:'#16a34a'},{labelKey:'adv_lbl',field:'lng_accel_min',color:'#dc2626'}] },
-  { id:'bat',     group:'electrical',  titleKey:'ch_bat',     unit:'V',   yMin:9,yMax:15, refLine:{value:12,labelKey:'12V',color:'rgba(220,38,38,0.45)'}, datasets:[{labelKey:'bat_lbl',field:'bat_min',color:'#16a34a'}] },
-  { id:'eld',     group:'electrical',  titleKey:'ch_eld',     unit:'A',   datasets:[{labelKey:'eld_lbl',   field:'eld_mean',         color:'#ca8a04'}] },
-  { id:'vtec',    group:'electrical',  titleKey:'ch_vtec',    unit:'%',   yMin:0,  datasets:[{labelKey:'vtec_lbl',  field:'vtec_pct',         color:'#7c3aed'}] },
+  // Electrical
+  { id:'bat',     group:'elec',    titleKey:'ch_bat',     unit:'V',   yMin:9, yMax:15,
+    refLine:{value:12,label:'12V',color:'rgba(255,48,48,0.5)'},
+    datasets:[{label:'BAT',field:'bat_min',color:C.green}] },
+  { id:'eld',     group:'elec',    titleKey:'ch_eld',     unit:'A',
+    datasets:[{label:'ELD',field:'eld_mean',color:C.yellow}] },
+  // Fuel
+  { id:'flow',    group:'fuel',    titleKey:'ch_flow',    unit:'l/h', yMin:0,
+    datasets:[{label:'Flow',field:'fuel_flow_mean',color:C.orange}] },
+  { id:'consump', group:'fuel',    titleKey:'ch_consump', unit:'km/l',yMin:0,
+    datasets:[{label:'Consumption',field:'inst_consumption',color:C.lime}] },
+  { id:'inj',     group:'fuel',    titleKey:'ch_inj',     unit:'ms',  yMin:2,
+    datasets:[{label:'Inj Dur',field:'inj_dur',color:C.pink}] },
+  { id:'inj_dc',  group:'fuel',    titleKey:'ch_inj_dc',  unit:'%',
+    datasets:[{label:'Inj DC',field:'inj_dc_mean',color:C.purple}] },
+  // Air
+  { id:'map',     group:'air',     titleKey:'ch_map',     unit:'PSI',
+    datasets:[{label:'MAP',field:'map_mean',color:C.cyan}] },
+  { id:'map_wot', group:'air',     titleKey:'ch_map_wot', unit:'PSI',
+    datasets:[{label:'MAP WOT',field:'map_wot',color:C.teal}] },
+  { id:'clv',     group:'air',     titleKey:'ch_clv',     unit:'%',
+    datasets:[{label:'CLV',field:'clv_mean',color:C.gray}] },
+  // AFR
+  { id:'ltft',    group:'afr',     titleKey:'ch_ltft',    unit:'%',   yMin:0,
+    refLine:{value:1.5,label:'ideal',color:'rgba(0,224,96,0.5)'},
+    datasets:[{label:'LTFT',field:'ltft',color:C.orange}] },
+  { id:'stft',    group:'afr',     titleKey:'ch_stft',    unit:'%',   yMin:0,
+    datasets:[{label:'STFT',field:'stft_above15_pct',color:C.red}] },
+  { id:'lambda',  group:'afr',     titleKey:'ch_lambda',  yMin:0.9,   yMax:1.4,
+    refLine:{value:1.0,label:'stoich',color:'rgba(0,224,96,0.5)'},
+    datasets:[{label:'Lambda',field:'lambda',color:C.green}] },
+  // Ignition
+  { id:'adv',     group:'ign',     titleKey:'ch_adv',     unit:'deg',
+    datasets:[{label:'Adv',field:'adv_mean',color:C.purple}] },
+  { id:'adv_max', group:'ign',     titleKey:'ch_adv_max', unit:'deg',
+    datasets:[{label:'Adv Max',field:'adv_max',color:C.indigo}] },
+  { id:'knock',   group:'ign',     titleKey:'ch_knock',
+    datasets:[{label:'Knock',field:'knock_events',color:C.red}] },
+  // Temperature
+  { id:'ect',     group:'temp',    titleKey:'ch_ect',     unit:'C',   yMin:60,
+    refLine:{value:100,label:'100C',color:'rgba(255,48,48,0.5)'},
+    datasets:[{label:'ECT max',field:'ect_max',color:C.red},{label:'ECT avg',field:'ect_mean',color:C.orange}] },
+  { id:'iat',     group:'temp',    titleKey:'ch_iat',     unit:'C',   yMin:20,
+    datasets:[{label:'IAT',field:'iat_mean',color:C.yellow}] },
+  // Idle
+  { id:'iacv',    group:'idle',    titleKey:'ch_iacv',    unit:'%',   yMin:0,yMax:90,
+    refLine:{value:38,label:'max normal',color:'rgba(0,207,255,0.45)'},
+    datasets:[{label:'IACV',field:'iacv_mean',color:C.cyan}] },
+  // Motion
+  { id:'rev',     group:'motion',  titleKey:'ch_rev',     unit:'rpm',
+    datasets:[{label:'RPM',field:'rev_max',color:C.pink}] },
+  { id:'vmax',    group:'motion',  titleKey:'ch_vmax',    unit:'km/h',yMin:0,
+    datasets:[{label:'Speed',field:'vss_max',color:C.blue}] },
+  { id:'accel',   group:'motion',  titleKey:'ch_accel',   unit:'G',
+    datasets:[{label:'Accel',field:'lng_accel_max',color:C.green},{label:'Brake',field:'lng_accel_min',color:C.red}] },
+  { id:'km',      group:'motion',  titleKey:'ch_km',      unit:'km',  yMin:0,
+    datasets:[{label:'Distance',field:'km_estimated',color:C.teal}] },
+  // VTEC
+  { id:'vtec',    group:'vtec',    titleKey:'ch_vtec',    unit:'%',   yMin:0,
+    datasets:[{label:'VTEC',field:'vtec_pct',color:C.purple}] },
+  // EGR
+  { id:'egr',     group:'act',     titleKey:'ch_egr',     unit:'%',
+    datasets:[{label:'EGR',field:'egr_active_pct',color:C.gray}] },
 ]
-const GROUP_LABELS: Record<string, string> = {
-  fuel:'Fuel & Mixture', temp:'Temperature', ignition:'Ignition & Engine Load',
-  consumption:'Consumption & Performance', electrical:'Electrical',
+
+const GROUP_LABELS_EN: Record<string, string> = {
+  elec:'Electrical', fuel:'Fuel & Injection', air:'Air / Intake',
+  afr:'Mixture & AFR', ign:'Ignition', temp:'Temperature',
+  idle:'Idle Control', motion:'Motion', vtec:'VTEC', act:'Actuators',
 }
 
-function fmt(n: number|null|undefined, d=1) { return n!=null&&isFinite(n)?n.toFixed(d):'--' }
-function pillCls(v: number|null, good: number, warn: number) {
-  if(v==null)return'pill-n'; if(v<=good)return'pill-g'; if(v<=warn)return'pill-y'; return'pill-r'
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function fmt(n: number | null | undefined, d = 1) {
+  return n != null && isFinite(n) ? n.toFixed(d) : '--'
 }
-function kpiStatus(v: number|null, warnAt: number, badAt: number, dir:'up'|'down'='up'): 'good'|'warn'|'bad'|'neutral' {
-  if(v==null)return'neutral'
-  if(dir==='up'){if(v>=badAt)return'bad';if(v>=warnAt)return'warn';return'good'}
-  else{if(v<=badAt)return'bad';if(v<=warnAt)return'warn';return'good'}
+function pillCls(v: number | null, good: number, warn: number) {
+  if (v == null) return 'pill-n'
+  if (v <= good) return 'pill-g'
+  if (v <= warn) return 'pill-y'
+  return 'pill-r'
 }
-const AC: Record<string,string> = {bad:'#b91c1c',warn:'#92400e',good:'#166534',info:'#1e40af'}
+function kpiStatus(v: number | null, warnAt: number, badAt: number, dir: 'up' | 'down' = 'up'): 'good' | 'warn' | 'bad' | 'neutral' {
+  if (v == null) return 'neutral'
+  if (dir === 'up') { if (v >= badAt) return 'bad'; if (v >= warnAt) return 'warn'; return 'good' }
+  else { if (v <= badAt) return 'bad'; if (v <= warnAt) return 'warn'; return 'good' }
+}
+const AC: Record<string, string> = { bad: '#ff3030', warn: '#ff9000', good: '#00e060', info: '#4080ff' }
 
+// â”€â”€â”€ KPI mini card (inline, Track Titan style) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function Kpi({ label, value, unit, sub, status = 'neutral', color }: {
+  label: string; value: string | number | null; unit?: string
+  sub?: string; status?: 'good' | 'warn' | 'bad' | 'info' | 'neutral'; color?: string
+}) {
+  const vc = color ?? (status === 'good' ? C.green : status === 'warn' ? C.yellow : status === 'bad' ? C.red : status === 'info' ? C.blue : '#e2e8f0')
+  return (
+    <div style={{ background: '#1a1f2e', border: '1px solid #2a3040', borderRadius: 8, padding: '12px 14px', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: vc, opacity: 0.8 }} />
+      <div style={{ fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#64748b', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 600, marginBottom: 8 }}>{label}</div>
+      <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 24, fontWeight: 700, lineHeight: 1, color: vc }}>
+        {value ?? '--'}{unit && <span style={{ fontSize: 11, color: '#64748b', marginLeft: 2 }}>{unit}</span>}
+      </div>
+      {sub && <div style={{ fontSize: 10, color: '#475569', fontFamily: 'IBM Plex Mono, monospace', marginTop: 6 }}>{sub}</div>}
+    </div>
+  )
+}
+
+// â”€â”€â”€ Section header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function SectionHeader({ title, accent }: { title: string; accent?: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, marginTop: 28 }}>
+      {accent && <div style={{ width: 3, height: 18, background: accent, borderRadius: 2 }} />}
+      <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '2px', textTransform: 'uppercase', color: '#94a3b8', fontFamily: 'IBM Plex Mono, monospace' }}>{title}</span>
+      <div style={{ flex: 1, height: 1, background: '#1e2740' }} />
+    </div>
+  )
+}
+
+// â”€â”€â”€ Main â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export default function Home() {
-  const [dbSessions, setDbSessions]         = useState<LogSession[]>([])
-  const [localSessions, setLocalSessions]   = useState<LogSession[]>([])
-  const [uploading, setUploading]           = useState(false)
-  const [activeIdx, setActiveIdx]           = useState<number|null>(null)
-  const [tab, setTab]                       = useState<'overview'|'timeline'|'table'>('overview')
-  const [lang, setLang]                     = useState<Lang>('en')
-  const [selectedCharts, setSelectedCharts] = useState<Set<string>>(new Set(CHART_DEFS.map(c=>c.id)))
+  const [dbSessions, setDbSessions]           = useState<LogSession[]>([])
+  const [localSessions, setLocalSessions]     = useState<LogSession[]>([])
+  const [uploading, setUploading]             = useState(false)
+  const [activeIdx, setActiveIdx]             = useState<number | null>(null)
+  const [tab, setTab]                         = useState<'overview' | 'timeline' | 'table'>('overview')
+  const [lang, setLang]                       = useState<Lang>('en')
+  const [selectedCharts, setSelectedCharts]   = useState<Set<string>>(new Set(CHART_DEFS.map(c => c.id)))
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
-  const [filterOpen, setFilterOpen] = useState(false)
+  const [filterOpen, setFilterOpen]           = useState(false)
 
-  const t = (k: string) => T[lang][k]??k
+  const t = (k: string) => T[lang][k] ?? k
 
   useEffect(() => {
-    fetch('/api/sessions').then(r=>r.json()).then(d=>{if(d.sessions)setDbSessions(d.sessions)}).catch(()=>{})
+    fetch('/api/sessions').then(r => r.json()).then(d => { if (d.sessions) setDbSessions(d.sessions) }).catch(() => {})
   }, [])
 
   const allSessions: LogSession[] = (() => {
-    const map = new Map<string,LogSession>()
-    BASELINE.forEach(s=>map.set(s.name,s))
-    dbSessions.forEach(s=>map.set(s.name,s))
-    localSessions.forEach(s=>map.set(s.name,s))
+    const map = new Map<string, LogSession>()
+    BASELINE.forEach(s => map.set(s.name, s))
+    dbSessions.forEach(s => map.set(s.name, s))
+    localSessions.forEach(s => map.set(s.name, s))
     return Array.from(map.values())
   })()
 
-  const active = activeIdx!=null?allSessions[activeIdx]:allSessions[allSessions.length-1]
-  const alerts = active?generateAlerts(active, lang):[]
-  const tlLabels = allSessions.map(s=>s.name)
-  const isNew = (s: LogSession) => dbSessions.some(d=>d.name===s.name)||localSessions.some(l=>l.name===s.name)
+  const active = activeIdx != null ? allSessions[activeIdx] : allSessions[allSessions.length - 1]
+  const alerts = active ? generateAlerts(active, lang) : []
+  const tlLabels = allSessions.map(s => s.name)
+  const isNew = (s: LogSession) => dbSessions.some(d => d.name === s.name) || localSessions.some(l => l.name === s.name)
 
   const handleFiles = useCallback(async (files: File[]) => {
     setUploading(true)
     const newSessions: LogSession[] = []
-    for(const file of files){
-      try{
-        const {session} = await parseCSVFile(file)
+    for (const file of files) {
+      try {
+        const { session } = await parseCSVFile(file)
         newSessions.push(session)
-        try{
-          const res = await fetch('/api/sessions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(session)})
-          if(res.ok){const{session:saved}=await res.json();setDbSessions(prev=>{const i=prev.findIndex(s=>s.name===saved.name);if(i>=0){const n=[...prev];n[i]=saved;return n}return[...prev,saved]})}
-        }catch{}
-      }catch(e){console.error(e)}
+        try {
+          const res = await fetch('/api/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(session) })
+          if (res.ok) {
+            const { session: saved } = await res.json()
+            setDbSessions(prev => { const i = prev.findIndex(s => s.name === saved.name); if (i >= 0) { const n = [...prev]; n[i] = saved; return n } return [...prev, saved] })
+          }
+        } catch { /**/ }
+      } catch (e) { console.error(e) }
     }
-    setLocalSessions(prev=>{const m=new Map(prev.map(s=>[s.name,s]));newSessions.forEach(s=>m.set(s.name,s));return Array.from(m.values())})
-    setActiveIdx(allSessions.length+newSessions.length-1)
+    setLocalSessions(prev => { const m = new Map(prev.map(s => [s.name, s])); newSessions.forEach(s => m.set(s.name, s)); return Array.from(m.values()) })
+    setActiveIdx(allSessions.length + newSessions.length - 1)
     setUploading(false)
-  },[allSessions.length])
+  }, [allSessions.length])
 
-  const toggleChart = (id: string) => setSelectedCharts(prev=>{const n=new Set(prev);n.has(id)?n.delete(id):n.add(id);return n})
-  const toggleGroup = (g: string) => setCollapsedGroups(prev=>{const n=new Set(prev);n.has(g)?n.delete(g):n.add(g);return n})
-  const visibleCharts = CHART_DEFS.filter(c=>selectedCharts.has(c.id))
-  const groups = Array.from(new Set(CHART_DEFS.map(c=>c.group)))
+  const toggleChart = (id: string) => setSelectedCharts(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  const toggleGroup = (g: string) => setCollapsedGroups(prev => { const n = new Set(prev); n.has(g) ? n.delete(g) : n.add(g); return n })
+  const visibleCharts = CHART_DEFS.filter(c => selectedCharts.has(c.id))
+  const groups = Array.from(new Set(CHART_DEFS.map(c => c.group)))
 
-  const SL: React.CSSProperties = {fontSize:11,letterSpacing:'2px',textTransform:'uppercase' as const,color:'#6b7280',marginBottom:12,display:'block',fontFamily:'IBM Plex Mono,monospace',fontWeight:600}
-  const KG: React.CSSProperties = {display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(170px,1fr))',gap:12}
-
-  // Sidebar date display
   const getDisplayDate = (s: LogSession) => {
     const ca = (s as any).created_at
-    if (ca) {
-      const d = new Date(ca)
-      if (lang === 'pt') return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })
-      return d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' })
-    }
-    return null
+    if (!ca) return null
+    const d = new Date(ca)
+    return lang === 'pt'
+      ? d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })
+      : d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' })
   }
 
-  return (
-    <div style={{display:'flex',flexDirection:'column',height:'100vh',overflow:'hidden',background:'#f5f4f0',fontFamily:"'IBM Plex Sans',sans-serif"}}>
+  const G: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10 }
 
-      {/* TOPBAR */}
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 24px',height:56,background:'#ffffff',borderBottom:'1px solid #e5e0d8',flexShrink:0,boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
-        <div style={{display:'flex',alignItems:'center',gap:16}}>
-          <div style={{display:'flex',alignItems:'baseline',gap:4}}>
-            <span style={{fontSize:16,fontWeight:800,letterSpacing:3,color:'#1d4ed8',fontFamily:'IBM Plex Mono,monospace'}}>HNDSH</span>
-            <span style={{fontSize:13,color:'#9ca3af',letterSpacing:1,fontFamily:'IBM Plex Mono,monospace'}}>.meters</span>
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', background: '#0f1117', fontFamily: "'IBM Plex Sans', sans-serif", color: '#e2e8f0' }}>
+
+      {/* â”€â”€ TOPBAR â”€â”€ */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', height: 52, background: '#111827', borderBottom: '1px solid #1e2740', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
+            <span style={{ fontSize: 15, fontWeight: 800, letterSpacing: 3, color: '#f97316', fontFamily: 'IBM Plex Mono, monospace' }}>HNDSH</span>
+            <span style={{ fontSize: 12, color: '#475569', letterSpacing: 1, fontFamily: 'IBM Plex Mono, monospace' }}>.meters</span>
           </div>
-          <div style={{width:1,height:20,background:'#e5e0d8'}}/>
-          <span style={{fontSize:12,padding:'4px 12px',border:'1px solid #e5e0d8',borderRadius:6,color:'#6b7280',letterSpacing:1.5,background:'#f9f8f5',fontFamily:'IBM Plex Mono,monospace',fontWeight:500}}>Honda OBD1</span>
-          {allSessions.length>BASELINE.length&&(
-            <span style={{fontSize:12,padding:'4px 12px',border:'1px solid #bbf7d0',borderRadius:6,color:'#15803d',letterSpacing:1.5,background:'#f0fdf4',fontFamily:'IBM Plex Mono,monospace',fontWeight:600}}>
-              {allSessions.length-BASELINE.length} {t('imported')}
+          <div style={{ width: 1, height: 18, background: '#1e2740' }} />
+          <span style={{ fontSize: 11, padding: '3px 10px', border: '1px solid #1e2740', borderRadius: 5, color: '#64748b', letterSpacing: 1.5, background: '#161c2a', fontFamily: 'IBM Plex Mono, monospace' }}>Honda OBD1</span>
+          {allSessions.length > BASELINE.length && (
+            <span style={{ fontSize: 11, padding: '3px 10px', border: '1px solid #14532d', borderRadius: 5, color: C.green, letterSpacing: 1.5, background: '#052e16', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700 }}>
+              {allSessions.length - BASELINE.length} {t('imported')}
             </span>
           )}
         </div>
-        <div style={{display:'flex',alignItems:'center',height:56}}>
-          {(['overview','timeline','table'] as const).map(tb=>(
-            <button key={tb} onClick={()=>setTab(tb)} style={{padding:'0 22px',height:56,border:'none',borderBottom:tab===tb?'2px solid #1d4ed8':'2px solid transparent',background:'transparent',color:tab===tb?'#1d4ed8':'#6b7280',fontSize:12,letterSpacing:2,textTransform:'uppercase',cursor:'pointer',fontWeight:tab===tb?700:500,fontFamily:'IBM Plex Mono,monospace',transition:'color 0.15s'}}>
-              {t(tb==='overview'?'overview':tb==='timeline'?'timeline':'table')}
+        <div style={{ display: 'flex', alignItems: 'center', height: 52 }}>
+          {(['overview', 'timeline', 'table'] as const).map(tb => (
+            <button key={tb} onClick={() => setTab(tb)} style={{ padding: '0 20px', height: 52, border: 'none', borderBottom: tab === tb ? '2px solid #f97316' : '2px solid transparent', background: 'transparent', color: tab === tb ? '#f97316' : '#64748b', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', cursor: 'pointer', fontWeight: tab === tb ? 700 : 400, fontFamily: 'IBM Plex Mono, monospace' }}>
+              {t(tb === 'overview' ? 'overview' : tb === 'timeline' ? 'timeline' : 'table')}
             </button>
           ))}
-          <div style={{marginLeft:20,display:'flex',gap:6,alignItems:'center',paddingLeft:20,borderLeft:'1px solid #e5e0d8'}}>
-            <button onClick={()=>setLang('en')} title="English" style={{background:lang==='en'?'#eff6ff':'transparent',border:'1px solid',borderColor:lang==='en'?'#bfdbfe':'#e5e0d8',borderRadius:5,cursor:'pointer',color:lang==='en'?'#1d4ed8':'#9ca3af',fontSize:11,fontFamily:'IBM Plex Mono,monospace',fontWeight:700,padding:'3px 9px',letterSpacing:1,transition:'all 0.15s'}}>EN</button>
-            <button onClick={()=>setLang('pt')} title="PortuguÃªs" style={{background:lang==='pt'?'#eff6ff':'transparent',border:'1px solid',borderColor:lang==='pt'?'#bfdbfe':'#e5e0d8',borderRadius:5,cursor:'pointer',color:lang==='pt'?'#1d4ed8':'#9ca3af',fontSize:11,fontFamily:'IBM Plex Mono,monospace',fontWeight:700,padding:'3px 9px',letterSpacing:1,transition:'all 0.15s'}}>PT</button>
+          <div style={{ marginLeft: 16, display: 'flex', gap: 6, alignItems: 'center', paddingLeft: 16, borderLeft: '1px solid #1e2740' }}>
+            <button onClick={() => setLang('en')} style={{ background: lang === 'en' ? '#1e3a5f' : 'transparent', border: '1px solid', borderColor: lang === 'en' ? '#3b82f6' : '#1e2740', borderRadius: 4, cursor: 'pointer', color: lang === 'en' ? '#60a5fa' : '#475569', fontSize: 10, fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700, padding: '3px 8px', letterSpacing: 1 }}>EN</button>
+            <button onClick={() => setLang('pt')} style={{ background: lang === 'pt' ? '#1e3a5f' : 'transparent', border: '1px solid', borderColor: lang === 'pt' ? '#3b82f6' : '#1e2740', borderRadius: 4, cursor: 'pointer', color: lang === 'pt' ? '#60a5fa' : '#475569', fontSize: 10, fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700, padding: '3px 8px', letterSpacing: 1 }}>PT</button>
           </div>
         </div>
       </div>
 
-      {/* BODY */}
-      <div style={{display:'flex',flex:1,overflow:'hidden'}}>
+      {/* â”€â”€ BODY â”€â”€ */}
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
-        {/* SIDEBAR */}
-        <div style={{width:230,minWidth:230,flexShrink:0,background:'#ffffff',borderRight:'1px solid #e5e0d8',display:'flex',flexDirection:'column',overflow:'hidden'}}>
-          <div style={{padding:'13px 16px 11px',borderBottom:'1px solid #e5e0d8',fontSize:11,letterSpacing:'2px',textTransform:'uppercase',color:'#9ca3af',fontFamily:'IBM Plex Mono,monospace',fontWeight:600}}>{t('sessions_header')}</div>
-          <div style={{flex:1,overflowY:'auto'}}>
-            {allSessions.map((s,i)=>{
-              const isActive = active?.name===s.name
-              const dot = s.ltft!=null?(s.ltft<=2.5?'#15803d':s.ltft<=4?'#a16207':'#b91c1c'):'#d1d5db'
+        {/* â”€â”€ SIDEBAR â”€â”€ */}
+        <div style={{ width: 220, minWidth: 220, flexShrink: 0, background: '#111827', borderRight: '1px solid #1e2740', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ padding: '12px 14px 10px', borderBottom: '1px solid #1e2740', fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: '#475569', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700 }}>{t('sessions_header')}</div>
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            {allSessions.map((s, i) => {
+              const isActive = active?.name === s.name
+              const dot = s.ltft != null ? (s.ltft <= 2.5 ? C.green : s.ltft <= 4 ? C.yellow : C.red) : '#334155'
+              const dateStr = getDisplayDate(s)
               return (
-                <div key={s.name} onClick={()=>setActiveIdx(i)} style={{padding:'12px 16px',borderBottom:'1px solid #f0eeea',cursor:'pointer',position:'relative',background:isActive?'#eff6ff':'transparent',transition:'background 0.15s'}}>
-                  {isActive&&<div style={{position:'absolute',left:0,top:0,bottom:0,width:3,background:'#1d4ed8',borderRadius:'0 2px 2px 0'}}/>}
-                  <div style={{display:'flex',alignItems:'center',gap:7,marginBottom:3}}>
-                    <span style={{width:8,height:8,borderRadius:'50%',background:dot,flexShrink:0}}/>
-                    {getDisplayDate(s)
-                      ? <span style={{fontSize:13,fontWeight:700,color:isActive?'#1d4ed8':'#1a1814',flex:1}}>{getDisplayDate(s)}</span>
-                      : <span style={{fontSize:13,fontWeight:700,color:isActive?'#1d4ed8':'#6b7280',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}}>{s.name}</span>
-                    }
-                    {isNew(s)&&<span style={{fontSize:9,background:'#dbeafe',color:'#1d4ed8',padding:'1px 5px',borderRadius:3,fontWeight:700,fontFamily:'IBM Plex Mono,monospace'}}>NEW</span>}
+                <div key={s.name} onClick={() => setActiveIdx(i)} style={{ padding: '10px 14px', borderBottom: '1px solid #161c2a', cursor: 'pointer', position: 'relative', background: isActive ? '#1a2035' : 'transparent', transition: 'background 0.15s' }}>
+                  {isActive && <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: '#f97316' }} />}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 3 }}>
+                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: dot, flexShrink: 0 }} />
+                    <span style={{ fontSize: 12, fontWeight: 700, color: isActive ? '#f97316' : (dateStr ? '#e2e8f0' : '#94a3b8'), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, fontFamily: 'IBM Plex Mono, monospace' }}>
+                      {dateStr ?? s.name}
+                    </span>
+                    {isNew(s) && <span style={{ fontSize: 8, background: '#1e3a5f', color: '#60a5fa', padding: '1px 5px', borderRadius: 3, fontWeight: 700, fontFamily: 'IBM Plex Mono, monospace' }}>NEW</span>}
                   </div>
-                  {getDisplayDate(s) && (
-                    <div style={{fontSize:11,color:'#6b7280',paddingLeft:15,fontFamily:'IBM Plex Mono,monospace',fontWeight:500}}>
-                      {s.name}
-                    </div>
-                  )}
+                  {dateStr && <div style={{ fontSize: 10, color: '#475569', paddingLeft: 14, fontFamily: 'IBM Plex Mono, monospace' }}>{s.name}</div>}
                 </div>
               )
             })}
           </div>
-          {/* Upload zone */}
-          <div style={{padding:14,borderTop:'1px solid #e5e0d8'}}>
+          {/* Upload */}
+          <div style={{ padding: 12, borderTop: '1px solid #1e2740' }}>
             <div
-              onClick={()=>{ const inp=document.getElementById('csv-upload') as HTMLInputElement; inp?.click() }}
-              onDragOver={e=>{e.preventDefault();(e.currentTarget as HTMLDivElement).style.background='#eff6ff'}}
-              onDragLeave={e=>{(e.currentTarget as HTMLDivElement).style.background='transparent'}}
-              onDrop={e=>{e.preventDefault();(e.currentTarget as HTMLDivElement).style.background='transparent';const files=Array.from(e.dataTransfer.files).filter(f=>f.name.endsWith('.csv'));if(files.length)handleFiles(files)}}
-              style={{border:'1.5px dashed #c8c3b8',borderRadius:8,padding:'16px 12px',display:'flex',flexDirection:'column',alignItems:'center',gap:8,cursor:'pointer',transition:'all 0.15s',background:'transparent'}}
+              onClick={() => { const inp = document.getElementById('csv-upload') as HTMLInputElement; inp?.click() }}
+              onDragOver={e => { e.preventDefault(); (e.currentTarget as HTMLDivElement).style.borderColor = '#f97316' }}
+              onDragLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = '#1e2740' }}
+              onDrop={e => { e.preventDefault(); (e.currentTarget as HTMLDivElement).style.borderColor = '#1e2740'; const files = Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.csv')); if (files.length) handleFiles(files) }}
+              style={{ border: '1.5px dashed #1e2740', borderRadius: 8, padding: '14px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, cursor: 'pointer', transition: 'border-color 0.15s' }}
             >
-              <input id="csv-upload" type="file" accept=".csv" multiple style={{display:'none'}} onChange={e=>{const files=Array.from(e.target.files||[]);if(files.length)handleFiles(files);e.target.value=''}}/>
-              
-              <span style={{fontSize:11,fontWeight:600,color:'#6b7280',fontFamily:'IBM Plex Mono,monospace',letterSpacing:'0.5px',textAlign:'center'}}>
-                {uploading?'Processing...':(lang==='en'?'Drag CSV or click to import':'Arrastar CSV ou clicar para importar')}
+              <input id="csv-upload" type="file" accept=".csv" multiple style={{ display: 'none' }} onChange={e => { const files = Array.from(e.target.files || []); if (files.length) handleFiles(files); e.target.value = '' }} />
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              <span style={{ fontSize: 10, fontWeight: 600, color: '#64748b', fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.5px', textAlign: 'center' }}>
+                {uploading ? 'Processing...' : t('upload_drag')}
               </span>
-              <span style={{fontSize:10,color:'#9ca3af',fontFamily:'IBM Plex Mono,monospace',textAlign:'center',lineHeight:1.6}}>
-                {lang==='en'?'HondsH OBD1 Â· EN or PT\nMultiple files at once':'HondsH OBD1 Â· EN ou PT\nMÃºltiplos arquivos simultÃ¢neos'}
-              </span>
+              <span style={{ fontSize: 9, color: '#334155', fontFamily: 'IBM Plex Mono, monospace', textAlign: 'center', lineHeight: 1.6 }}>{t('upload_sub')}</span>
             </div>
           </div>
         </div>
 
-        {/* CONTENT */}
-        <div style={{flex:1,overflowY:'auto',padding:'32px 36px'}}>
+        {/* â”€â”€ CONTENT â”€â”€ */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }}>
 
-          {/* OVERVIEW */}
-          {tab==='overview'&&active&&(
+          {/* â”€â”€ OVERVIEW â”€â”€ */}
+          {tab === 'overview' && active && (
             <div>
-              <div style={{marginBottom:32}}>
-                <h1 style={{fontSize:24,fontWeight:800,color:'#1a1814',marginBottom:6}}>{active.name}</h1>
-                <span style={{fontSize:12,letterSpacing:'1.5px',textTransform:'uppercase',color:'#9ca3af',fontFamily:'IBM Plex Mono,monospace'}}>
-                  {active.rows?.toLocaleString()} {t('records')}{active.duration_min?` Â· ${active.duration_min} min`:''}{active.km_estimated?` Â· ${fmt(active.km_estimated,1)} km`:''}
+              <div style={{ marginBottom: 24 }}>
+                <h1 style={{ fontSize: 22, fontWeight: 800, color: '#f1f5f9', marginBottom: 4 }}>{active.name}</h1>
+                <span style={{ fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#475569', fontFamily: 'IBM Plex Mono, monospace' }}>
+                  {active.rows?.toLocaleString()} rows{active.duration_min ? ` Â· ${active.duration_min} min` : ''}{active.km_estimated ? ` Â· ${fmt(active.km_estimated, 1)} km` : ''}
                 </span>
               </div>
 
-              {/* Temperature */}
-              <div style={{marginBottom:28}}><span style={SL}>{t('temp')}</span><div style={KG}>
-                <KpiCard label={t('ect_avg')} value={fmt(active.ect_mean)} unit="Â°C" sub={`max ${fmt(active.ect_max)}Â°C`} status={kpiStatus(active.ect_max,97,102)}/>
-                <KpiCard label={t('iat_avg')} value={fmt(active.iat_mean)} unit="Â°C" sub={`max ${fmt(active.iat_max)}Â°C`} status={kpiStatus(active.iat_mean,55,65)}/>
-                <KpiCard label={t('ect_hot')} value={fmt(active.ect_above95_pct)} unit="%" sub="time above 95Â°C" status={kpiStatus(active.ect_above95_pct,20,35)}/>
-              </div></div>
+              {/* 1. Electrical & Charging */}
+              <SectionHeader title={t('sec_elec')} accent={C.green} />
+              <div style={G}>
+                <Kpi label={t('bat')} value={fmt(active.bat_mean, 2)} unit="V" sub={`min ${fmt(active.bat_min, 2)}V`} status={kpiStatus(active.bat_below12_pct, 1, 5)} color={C.green} />
+                <Kpi label={t('alt_fr')} value={fmt(active.alt_fr_mean)} unit="%" sub="alternator FR" color={C.yellow} />
+                <Kpi label={t('eld_curr')} value={fmt(active.eld_mean, 0)} unit="A" sub={t('elec_load')} color={C.cyan} />
+              </div>
 
-              {/* Mixture */}
-              <div style={{marginBottom:28}}><span style={SL}>{t('mixture')}</span><div style={KG}>
-                <KpiCard label={t('ltft_lbl')} value={(active.ltft!=null&&active.ltft>0?'+':'')+fmt(active.ltft)} unit="%" sub="ideal: Â±1.5%" status={kpiStatus(active.ltft,2.5,4)}/>
-                <KpiCard label={t('stft_lbl')} value={fmt(active.stft_above15_pct)} unit="%" sub="extreme correction" status={kpiStatus(active.stft_above15_pct,3,10)}/>
-                <KpiCard label={t('lambda_lbl')} value={fmt(active.lambda,3)} sub="ideal: ~1.000" status={kpiStatus(active.lambda,1.05,1.15)}/>
-                <KpiCard label={t('iacv_lbl')} value={fmt(active.iacv_mean)} unit="%" sub="expected: 30-38%" status={kpiStatus(active.iacv_mean,42,55)}/>
-              </div></div>
+              {/* 2. Fuel & Injection */}
+              <SectionHeader title={t('sec_fuel')} accent={C.orange} />
+              <div style={G}>
+                <Kpi label={t('fuel_flow')} value={fmt(active.fuel_flow_mean, 2)} unit="l/h" sub="avg hourly" color={C.orange} />
+                <Kpi label={t('fuel_inst')} value={fmt(active.inst_consumption, 1)} unit="km/l" sub={t('cruise_avg')} color={C.lime} />
+                <Kpi label={t('inj_dur')} value={fmt(active.inj_dur, 2)} unit="ms" sub={`DC: ${fmt(active.inj_dc_mean)}%`} color={C.pink} />
+                <Kpi label={t('inj_dc')} value={fmt(active.inj_dc_mean)} unit="%" color={C.purple} />
+                <Kpi label={t('inj_fr')} value={fmt(active.inj_fr_mean, 0)} unit="cc/min" color={C.pink} />
+              </div>
 
-              {/* Ignition */}
-              <div style={{marginBottom:28}}><span style={SL}>{t('ignition_sec')}</span><div style={KG}>
-                <KpiCard label={t('adv_lbl')} value={fmt(active.adv_mean)} unit="Â°" sub={`max ${fmt(active.adv_max)}Â°`} status="info"/>
-                <KpiCard label={t('knock_lbl')} value={active.knock_events??'--'} sub={`max ${fmt(active.knock_max,3)}V`} status={active.knock_events===0?'good':'bad'}/>
-                <KpiCard label={t('map_lbl')} value={fmt(active.map_mean)} unit="PSI" sub={`WOT: ${fmt(active.map_wot)} PSI`} status="neutral"/>
-                <KpiCard label={t('clv_lbl')} value={fmt(active.clv_mean)} unit="%" sub="engine load" status="neutral"/>
-                <KpiCard label={t('rev_max_lbl')} value={fmt(active.rev_max,0)} unit="rpm" sub={`avg ${fmt(active.rev_mean,0)} rpm`} status="neutral"/>
-                <KpiCard label={t('inj_dur_lbl')} value={fmt(active.inj_dur,2)} unit="ms" sub={`DC: ${fmt(active.inj_dc_mean)}%`} status="neutral"/>
-                <KpiCard label={t('egr_lbl')} value={fmt(active.egr_active_pct)} unit="%" sub="recirculation" status="neutral"/>
-              </div></div>
+              {/* 3. Air / Intake / Load */}
+              <SectionHeader title={t('sec_air')} accent={C.cyan} />
+              <div style={G}>
+                <Kpi label={t('map_psi')} value={fmt(active.map_mean)} unit="PSI" sub={`WOT: ${fmt(active.map_wot)} PSI`} color={C.cyan} />
+                <Kpi label={t('iat')} value={fmt(active.iat_mean)} unit="C" sub={`max ${fmt(active.iat_max)}C`} status={kpiStatus(active.iat_mean, 55, 65)} color={C.yellow} />
+                <Kpi label={t('clv')} value={fmt(active.clv_mean)} unit="%" sub="engine load" color={C.gray} />
+              </div>
 
-              {/* Consumption */}
-              <div style={{marginBottom:28}}><span style={SL}>{t('consump_sec')}</span><div style={KG}>
-                <KpiCard label={t('flow_lbl')} value={fmt(active.fuel_flow_mean,2)} unit="l/h" sub="avg hourly" status="info"/>
-                <KpiCard label={t('consump_lbl')} value={fmt(active.inst_consumption,1)} unit="km/l" sub="cruise avg" status="info"/>
-                <KpiCard label={t('km_lbl')} value={fmt(active.km_estimated,1)} unit="km" sub="this session" status="info"/>
-                <KpiCard label={t('vtec_lbl')} value={fmt(active.vtec_pct)} unit="%" sub="high RPM time" status="neutral"/>
-                <KpiCard label={t('vmax_lbl')} value={fmt(active.vss_max,0)} unit="km/h" sub={`stopped: ${fmt(active.stopped_pct)}%`} status="neutral"/>
-              </div></div>
+              {/* 4. Mixture & AFR */}
+              <SectionHeader title={t('sec_afr')} accent={C.green} />
+              <div style={G}>
+                <Kpi label={t('ltft')} value={(active.ltft != null && active.ltft > 0 ? '+' : '') + fmt(active.ltft)} unit="%" sub="ideal: +-1.5%" status={kpiStatus(active.ltft, 2.5, 4)} color={C.orange} />
+                <Kpi label={t('stft')} value={fmt(active.stft_above15_pct)} unit="%" sub=">+15% of time" status={kpiStatus(active.stft_above15_pct, 3, 10)} color={C.red} />
+                <Kpi label={t('lambda')} value={fmt(active.lambda, 3)} sub="ideal: ~1.000" status={kpiStatus(active.lambda, 1.05, 1.15)} color={C.green} />
+                <Kpi label={t('iacv_dc')} value={fmt(active.iacv_mean)} unit="%" sub={t('expected')} status={kpiStatus(active.iacv_mean, 42, 55)} color={C.cyan} />
+                <Kpi label={t('fls')} value={fmt(active.closed_loop_pct)} unit="%" sub="closed loop" status="info" color={C.blue} />
+              </div>
 
-              {/* Electrical */}
-              <div style={{marginBottom:28}}><span style={SL}>{t('elec')}</span><div style={KG}>
-                <KpiCard label={t('bat_lbl')} value={fmt(active.bat_mean,2)} unit="V" sub={`min ${fmt(active.bat_min,2)}V`} status={kpiStatus(active.bat_below12_pct,1,5)}/>
-                <KpiCard label={t('eld_lbl')} value={fmt(active.eld_mean,0)} unit="A" sub="electrical load" status="neutral"/>
-                <KpiCard label={t('alt_lbl')} value={fmt(active.alt_fr_mean)} unit="%" sub="alternator load" status="neutral"/>
-                <KpiCard label={t('cl_lbl')} value={fmt(active.closed_loop_pct)} unit="%" sub="ECU closed loop" status="info"/>
-                <KpiCard label={t('mil_lbl')} value={active.mil_on_pct?t('active_str'):'OFF'} sub={active.mil_on_pct?`${fmt(active.mil_on_pct)}%`:t('noFaults')} status={active.mil_on_pct?'bad':'good'}/>
-                {active.ac_on_pct!=null&&<KpiCard label={t('ac_lbl')} value={fmt(active.ac_on_pct)} unit="%" sub="A/C switch" status="neutral"/>}
-                {active.fan_on_pct!=null&&<KpiCard label={t('fan_lbl')} value={fmt(active.fan_on_pct)} unit="%" sub="radiator fan" status="neutral"/>}
-              </div></div>
+              {/* 5. Ignition */}
+              <SectionHeader title={t('sec_ign')} accent={C.purple} />
+              <div style={G}>
+                <Kpi label={t('ign_adv')} value={fmt(active.adv_mean)} unit="deg" sub={`max ${fmt(active.adv_max)}deg`} color={C.purple} />
+                <Kpi label={t('ign_lim')} value={fmt(active.ign_limit_mean)} unit="deg" color={C.indigo} />
+                <Kpi label={t('knock')} value={active.knock_events ?? '--'} sub={`max ${fmt(active.knock_max, 3)}V`} status={active.knock_events === 0 ? 'good' : 'bad'} color={active.knock_events === 0 ? C.green : C.red} />
+              </div>
 
-              {/* Diagnosis */}
-              <div style={{marginBottom:28}}><span style={SL}>{t('diagnosis')}</span>
-                <div style={{display:'flex',flexDirection:'column',gap:10}}>
-                  {alerts.map((a,idx)=>(
-                    <div key={idx} style={{display:'flex',gap:14,alignItems:'flex-start',padding:'16px 20px',borderRadius:10,border:`1px solid ${AC[a.type]}30`,background:`${AC[a.type]}08`}}>
-                      <div style={{fontSize:11,padding:'4px 10px',borderRadius:5,background:`${AC[a.type]}15`,color:AC[a.type],letterSpacing:1,flexShrink:0,fontFamily:'IBM Plex Mono,monospace',fontWeight:700,marginTop:1}}>{a.param}</div>
-                      <div>
-                        <div style={{fontSize:15,fontWeight:700,color:AC[a.type],marginBottom:5}}>{a.title}</div>
-                        <div style={{fontSize:13,color:'#4b5563',lineHeight:1.6}}>{a.detail}</div>
-                      </div>
+              {/* 6. Temperature & Cooling */}
+              <SectionHeader title={t('sec_temp')} accent={C.red} />
+              <div style={G}>
+                <Kpi label={t('ect')} value={fmt(active.ect_mean)} unit="C" sub={`max ${fmt(active.ect_max)}C`} status={kpiStatus(active.ect_max, 97, 102)} color={C.red} />
+                <Kpi label="ECT >95C" value={fmt(active.ect_above95_pct)} unit="%" sub={`${t('time_above')}C`} status={kpiStatus(active.ect_above95_pct, 20, 35)} color={C.orange} />
+                <Kpi label={t('fan')} value={fmt(active.fan_on_pct)} unit="%" sub="radiator fan" color={C.cyan} />
+              </div>
+
+              {/* 7. Idle Control */}
+              <SectionHeader title={t('sec_idle')} accent={C.teal} />
+              <div style={G}>
+                <Kpi label={t('iacv_dc')} value={fmt(active.iacv_mean)} unit="%" sub="expected: 30-38%" status={kpiStatus(active.iacv_mean, 42, 55)} color={C.teal} />
+                <Kpi label={t('rev')} value={fmt(active.rev_mean, 0)} unit="rpm" sub={`max ${fmt(active.rev_max, 0)} rpm`} color={C.pink} />
+              </div>
+
+              {/* 8. Motion & Dynamics */}
+              <SectionHeader title={t('sec_motion')} accent={C.blue} />
+              <div style={G}>
+                <Kpi label={t('vss')} value={fmt(active.vss_mean)} unit="km/h" sub={`max ${fmt(active.vss_max, 0)} km/h`} color={C.blue} />
+                <Kpi label={t('lng_accel')} value={fmt(active.lng_accel_max, 3)} unit="G" sub={`brake ${fmt(active.lng_accel_min, 3)}G`} color={C.cyan} />
+                <Kpi label="Est. Distance" value={fmt(active.km_estimated, 1)} unit="km" sub={t('this_session')} color={C.teal} />
+                <Kpi label="VTEC" value={fmt(active.vtec_pct)} unit="%" sub={t('high_rpm')} color={C.purple} />
+              </div>
+
+              {/* 9. Actuators & Emissions */}
+              <SectionHeader title={t('sec_act')} accent={C.gray} />
+              <div style={G}>
+                <Kpi label="EGR" value={fmt(active.egr_active_pct)} unit="%" sub="recirculation" color={C.gray} />
+              </div>
+
+              {/* 10. Diagnosis */}
+              <SectionHeader title={t('sec_diagnosis')} accent={C.red} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {alerts.map((a, idx) => (
+                  <div key={idx} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: '12px 16px', borderRadius: 8, border: `1px solid ${AC[a.type]}30`, background: `${AC[a.type]}0a` }}>
+                    <div style={{ fontSize: 10, padding: '3px 8px', borderRadius: 4, background: `${AC[a.type]}20`, color: AC[a.type], letterSpacing: 1, flexShrink: 0, fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700 }}>{a.param}</div>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: AC[a.type], marginBottom: 4 }}>{a.title}</div>
+                      <div style={{ fontSize: 12, color: '#64748b', lineHeight: 1.6 }}>{a.detail}</div>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
 
-          {/* TIMELINE */}
-          {tab==='timeline'&&(
+          {/* â”€â”€ TIMELINE â”€â”€ */}
+          {tab === 'timeline' && (
             <div>
-              {/* Timeline header + filter button */}
-              <div style={{marginBottom:28,display:'flex',alignItems:'center',justifyContent:'space-between',gap:16}}>
+              <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
                 <div>
-                  <h1 style={{fontSize:24,fontWeight:800,color:'#1a1814',marginBottom:6}}>{t('timeline')}</h1>
-                  <span style={{fontSize:12,letterSpacing:'1.5px',textTransform:'uppercase',color:'#9ca3af',fontFamily:'IBM Plex Mono,monospace'}}>
-                    {allSessions.length} {t('sessions')} Â· {visibleCharts.length} {lang==='en'?'charts visible':'grÃ¡ficos visÃ­veis'}
+                  <h1 style={{ fontSize: 22, fontWeight: 800, color: '#f1f5f9', marginBottom: 4 }}>{t('timeline')}</h1>
+                  <span style={{ fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#475569', fontFamily: 'IBM Plex Mono, monospace' }}>
+                    {allSessions.length} {t('sessions')} Â· {visibleCharts.length} {t('charts_visible')}
                   </span>
                 </div>
-                <button
-                  onClick={()=>setFilterOpen(o=>!o)}
-                  style={{display:'flex',alignItems:'center',gap:8,padding:'8px 16px',background:filterOpen?'#eff6ff':'#ffffff',border:'1px solid',borderColor:filterOpen?'#bfdbfe':'#e5e0d8',borderRadius:8,cursor:'pointer',color:filterOpen?'#1d4ed8':'#6b7280',fontFamily:'IBM Plex Mono,monospace',fontSize:12,fontWeight:600,letterSpacing:1,transition:'all 0.15s',boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                <button onClick={() => setFilterOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 14px', background: filterOpen ? '#1e3a5f' : '#161c2a', border: '1px solid', borderColor: filterOpen ? '#3b82f6' : '#1e2740', borderRadius: 7, cursor: 'pointer', color: filterOpen ? '#60a5fa' : '#64748b', fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, fontWeight: 600, letterSpacing: 1, transition: 'all 0.15s' }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>
                   {t('filter_charts')}
                 </button>
               </div>
-              {/* Filter panel - collapsible */}
+
               {filterOpen && (
-                <div style={{background:'#ffffff',border:'1px solid #e5e0d8',borderRadius:12,padding:'18px 22px',marginBottom:28,boxShadow:'0 2px 8px rgba(0,0,0,0.06)'}}>
-                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
-                    <span style={{fontSize:12,fontWeight:700,color:'#374151',letterSpacing:1.5,textTransform:'uppercase',fontFamily:'IBM Plex Mono,monospace'}}>{t('filter_charts')}</span>
-                    <div style={{display:'flex',gap:8}}>
-                      <button onClick={()=>setSelectedCharts(new Set(CHART_DEFS.map(c=>c.id)))} style={{fontSize:11,padding:'4px 12px',border:'1px solid #e5e0d8',borderRadius:5,background:'#eff6ff',color:'#1d4ed8',cursor:'pointer',fontFamily:'IBM Plex Mono,monospace',fontWeight:600}}>{t('select_all')}</button>
-                      <button onClick={()=>setSelectedCharts(new Set())} style={{fontSize:11,padding:'4px 12px',border:'1px solid #e5e0d8',borderRadius:5,background:'transparent',color:'#9ca3af',cursor:'pointer',fontFamily:'IBM Plex Mono,monospace'}}>{t('clear_sel')}</button>
+                <div style={{ background: '#111827', border: '1px solid #1e2740', borderRadius: 10, padding: '18px 20px', marginBottom: 24 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', letterSpacing: 2, textTransform: 'uppercase', fontFamily: 'IBM Plex Mono, monospace' }}>{t('filter_charts')}</span>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={() => setSelectedCharts(new Set(CHART_DEFS.map(c => c.id)))} style={{ fontSize: 10, padding: '3px 10px', border: '1px solid #1e3a5f', borderRadius: 4, background: '#0f1f3a', color: '#60a5fa', cursor: 'pointer', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 600 }}>{t('select_all')}</button>
+                      <button onClick={() => setSelectedCharts(new Set())} style={{ fontSize: 10, padding: '3px 10px', border: '1px solid #1e2740', borderRadius: 4, background: 'transparent', color: '#475569', cursor: 'pointer', fontFamily: 'IBM Plex Mono, monospace' }}>{t('clear_sel')}</button>
                     </div>
                   </div>
-                  <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))',gap:'16px 24px'}}>
-                    {groups.map(grp=>(
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '16px 20px' }}>
+                    {groups.map(grp => (
                       <div key={grp}>
-                        <div style={{fontSize:10,fontWeight:700,color:'#1d4ed8',letterSpacing:2,textTransform:'uppercase',marginBottom:8,fontFamily:'IBM Plex Mono,monospace'}}>{GROUP_LABELS[grp]}</div>
-                        <div style={{display:'flex',flexDirection:'column',gap:6}}>
-                          {CHART_DEFS.filter(c=>c.group===grp).map(c=>(
-                            <label key={c.id} style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',userSelect:'none'}}>
-                              <input type="checkbox" checked={selectedCharts.has(c.id)} onChange={()=>toggleChart(c.id)} style={{accentColor:'#1d4ed8',width:13,height:13,cursor:'pointer'}}/>
-                              <span style={{fontSize:12,color:selectedCharts.has(c.id)?'#1a1814':'#9ca3af',fontFamily:'IBM Plex Mono,monospace',transition:'color 0.15s'}}>
-                                {c.id.replace(/_/g,' ')}
-                              </span>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: '#f97316', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8, fontFamily: 'IBM Plex Mono, monospace' }}>{GROUP_LABELS_EN[grp] ?? grp}</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                          {CHART_DEFS.filter(c => c.group === grp).map(c => (
+                            <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none' }}>
+                              <input type="checkbox" checked={selectedCharts.has(c.id)} onChange={() => toggleChart(c.id)} style={{ accentColor: '#f97316', width: 12, height: 12, cursor: 'pointer' }} />
+                              <span style={{ fontSize: 11, color: selectedCharts.has(c.id) ? '#e2e8f0' : '#334155', fontFamily: 'IBM Plex Mono, monospace', transition: 'color 0.15s' }}>{c.id.replace(/_/g, ' ')}</span>
                             </label>
                           ))}
                         </div>
@@ -397,35 +596,34 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Collapsible groups */}
-              {groups.map(grp=>{
-                const charts = visibleCharts.filter(c=>c.group===grp)
-                if(!charts.length)return null
+              {groups.map(grp => {
+                const charts = visibleCharts.filter(c => c.group === grp)
+                if (!charts.length) return null
                 const collapsed = collapsedGroups.has(grp)
                 return (
-                  <div key={grp} style={{marginBottom:36}}>
-                    <button onClick={()=>toggleGroup(grp)} style={{display:'flex',alignItems:'center',justifyContent:'space-between',width:'100%',background:'none',border:'none',borderBottom:'2px solid #e5e0d8',paddingBottom:12,marginBottom:collapsed?0:20,cursor:'pointer',textAlign:'left'}}>
-                      <span style={{fontSize:18,fontWeight:800,color:'#1a1814'}}>{GROUP_LABELS[grp]}</span>
-                      <div style={{display:'flex',alignItems:'center',gap:10}}>
-                        <span style={{fontSize:12,color:'#9ca3af',fontFamily:'IBM Plex Mono,monospace'}}>{charts.length} {lang==='en'?'charts':'grÃ¡ficos'}</span>
-                        <span style={{fontSize:20,color:'#9ca3af',lineHeight:1,transform:collapsed?'rotate(-90deg)':'rotate(0deg)',transition:'transform 0.2s',display:'inline-block'}}>v</span>
+                  <div key={grp} style={{ marginBottom: 32 }}>
+                    <button onClick={() => toggleGroup(grp)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: 'none', border: 'none', borderBottom: '1px solid #1e2740', paddingBottom: 10, marginBottom: collapsed ? 0 : 18, cursor: 'pointer', textAlign: 'left' }}>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: '#e2e8f0', letterSpacing: 0.5, fontFamily: 'IBM Plex Mono, monospace' }}>{GROUP_LABELS_EN[grp] ?? grp}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 10, color: '#475569', fontFamily: 'IBM Plex Mono, monospace' }}>{charts.length} charts</span>
+                        <span style={{ fontSize: 16, color: '#475569', lineHeight: 1, transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', display: 'inline-block' }}>v</span>
                       </div>
                     </button>
-                    {!collapsed&&(
-                      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(540px,1fr))',gap:20}}>
-                        {charts.map(c=>(
+                    {!collapsed && (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(520px, 1fr))', gap: 16 }}>
+                        {charts.map(c => (
                           <TimelineChart
                             key={c.id}
                             title={t(c.titleKey)}
                             unit={c.unit}
                             labels={tlLabels}
-                            datasets={c.datasets.map(d=>({
-                              label:t(d.labelKey),
-                              data:allSessions.map(s=>s[d.field] as number|null),
-                              color:d.color,
+                            datasets={c.datasets.map(d => ({
+                              label: d.label,
+                              data: allSessions.map(s => s[d.field] as number | null),
+                              color: d.color,
                             }))}
                             yMin={c.yMin} yMax={c.yMax}
-                            refLine={c.refLine?{value:c.refLine.value,label:c.refLine.labelKey,color:c.refLine.color}:undefined}
+                            refLine={c.refLine}
                           />
                         ))}
                       </div>
@@ -433,49 +631,49 @@ export default function Home() {
                   </div>
                 )
               })}
-              {visibleCharts.length===0&&(
-                <div style={{textAlign:'center',padding:'80px 0',color:'#9ca3af',fontFamily:'IBM Plex Mono,monospace',fontSize:14}}>
-                  {lang==='en'?'No charts selected. Use the filter to add charts.':'Nenhum grÃ¡fico selecionado. Use o filtro para adicionar.'}
+              {visibleCharts.length === 0 && (
+                <div style={{ textAlign: 'center', padding: '80px 0', color: '#475569', fontFamily: 'IBM Plex Mono, monospace', fontSize: 13 }}>
+                  {t('no_charts')}
                 </div>
               )}
             </div>
           )}
 
-          {/* TABLE */}
-          {tab==='table'&&(
+          {/* â”€â”€ TABLE â”€â”€ */}
+          {tab === 'table' && (
             <div>
-              <div style={{marginBottom:28}}>
-                <h1 style={{fontSize:24,fontWeight:800,color:'#1a1814',marginBottom:6}}>{t('table')}</h1>
-                <span style={{fontSize:12,letterSpacing:'1.5px',textTransform:'uppercase',color:'#9ca3af',fontFamily:'IBM Plex Mono,monospace'}}>{t('all_logs')} Â· {allSessions.length} {t('sessions')}</span>
+              <div style={{ marginBottom: 24 }}>
+                <h1 style={{ fontSize: 22, fontWeight: 800, color: '#f1f5f9', marginBottom: 4 }}>{t('table')}</h1>
+                <span style={{ fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#475569', fontFamily: 'IBM Plex Mono, monospace' }}>{t('all_logs')} Â· {allSessions.length} {t('sessions')}</span>
               </div>
-              <div style={{overflowX:'auto',background:'#ffffff',borderRadius:12,border:'1px solid #e5e0d8',boxShadow:'0 2px 8px rgba(0,0,0,0.04)'}}>
-                <table style={{width:'100%',borderCollapse:'collapse',fontFamily:'IBM Plex Mono,monospace',fontSize:12}}>
+              <div style={{ overflowX: 'auto', background: '#111827', borderRadius: 10, border: '1px solid #1e2740' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'IBM Plex Mono, monospace', fontSize: 11 }}>
                   <thead><tr>
-                    {['Session','Km','ECT avg','ECT max','IAT','LTFT','STFT%','Lambda','IACV','MAP wot','Adv','Knock','Inj ms','l/h','km/l','VTEC%','Bat V','MIL'].map(h=>(
-                      <th key={h} style={{padding:'13px 14px',textAlign:'left',fontSize:10,letterSpacing:1.5,textTransform:'uppercase',color:'#9ca3af',borderBottom:'1px solid #e5e0d8',whiteSpace:'nowrap',background:'#f9f8f5',fontWeight:700}}>{h}</th>
+                    {[t('th_session'), t('th_km'), t('th_ect_avg'), t('th_ect_max'), t('th_iat'), t('th_ltft'), t('th_stft'), t('th_lambda'), t('th_iacv'), t('th_map_wot'), t('th_adv'), t('th_knock'), t('th_inj'), t('th_lh'), t('th_kml'), t('th_vtec'), t('th_bat'), t('th_mil')].map(h => (
+                      <th key={h} style={{ padding: '11px 12px', textAlign: 'left', fontSize: 9, letterSpacing: 1.5, textTransform: 'uppercase', color: '#475569', borderBottom: '1px solid #1e2740', whiteSpace: 'nowrap', background: '#0f1117', fontWeight: 700 }}>{h}</th>
                     ))}
                   </tr></thead>
                   <tbody>
-                    {allSessions.map((s,i)=>(
-                      <tr key={s.name} onClick={()=>{setActiveIdx(i);setTab('overview')}} style={{borderBottom:'1px solid #f0eeea',background:isNew(s)?'#eff6ff':'transparent',cursor:'pointer',transition:'background 0.1s'}}>
-                        <td style={{padding:'12px 14px',color:isNew(s)?'#1d4ed8':'#1a1814',fontWeight:700,whiteSpace:'nowrap'}}>{s.name}</td>
-                        <td style={{padding:'12px 14px',color:'#374151'}}>{fmt(s.km_estimated,1)}</td>
-                        <td style={{padding:'12px 14px',color:'#374151'}}>{fmt(s.ect_mean)}Â°</td>
-                        <td style={{padding:'12px 14px',color:'#374151'}}>{fmt(s.ect_max)}Â°</td>
-                        <td style={{padding:'12px 14px',color:'#374151'}}>{fmt(s.iat_mean)}Â°</td>
-                        <td style={{padding:'12px 14px'}}><span className={`pill ${pillCls(s.ltft,2.5,4)}`}>{s.ltft!=null?(s.ltft>0?'+':'')+fmt(s.ltft):'--'}%</span></td>
-                        <td style={{padding:'12px 14px'}}><span className={`pill ${pillCls(s.stft_above15_pct,3,10)}`}>{fmt(s.stft_above15_pct)}%</span></td>
-                        <td style={{padding:'12px 14px'}}><span className={`pill ${pillCls(s.lambda,1.05,1.15)}`}>{fmt(s.lambda,3)}</span></td>
-                        <td style={{padding:'12px 14px'}}><span className={`pill ${pillCls(s.iacv_mean,42,55)}`}>{fmt(s.iacv_mean)}%</span></td>
-                        <td style={{padding:'12px 14px',color:'#374151'}}>{fmt(s.map_wot)}</td>
-                        <td style={{padding:'12px 14px',color:'#374151'}}>{fmt(s.adv_mean)}Â°</td>
-                        <td style={{padding:'12px 14px'}}><span className={`pill ${s.knock_events===0?'pill-g':'pill-r'}`}>{s.knock_events??'--'}</span></td>
-                        <td style={{padding:'12px 14px',color:'#374151'}}>{fmt(s.inj_dur,2)}</td>
-                        <td style={{padding:'12px 14px',color:'#374151'}}>{fmt(s.fuel_flow_mean,2)}</td>
-                        <td style={{padding:'12px 14px',color:'#374151'}}>{fmt(s.inst_consumption,1)}</td>
-                        <td style={{padding:'12px 14px',color:'#374151'}}>{fmt(s.vtec_pct)}%</td>
-                        <td style={{padding:'12px 14px',color:'#374151'}}>{fmt(s.bat_mean,2)}V</td>
-                        <td style={{padding:'12px 14px'}}><span className={`pill ${!s.mil_on_pct?'pill-g':'pill-r'}`}>{s.mil_on_pct?t('active_str'):'OFF'}</span></td>
+                    {allSessions.map((s, i) => (
+                      <tr key={s.name} onClick={() => { setActiveIdx(i); setTab('overview') }} style={{ borderBottom: '1px solid #161c2a', background: isNew(s) ? '#1a2035' : 'transparent', cursor: 'pointer', transition: 'background 0.1s' }}>
+                        <td style={{ padding: '10px 12px', color: isNew(s) ? '#f97316' : '#e2e8f0', fontWeight: 700, whiteSpace: 'nowrap' }}>{s.name}</td>
+                        <td style={{ padding: '10px 12px', color: '#94a3b8' }}>{fmt(s.km_estimated, 1)}</td>
+                        <td style={{ padding: '10px 12px', color: '#94a3b8' }}>{fmt(s.ect_mean)}C</td>
+                        <td style={{ padding: '10px 12px', color: '#94a3b8' }}>{fmt(s.ect_max)}C</td>
+                        <td style={{ padding: '10px 12px', color: '#94a3b8' }}>{fmt(s.iat_mean)}C</td>
+                        <td style={{ padding: '10px 12px' }}><span className={`pill ${pillCls(s.ltft, 2.5, 4)}`}>{s.ltft != null ? (s.ltft > 0 ? '+' : '') + fmt(s.ltft) : '--'}%</span></td>
+                        <td style={{ padding: '10px 12px' }}><span className={`pill ${pillCls(s.stft_above15_pct, 3, 10)}`}>{fmt(s.stft_above15_pct)}%</span></td>
+                        <td style={{ padding: '10px 12px' }}><span className={`pill ${pillCls(s.lambda, 1.05, 1.15)}`}>{fmt(s.lambda, 3)}</span></td>
+                        <td style={{ padding: '10px 12px' }}><span className={`pill ${pillCls(s.iacv_mean, 42, 55)}`}>{fmt(s.iacv_mean)}%</span></td>
+                        <td style={{ padding: '10px 12px', color: '#94a3b8' }}>{fmt(s.map_wot)}</td>
+                        <td style={{ padding: '10px 12px', color: '#94a3b8' }}>{fmt(s.adv_mean)}</td>
+                        <td style={{ padding: '10px 12px' }}><span className={`pill ${s.knock_events === 0 ? 'pill-g' : 'pill-r'}`}>{s.knock_events ?? '--'}</span></td>
+                        <td style={{ padding: '10px 12px', color: '#94a3b8' }}>{fmt(s.inj_dur, 2)}</td>
+                        <td style={{ padding: '10px 12px', color: '#94a3b8' }}>{fmt(s.fuel_flow_mean, 2)}</td>
+                        <td style={{ padding: '10px 12px', color: '#94a3b8' }}>{fmt(s.inst_consumption, 1)}</td>
+                        <td style={{ padding: '10px 12px', color: '#94a3b8' }}>{fmt(s.vtec_pct)}%</td>
+                        <td style={{ padding: '10px 12px', color: '#94a3b8' }}>{fmt(s.bat_mean, 2)}V</td>
+                        <td style={{ padding: '10px 12px' }}><span className={`pill ${!s.mil_on_pct ? 'pill-g' : 'pill-r'}`}>{s.mil_on_pct ? t('active_str') : 'OFF'}</span></td>
                       </tr>
                     ))}
                   </tbody>
@@ -487,18 +685,19 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Global pill styles */}
+      {/* Global styles */}
       <style>{`
-        .pill{display:inline-block;padding:2px 8px;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;}
-        .pill-g{background:#dcfce7;color:#166534;}
-        .pill-y{background:#fef9c3;color:#92400e;}
-        .pill-r{background:#fee2e2;color:#991b1b;}
-        .pill-n{background:#f3f4f6;color:#6b7280;}
-        *{box-sizing:border-box;}
-        body{background:#f5f4f0;}
-        ::-webkit-scrollbar{width:5px;height:5px;}
-        ::-webkit-scrollbar-track{background:transparent;}
-        ::-webkit-scrollbar-thumb{background:#d1cfc8;border-radius:3px;}
+        * { box-sizing: border-box; }
+        body { background: #0f1117; }
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #1e2740; border-radius: 3px; }
+        .pill { display: inline-block; padding: 2px 7px; border-radius: 4px; font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 700; }
+        .pill-g { background: #052e16; color: #00e060; border: 1px solid #14532d; }
+        .pill-y { background: #3a2700; color: #ffe000; border: 1px solid #6b4f00; }
+        .pill-r { background: #2d0a0a; color: #ff3030; border: 1px solid #7f1d1d; }
+        .pill-n { background: #161c2a; color: #475569; border: 1px solid #1e2740; }
+        tr:hover td { background: rgba(249,115,22,0.04) !important; }
       `}</style>
     </div>
   )
