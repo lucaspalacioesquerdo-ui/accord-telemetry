@@ -530,27 +530,27 @@ export default function Home() {
                     </div>
                   )}
                   {/* Section filter button */}
-                  <button onClick={() => setSectionFilter(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 14px', background: sectionFilter ? '#1e3a5f' : '#161c2a', border: '1px solid', borderColor: sectionFilter ? '#3b82f6' : '#1e2740', borderRadius: 7, cursor: 'pointer', color: sectionFilter ? '#60a5fa' : '#64748b', fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, fontWeight: 600, letterSpacing: 1 }}>
+                  <button onClick={() => setSectionFilterOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 14px', background: sectionFilterOpen ? '#1e3a5f' : '#161c2a', border: '1px solid', borderColor: sectionFilterOpen ? '#3b82f6' : '#1e2740', borderRadius: 7, cursor: 'pointer', color: sectionFilterOpen ? '#60a5fa' : '#64748b', fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, fontWeight: 600, letterSpacing: 1 }}>
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
                     Sections
                   </button>
                 </div>
               </div>
               {/* Section filter panel */}
-              {sectionFilter && (
+              {sectionFilterOpen && (
                 <div style={{ background: '#111827', border: '1px solid #1e2740', borderRadius: 10, padding: '16px 20px', marginBottom: 20 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                     <span style={{ fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: 2, textTransform: 'uppercase', fontFamily: 'IBM Plex Mono, monospace' }}>Show / Hide Sections</span>
                     <div style={{ display: 'flex', gap: 8 }}>
-                      <button onClick={() => setHiddenSections(new Set())} style={{ fontSize: 10, padding: '3px 10px', border: '1px solid #1e3a5f', borderRadius: 4, background: '#0f1f3a', color: '#60a5fa', cursor: 'pointer', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 600 }}>{t('select_all')}</button>
+                      <button onClick={() => setSectionFilter(new Set(['elec','fuel','air','afr','ign','temp','idle','motion','act','sec_diagnosis']))} style={{ fontSize: 10, padding: '3px 10px', border: '1px solid #1e3a5f', borderRadius: 4, background: '#0f1f3a', color: '#60a5fa', cursor: 'pointer', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 600 }}>{t('select_all')}</button>
                       <button onClick={() => setHiddenSections(new Set(['elec','fuel','air','afr','ign','temp','idle','motion','act','diagnosis']))} style={{ fontSize: 10, padding: '3px 10px', border: '1px solid #1e2740', borderRadius: 4, background: 'transparent', color: '#475569', cursor: 'pointer', fontFamily: 'IBM Plex Mono, monospace' }}>{t('clear_sel')}</button>
                     </div>
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 16px' }}>
                     {[['elec',t('sec_elec')],['fuel',t('sec_fuel')],['air',t('sec_air')],['afr',t('sec_afr')],['ign',t('sec_ign')],['temp',t('sec_temp')],['idle',t('sec_idle')],['motion',t('sec_motion')],['act',t('sec_act')],['sec_diagnosis',t('sec_diagnosis')]].map(([id,label]) => (
                       <label key={id} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none' }}>
-                        <input type="checkbox" checked={!hiddenSections.has(id)} onChange={() => toggleSection(id as string)} style={{ accentColor: '#f97316', width: 13, height: 13, cursor: 'pointer' }} />
-                        <span style={{ fontSize: 11, color: !hiddenSections.has(id) ? '#e2e8f0' : '#334155', fontFamily: 'IBM Plex Mono, monospace', transition: 'color 0.15s' }}>{label}</span>
+                        <input type="checkbox" checked={sectionFilter.has(id as string)} onChange={() => toggleSection(id as string)} style={{ accentColor: '#f97316', width: 13, height: 13, cursor: 'pointer' }} />
+                        <span style={{ fontSize: 11, color: sectionFilter.has(id as string) ? '#e2e8f0' : '#334155', fontFamily: 'IBM Plex Mono, monospace', transition: 'color 0.15s' }}>{label}</span>
                       </label>
                     ))}
                   </div>
