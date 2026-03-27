@@ -38,6 +38,6 @@ export interface LogSession {
   inst_consumption: number | null; km_estimated: number | null
   // Acceleration
   lng_accel_max: number | null; lng_accel_min: number | null; lng_accel_mean: number | null
-  // Two-state counts
+  // Two-state counts (% time active)
   ac_on_pct: number | null; fan_on_pct: number | null; brake_pct: number | null
 }
