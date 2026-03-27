@@ -10,62 +10,65 @@ interface KpiProps {
   status?: Status
 }
 
-const statusColor: Record<Status, string> = {
-  good:    'var(--green)',
-  warn:    'var(--yellow)',
-  bad:     'var(--red)',
-  info:    'var(--accent)',
-  neutral: 'var(--muted)',
-}
-
-const statusBg: Record<Status, string> = {
-  good:    'rgba(34,197,94,0.06)',
-  warn:    'rgba(234,179,8,0.06)',
-  bad:     'rgba(239,68,68,0.06)',
-  info:    'rgba(0,180,216,0.06)',
-  neutral: 'transparent',
+const statusStyles: Record<Status, { bg: string; border: string; valueColor: string; topBar: string }> = {
+  good:    { bg: '#f0fdf4', border: '#bbf7d0', valueColor: '#15803d', topBar: '#16a34a' },
+  warn:    { bg: '#fffbeb', border: '#fde68a', valueColor: '#92400e', topBar: '#ca8a04' },
+  bad:     { bg: '#fef2f2', border: '#fecaca', valueColor: '#991b1b', topBar: '#dc2626' },
+  info:    { bg: '#eff6ff', border: '#bfdbfe', valueColor: '#1e40af', topBar: '#2563eb' },
+  neutral: { bg: '#ffffff', border: '#e5e0d8', valueColor: '#1a1814', topBar: '#e5e0d8' },
 }
 
 export default function KpiCard({ label, value, unit, sub, status = 'neutral' }: KpiProps) {
+  const s = statusStyles[status]
   return (
-    <div
-      className="card"
-      style={{
-        padding: '14px 16px',
-        background: statusBg[status],
-        borderColor: status !== 'neutral'
-          ? statusColor[status].replace(')', ', 0.2)').replace('var(', 'rgba(').replace(', 0.2)', ', 0.2)')
-          : undefined,
-        position: 'relative',
-        overflow: 'hidden',
-      }}
-    >
-      {/* Bottom accent line */}
-      <div style={{
-        position: 'absolute', bottom: 0, left: 0, right: 0, height: '1px',
-        background: status !== 'neutral' ? statusColor[status] : 'var(--border)',
-        opacity: 0.5,
-      }} />
-
-      <div className="label-xs" style={{ marginBottom: 8 }}>{label}</div>
+    <div style={{
+      background: s.bg,
+      border: `1px solid ${s.border}`,
+      borderRadius: 10,
+      padding: '16px 18px',
+      position: 'relative',
+      overflow: 'hidden',
+    }}>
+      {/* top accent bar */}
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: s.topBar, borderRadius: '10px 10px 0 0' }} />
 
       <div style={{
         fontFamily: "'IBM Plex Mono', monospace",
-        fontSize: 24,
+        fontSize: 10,
+        letterSpacing: '1.8px',
+        textTransform: 'uppercase',
+        color: '#9ca3af',
+        marginBottom: 10,
+        marginTop: 4,
         fontWeight: 600,
+      }}>
+        {label}
+      </div>
+
+      <div style={{
+        fontFamily: "'IBM Plex Mono', monospace",
+        fontSize: 28,
+        fontWeight: 700,
         lineHeight: 1,
-        color: status !== 'neutral' ? statusColor[status] : 'var(--text)',
+        color: s.valueColor,
       }}>
         {value ?? '--'}
         {unit && (
-          <span style={{ fontSize: 12, color: 'var(--muted)', marginLeft: 3, fontWeight: 400 }}>
+          <span style={{ fontSize: 13, color: '#9ca3af', marginLeft: 3, fontWeight: 500 }}>
             {unit}
           </span>
         )}
       </div>
 
       {sub && (
-        <div className="label-xs" style={{ marginTop: 6, letterSpacing: '0.8px', lineHeight: 1.4 }}>
+        <div style={{
+          fontFamily: "'IBM Plex Mono', monospace",
+          fontSize: 10,
+          color: '#6b7280',
+          marginTop: 8,
+          lineHeight: 1.4,
+          letterSpacing: '0.5px',
+        }}>
           {sub}
         </div>
       )}
