@@ -319,8 +319,6 @@ export default function Home() {
   const [filterOpen, setFilterOpen]           = useState(false)
   const [sectionFilter, setSectionFilter]      = useState<Set<string>>(new Set(['elec','fuel','air','afr','ign','temp','idle','motion','act','sec_diagnosis']))
   const [sectionFilterOpen, setSectionFilterOpen] = useState(false)
-  const [sectionFilter, setSectionFilter]     = useState(false)
-  const [hiddenSections, setHiddenSections]   = useState<Set<string>>(new Set())
 
   const t = (k: string) => T[lang][k] ?? k
 
@@ -364,8 +362,6 @@ export default function Home() {
 
   const toggleChart = (id: string) => setSelectedCharts(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
   const toggleGroup = (g: string) => setCollapsedGroups(prev => { const n = new Set(prev); n.has(g) ? n.delete(g) : n.add(g); return n })
-  const toggleSection = (s: string) => setHiddenSections(prev => { const n = new Set(prev); n.has(s) ? n.delete(s) : n.add(s); return n })
-  const sectionVisible = (s: string) => !hiddenSections.has(s)
   const visibleCharts = CHART_DEFS.filter(c => selectedCharts.has(c.id))
   const groups = Array.from(new Set(CHART_DEFS.map(c => c.group)))
 
