@@ -1,0 +1,61 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg:      #07090c;
+  --panel:   #0c0f14;
+  --panel2:  #111620;
+  --border:  #1a2330;
+  --border2: #243040;
+  --text:    #c8d4e0;
+  --muted:   #465a6e;
+  --dim:     #263040;
+  --accent:  #00b4d8;
+  --accent2: #0088aa;
+  --green:   #22c55e;
+  --yellow:  #eab308;
+  --red:     #ef4444;
+  --orange:  #f97316;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--bg); color: var(--text); }
+body { font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; line-height: 1.5; }
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+.mono { font-family: 'IBM Plex Mono', monospace; }
+
+/* Shared component classes */
+.card {
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+.label-xs {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.pill {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 2px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+}
+.pill-g { background: rgba(34,197,94,0.12);  color: #22c55e; }
+.pill-y { background: rgba(234,179,8,0.12);   color: #ca9a06; }
+.pill-r { background: rgba(239,68,68,0.12);   color: #ef4444; }
+.pill-n { background: rgba(255,255,255,0.04); color: var(--muted); }
+
+/* Chart.js global overrides via CSS (applied in components) */
