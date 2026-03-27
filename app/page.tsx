@@ -4,10 +4,10 @@ import { useEffect, useState, useCallback } from 'react'
 import KpiCard from '@/components/KpiCard'
 import TimelineChart from '@/components/TimelineChart'
 import { parseCSVFile, BASELINE } from '@/lib/parser'
-import { generateAlerts, type DiagnosisResult } from '@/lib/alerts'
+import { generateAlerts } from '@/lib/alerts'
 import type { LogSession } from '@/lib/supabase'
 
-// â”€â”€â”€ i18n (no accented chars hardcoded - all via this dict) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- i18n (no accented chars hardcoded - all via this dict) ----------
 type Lang = 'en' | 'pt'
 const T: Record<Lang, Record<string, string>> = {
   en: {
@@ -16,7 +16,7 @@ const T: Record<Lang, Record<string, string>> = {
     filter_charts: 'Filter Charts', select_all: 'All', clear_sel: 'Clear',
     sessions_header: 'Sessions', all_logs: 'All logs', collapse: 'Collapse', expand: 'Expand',
     upload_drag: 'Drag CSV or click to import',
-    upload_sub: 'HondsH OBD1 Â· EN or PT Â· Multiple files',
+    upload_sub: 'HondsH OBD1  -  EN or PT  -  Multiple files',
     // Section headers
     sec_elec: 'Electrical & Charging',
     sec_fuel: 'Fuel & Injection',
@@ -99,7 +99,7 @@ const T: Record<Lang, Record<string, string>> = {
     filter_charts: 'Filtrar Graficos', select_all: 'Todos', clear_sel: 'Limpar',
     sessions_header: 'Sessoes', all_logs: 'Todos os logs', collapse: 'Recolher', expand: 'Expandir',
     upload_drag: 'Arrastar CSV ou clicar para importar',
-    upload_sub: 'HondsH OBD1 Â· EN ou PT Â· Multiplos arquivos',
+    upload_sub: 'HondsH OBD1  -  EN ou PT  -  Multiplos arquivos',
     sec_elec: 'Eletrica / Carregamento',
     sec_fuel: 'Combustivel / Injecao',
     sec_air: 'Ar / Admissao / Carga',
@@ -173,7 +173,7 @@ const T: Record<Lang, Record<string, string>> = {
   },
 }
 
-// â”€â”€â”€ Chart defs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Chart defs -------------------------------------------------------
 type ChartDef = {
   id: string; group: string; titleKey: string; unit?: string
   yMin?: number; yMax?: number
@@ -260,7 +260,7 @@ const GROUP_LABELS_EN: Record<string, string> = {
   idle:'Idle Control', motion:'Motion', vtec:'VTEC', act:'Actuators',
 }
 
-// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Helpers ----------------------------------------------------------
 function fmt(n: number | null | undefined, d = 1) {
   return n != null && isFinite(n) ? n.toFixed(d) : '--'
 }
@@ -277,7 +277,7 @@ function kpiStatus(v: number | null, warnAt: number, badAt: number, dir: 'up' | 
 }
 const AC: Record<string, string> = { bad: '#ff3030', warn: '#ff9000', good: '#00e060', info: '#4080ff' }
 
-// â”€â”€â”€ KPI mini card (inline, Track Titan style) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- KPI mini card (inline, Track Titan style) -----------------------
 function Kpi({ label, value, unit, sub, status = 'neutral', color }: {
   label: string; value: string | number | null; unit?: string
   sub?: string; status?: 'good' | 'warn' | 'bad' | 'info' | 'neutral'; color?: string
@@ -295,7 +295,7 @@ function Kpi({ label, value, unit, sub, status = 'neutral', color }: {
   )
 }
 
-// â”€â”€â”€ Section header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Section header ---------------------------------------------------
 function SectionHeader({ title, accent }: { title: string; accent?: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, marginTop: 28 }}>
@@ -306,7 +306,7 @@ function SectionHeader({ title, accent }: { title: string; accent?: string }) {
   )
 }
 
-// â”€â”€â”€ Main â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Main -------------------------------------------------------------
 export default function Home() {
   const [dbSessions, setDbSessions]           = useState<LogSession[]>([])
   const [localSessions, setLocalSessions]     = useState<LogSession[]>([])
@@ -317,10 +317,7 @@ export default function Home() {
   const [selectedCharts, setSelectedCharts]   = useState<Set<string>>(new Set(CHART_DEFS.map(c => c.id)))
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const [filterOpen, setFilterOpen]           = useState(false)
-  const [hiddenSections, setHiddenSections]   = useState<Set<string>>(new Set())
-  const toggleSection = (s: string) => setHiddenSections(prev => { const n = new Set(prev); n.has(s) ? n.delete(s) : n.add(s); return n })
-  const showSec = (s: string) => !hiddenSections.has(s)
-  const [sectionFilter, setSectionFilter]      = useState(false)
+  const [sectionFilter, setSectionFilter]      = useState<Set<string>>(new Set(['elec','fuel','air','afr','ign','temp','idle','motion','act','sec_diagnosis']))
   const [sectionFilterOpen, setSectionFilterOpen] = useState(false)
   const [sectionFilter, setSectionFilter]     = useState(false)
   const [hiddenSections, setHiddenSections]   = useState<Set<string>>(new Set())
@@ -340,8 +337,7 @@ export default function Home() {
   })()
 
   const active = activeIdx != null ? allSessions[activeIdx] : allSessions[allSessions.length - 1]
-  const diagnosis: DiagnosisResult | null = active ? generateAlerts(active, lang) : null
-  const alerts = diagnosis?.alerts ?? []
+  const alerts = active ? generateAlerts(active, lang) : []
   const tlLabels = allSessions.map(s => s.name)
   const isNew = (s: LogSession) => dbSessions.some(d => d.name === s.name) || localSessions.some(l => l.name === s.name)
 
@@ -443,7 +439,7 @@ export default function Home() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', background: '#0f1117', fontFamily: "'IBM Plex Sans', sans-serif", color: '#e2e8f0' }}>
 
-      {/* â”€â”€ TOPBAR â”€â”€ */}
+      {/* -- TOPBAR -- */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', height: 52, background: '#111827', borderBottom: '1px solid #1e2740', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
@@ -471,10 +467,10 @@ export default function Home() {
         </div>
       </div>
 
-      {/* â”€â”€ BODY â”€â”€ */}
+      {/* -- BODY -- */}
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
-        {/* â”€â”€ SIDEBAR â”€â”€ */}
+        {/* -- SIDEBAR -- */}
         <div style={{ width: 220, minWidth: 220, flexShrink: 0, background: '#111827', borderRight: '1px solid #1e2740', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <div style={{ padding: '12px 14px 10px', borderBottom: '1px solid #1e2740', fontSize: 10, letterSpacing: '2px', textTransform: 'uppercase', color: '#475569', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700 }}>{t('sessions_header')}</div>
           <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -516,17 +512,17 @@ export default function Home() {
           </div>
         </div>
 
-        {/* â”€â”€ CONTENT â”€â”€ */}
+        {/* -- CONTENT -- */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }}>
 
-          {/* â”€â”€ OVERVIEW â”€â”€ */}
+          {/* -- OVERVIEW -- */}
           {tab === 'overview' && active && (
             <div>
               <div style={{ marginBottom: 24, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
                 <div>
                   <h1 style={{ fontSize: 22, fontWeight: 800, color: '#f1f5f9', marginBottom: 4 }}>{active.name}</h1>
                   <span style={{ fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#475569', fontFamily: 'IBM Plex Mono, monospace' }}>
-                    {active.rows?.toLocaleString()} rows{active.duration_min ? ` Â· ${active.duration_min} min` : ''}{active.km_estimated ? ` Â· ${fmt(active.km_estimated, 1)} km` : ''}
+                    {active.rows?.toLocaleString()} rows{active.duration_min ? `  -  ${active.duration_min} min` : ''}{active.km_estimated ? `  -  ${fmt(active.km_estimated, 1)} km` : ''}
                   </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
@@ -556,7 +552,7 @@ export default function Home() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 16px' }}>
-                    {[['elec',t('sec_elec')],['fuel',t('sec_fuel')],['air',t('sec_air')],['afr',t('sec_afr')],['ign',t('sec_ign')],['temp',t('sec_temp')],['idle',t('sec_idle')],['motion',t('sec_motion')],['act',t('sec_act')],['diagnosis',t('sec_diagnosis')]].map(([id,label]) => (
+                    {[['elec',t('sec_elec')],['fuel',t('sec_fuel')],['air',t('sec_air')],['afr',t('sec_afr')],['ign',t('sec_ign')],['temp',t('sec_temp')],['idle',t('sec_idle')],['motion',t('sec_motion')],['act',t('sec_act')],['sec_diagnosis',t('sec_diagnosis')]].map(([id,label]) => (
                       <label key={id} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none' }}>
                         <input type="checkbox" checked={!hiddenSections.has(id)} onChange={() => toggleSection(id as string)} style={{ accentColor: '#f97316', width: 13, height: 13, cursor: 'pointer' }} />
                         <span style={{ fontSize: 11, color: !hiddenSections.has(id) ? '#e2e8f0' : '#334155', fontFamily: 'IBM Plex Mono, monospace', transition: 'color 0.15s' }}>{label}</span>
@@ -567,8 +563,9 @@ export default function Home() {
               )}
 
 
+              {showSec('elec') && (<>
               {/* 1. Electrical & Charging */}
-              {showSec('elec') && <><SectionHeader title={t('sec_elec')} accent={C.green} />
+              <SectionHeader title={t('sec_elec')} accent={C.green} />
               <div style={G}>
                 <Kpi label={t('bat')} value={fmt(active.bat_mean, 2)} unit="V" sub={`min ${fmt(active.bat_min, 2)}V`} status={kpiStatus(active.bat_below12_pct, 1, 5)} color={C.green} />
                 <Kpi label={t('alt_fr')} value={fmt(active.alt_fr_mean)} unit="%" sub="alternator FR" color={C.yellow} />
@@ -580,9 +577,8 @@ export default function Home() {
               </>
               )}
 {showSec('fuel') && (<>
-              </>}
               {/* 2. Fuel & Injection */}
-              {showSec('fuel') && <><SectionHeader title={t('sec_fuel')} accent={C.orange} />
+              <SectionHeader title={t('sec_fuel')} accent={C.orange} />
               <div style={G}>
                 <Kpi label={t('fuel_flow')} value={fmt(active.fuel_flow_mean, 2)} unit="l/h" sub="avg hourly" color={C.orange} />
                 <Kpi label={t('fuel_inst')} value={fmt(active.inst_consumption, 1)} unit="km/l" sub={t('cruise_avg')} color={C.lime} />
@@ -596,9 +592,8 @@ export default function Home() {
               </>
               )}
 {showSec('air') && (<>
-              </>}
               {/* 3. Air / Intake / Load */}
-              {showSec('air') && <><SectionHeader title={t('sec_air')} accent={C.cyan} />
+              <SectionHeader title={t('sec_air')} accent={C.cyan} />
               <div style={G}>
                 <Kpi label={t('map_psi')} value={fmt(active.map_mean)} unit="PSI" sub={`WOT: ${fmt(active.map_wot)} PSI`} color={C.cyan} />
                 <Kpi label={t('iat')} value={fmt(active.iat_mean)} unit="C" sub={`max ${fmt(active.iat_max)}C`} status={kpiStatus(active.iat_mean, 55, 65)} color={C.yellow} />
@@ -610,9 +605,8 @@ export default function Home() {
               </>
               )}
 {showSec('afr') && (<>
-              </>}
               {/* 4. Mixture & AFR */}
-              {showSec('afr') && <><SectionHeader title={t('sec_afr')} accent={C.green} />
+              <SectionHeader title={t('sec_afr')} accent={C.green} />
               <div style={G}>
                 <Kpi label={t('ltft')} value={(active.ltft != null && active.ltft > 0 ? '+' : '') + fmt(active.ltft)} unit="%" sub="ideal: +-1.5%" status={kpiStatus(active.ltft, 2.5, 4)} color={C.orange} />
                 <Kpi label={t('stft')} value={fmt(active.stft_above15_pct)} unit="%" sub=">+15% of time" status={kpiStatus(active.stft_above15_pct, 3, 10)} color={C.red} />
@@ -626,9 +620,8 @@ export default function Home() {
               </>
               )}
 {showSec('ign') && (<>
-              </>}
               {/* 5. Ignition */}
-              {showSec('ign') && <><SectionHeader title={t('sec_ign')} accent={C.purple} />
+              <SectionHeader title={t('sec_ign')} accent={C.purple} />
               <div style={G}>
                 <Kpi label={t('ign_adv')} value={fmt(active.adv_mean)} unit="deg" sub={`max ${fmt(active.adv_max)}deg`} color={C.purple} />
                 <Kpi label={t('ign_lim')} value={fmt(active.ign_limit_mean)} unit="deg" color={C.indigo} />
@@ -640,9 +633,8 @@ export default function Home() {
               </>
               )}
 {showSec('temp') && (<>
-              </>}
               {/* 6. Temperature & Cooling */}
-              {showSec('temp') && <><SectionHeader title={t('sec_temp')} accent={C.red} />
+              <SectionHeader title={t('sec_temp')} accent={C.red} />
               <div style={G}>
                 <Kpi label={t('ect')} value={fmt(active.ect_mean)} unit="C" sub={`max ${fmt(active.ect_max)}C`} status={kpiStatus(active.ect_max, 97, 102)} color={C.red} />
                 <Kpi label="ECT >95C" value={fmt(active.ect_above95_pct)} unit="%" sub={`${t('time_above')}C`} status={kpiStatus(active.ect_above95_pct, 20, 35)} color={C.orange} />
@@ -654,9 +646,8 @@ export default function Home() {
               </>
               )}
 {showSec('idle') && (<>
-              </>}
               {/* 7. Idle Control */}
-              {showSec('idle') && <><SectionHeader title={t('sec_idle')} accent={C.teal} />
+              <SectionHeader title={t('sec_idle')} accent={C.teal} />
               <div style={G}>
                 <Kpi label={t('iacv_dc')} value={fmt(active.iacv_mean)} unit="%" sub="expected: 30-38%" status={kpiStatus(active.iacv_mean, 42, 55)} color={C.teal} />
                 <Kpi label={t('rev')} value={fmt(active.rev_mean, 0)} unit="rpm" sub={`max ${fmt(active.rev_max, 0)} rpm`} color={C.pink} />
@@ -667,9 +658,8 @@ export default function Home() {
               </>
               )}
 {showSec('motion') && (<>
-              </>}
               {/* 8. Motion & Dynamics */}
-              {showSec('motion') && <><SectionHeader title={t('sec_motion')} accent={C.blue} />
+              <SectionHeader title={t('sec_motion')} accent={C.blue} />
               <div style={G}>
                 <Kpi label={t('vss')} value={fmt(active.vss_mean)} unit="km/h" sub={`max ${fmt(active.vss_max, 0)} km/h`} color={C.blue} />
                 <Kpi label={t('lng_accel')} value={fmt(active.lng_accel_max, 3)} unit="G" sub={`brake ${fmt(active.lng_accel_min, 3)}G`} color={C.cyan} />
@@ -682,9 +672,8 @@ export default function Home() {
               </>
               )}
 {showSec('act') && (<>
-              </>}
               {/* 9. Actuators & Emissions */}
-              {showSec('act') && <><SectionHeader title={t('sec_act')} accent={C.gray} />
+              <SectionHeader title={t('sec_act')} accent={C.gray} />
               <div style={G}>
                 <Kpi label="EGR" value={fmt(active.egr_active_pct)} unit="%" sub="recirculation" color={C.gray} />
               </div>
@@ -694,9 +683,8 @@ export default function Home() {
               </>
               )}
 {showSec('diagnosis') && (<>
-              </>}
               {/* 10. Diagnosis */}
-              {showSec('diagnosis') && <><SectionHeader title={t('sec_diagnosis')} accent={C.red} />
+              <SectionHeader title={t('sec_diagnosis')} accent={C.red} />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {alerts.map((a, idx) => (
                   <div key={idx} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: '12px 16px', borderRadius: 8, border: `1px solid ${AC[a.type]}30`, background: `${AC[a.type]}0a` }}>
@@ -713,14 +701,14 @@ export default function Home() {
               )}
           )}
 
-          {/* â”€â”€ TIMELINE â”€â”€ */}
+          {/* -- TIMELINE -- */}
           {tab === 'timeline' && (
             <div>
               <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
                 <div>
                   <h1 style={{ fontSize: 22, fontWeight: 800, color: '#f1f5f9', marginBottom: 4 }}>{t('timeline')}</h1>
                   <span style={{ fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#475569', fontFamily: 'IBM Plex Mono, monospace' }}>
-                    {allSessions.length} {t('sessions')} Â· {visibleCharts.length} {t('charts_visible')}
+                    {allSessions.length} {t('sessions')}  -  {visibleCharts.length} {t('charts_visible')}
                   </span>
                 </div>
                 <button onClick={() => setFilterOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 14px', background: filterOpen ? '#1e3a5f' : '#161c2a', border: '1px solid', borderColor: filterOpen ? '#3b82f6' : '#1e2740', borderRadius: 7, cursor: 'pointer', color: filterOpen ? '#60a5fa' : '#64748b', fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, fontWeight: 600, letterSpacing: 1, transition: 'all 0.15s' }}>
@@ -799,12 +787,12 @@ export default function Home() {
             </div>
           )}
 
-          {/* â”€â”€ TABLE â”€â”€ */}
+          {/* -- TABLE -- */}
           {tab === 'table' && (
             <div>
               <div style={{ marginBottom: 24 }}>
                 <h1 style={{ fontSize: 22, fontWeight: 800, color: '#f1f5f9', marginBottom: 4 }}>{t('table')}</h1>
-                <span style={{ fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#475569', fontFamily: 'IBM Plex Mono, monospace' }}>{t('all_logs')} Â· {allSessions.length} {t('sessions')}</span>
+                <span style={{ fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#475569', fontFamily: 'IBM Plex Mono, monospace' }}>{t('all_logs')}  -  {allSessions.length} {t('sessions')}</span>
               </div>
               <div style={{ overflowX: 'auto', background: '#111827', borderRadius: 10, border: '1px solid #1e2740' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'IBM Plex Mono, monospace', fontSize: 11 }}>
@@ -845,7 +833,7 @@ export default function Home() {
         </div>
       </div>
 
-          {/* â”€â”€ SCORE â”€â”€ */}
+          {/* -- SCORE -- */}
           {tab === 'score' && active && (() => {
             // Weighted health score 0-100
             const w = {
@@ -877,7 +865,7 @@ export default function Home() {
               <div>
                 <div style={{ marginBottom: 24 }}>
                   <h1 style={{ fontSize: 22, fontWeight: 800, color: '#f1f5f9', marginBottom: 4 }}>Engine Health Score</h1>
-                  <span style={{ fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#475569', fontFamily: 'IBM Plex Mono, monospace' }}>{active.name} Â· weighted composite</span>
+                  <span style={{ fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#475569', fontFamily: 'IBM Plex Mono, monospace' }}>{active.name}  -  weighted composite</span>
                 </div>
                 {/* Big score */}
                 <div style={{ background: '#111827', border: `1px solid ${scoreColor}40`, borderRadius: 16, padding: '32px 36px', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 40 }}>
@@ -936,7 +924,7 @@ export default function Home() {
             )
           })()}
 
-          {/* â”€â”€ COMPAT â”€â”€ */}
+          {/* -- COMPAT -- */}
           {tab === 'compat' && (
             <div>
               <div style={{ marginBottom: 24 }}>
