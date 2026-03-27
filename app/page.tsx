@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import KpiCard from '@/components/KpiCard'
 import TimelineChart from '@/components/TimelineChart'
 import { parseCSVFile, BASELINE } from '@/lib/parser'
-import { generateAlerts } from '@/lib/alerts'
+import { generateAlerts, type DiagnosisResult } from '@/lib/alerts'
 import type { LogSession } from '@/lib/supabase'
 
 // â”€â”€â”€ i18n (no accented chars hardcoded - all via this dict) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -77,7 +77,7 @@ const T: Record<Lang, Record<string, string>> = {
     th_inj: 'Inj ms', th_lh: 'l/h', th_kml: 'km/l', th_vtec: 'VTEC%',
     th_bat: 'Bat V', th_mil: 'MIL',
     // Misc
-    records: 'records', charts_visible: 'charts visible',
+    records: 'records', charts_visible: 'charts visible', vehicles_tab: 'Vehicles',
     no_charts: 'No charts selected.',
     time_above: 'time above 95',
     ideal: 'ideal',
@@ -155,7 +155,7 @@ const T: Record<Lang, Record<string, string>> = {
     th_iacv: 'IACV', th_map_wot: 'MAP wot', th_adv: 'Avanco', th_knock: 'Knock',
     th_inj: 'Inj ms', th_lh: 'l/h', th_kml: 'km/l', th_vtec: 'VTEC%',
     th_bat: 'Bat V', th_mil: 'MIL',
-    records: 'registros', charts_visible: 'graficos visiveis',
+    records: 'registros', charts_visible: 'graficos visiveis', vehicles_tab: 'Veiculos',
     no_charts: 'Nenhum grafico selecionado.',
     time_above: 'tempo acima de 95',
     ideal: 'ideal',
@@ -312,11 +312,18 @@ export default function Home() {
   const [localSessions, setLocalSessions]     = useState<LogSession[]>([])
   const [uploading, setUploading]             = useState(false)
   const [activeIdx, setActiveIdx]             = useState<number | null>(null)
-  const [tab, setTab]                         = useState<'overview' | 'timeline' | 'table'>('overview')
+  const [tab, setTab]                         = useState<'overview' | 'timeline' | 'table' | 'score' | 'compat'>('overview')
   const [lang, setLang]                       = useState<Lang>('en')
   const [selectedCharts, setSelectedCharts]   = useState<Set<string>>(new Set(CHART_DEFS.map(c => c.id)))
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const [filterOpen, setFilterOpen]           = useState(false)
+  const [hiddenSections, setHiddenSections]   = useState<Set<string>>(new Set())
+  const toggleSection = (s: string) => setHiddenSections(prev => { const n = new Set(prev); n.has(s) ? n.delete(s) : n.add(s); return n })
+  const showSec = (s: string) => !hiddenSections.has(s)
+  const [sectionFilter, setSectionFilter]      = useState(false)
+  const [sectionFilterOpen, setSectionFilterOpen] = useState(false)
+  const [sectionFilter, setSectionFilter]     = useState(false)
+  const [hiddenSections, setHiddenSections]   = useState<Set<string>>(new Set())
 
   const t = (k: string) => T[lang][k] ?? k
 
@@ -333,7 +340,8 @@ export default function Home() {
   })()
 
   const active = activeIdx != null ? allSessions[activeIdx] : allSessions[allSessions.length - 1]
-  const alerts = active ? generateAlerts(active, lang) : []
+  const diagnosis: DiagnosisResult | null = active ? generateAlerts(active, lang) : null
+  const alerts = diagnosis?.alerts ?? []
   const tlLabels = allSessions.map(s => s.name)
   const isNew = (s: LogSession) => dbSessions.some(d => d.name === s.name) || localSessions.some(l => l.name === s.name)
 
@@ -360,8 +368,13 @@ export default function Home() {
 
   const toggleChart = (id: string) => setSelectedCharts(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
   const toggleGroup = (g: string) => setCollapsedGroups(prev => { const n = new Set(prev); n.has(g) ? n.delete(g) : n.add(g); return n })
+  const toggleSection = (s: string) => setHiddenSections(prev => { const n = new Set(prev); n.has(s) ? n.delete(s) : n.add(s); return n })
+  const sectionVisible = (s: string) => !hiddenSections.has(s)
   const visibleCharts = CHART_DEFS.filter(c => selectedCharts.has(c.id))
   const groups = Array.from(new Set(CHART_DEFS.map(c => c.group)))
+
+  const toggleSection = (s: string) => setSectionFilter(prev => { const n = new Set(prev); n.has(s) ? n.delete(s) : n.add(s); return n })
+  const showSec = (s: string) => sectionFilter.has(s)
 
   const getDisplayDate = (s: LogSession) => {
     const ca = (s as any).created_at
@@ -371,6 +384,59 @@ export default function Home() {
       ? d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })
       : d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' })
   }
+
+  // Health score: weighted multi-criteria formula (0-100)
+  const healthScore = active ? (() => {
+    const m = active
+    let score = 100
+    let reasons: string[] = []
+    // STFT (weight 20) - most immediate indicator
+    const stft = m.stft_above15_pct ?? 0
+    if (stft > 15) { score -= 20; reasons.push('STFT critical') }
+    else if (stft > 5) { score -= 10 }
+    else if (stft > 2) { score -= 4 }
+    // LTFT (weight 15)
+    const ltft = Math.abs(m.ltft ?? 0)
+    if (ltft > 6) { score -= 15 }
+    else if (ltft > 4) { score -= 10 }
+    else if (ltft > 2.5) { score -= 5 }
+    // Lambda (weight 15)
+    const lam = m.lambda ?? 1
+    const lamDev = Math.abs(lam - 1.0)
+    if (lamDev > 0.25) { score -= 15 }
+    else if (lamDev > 0.15) { score -= 10 }
+    else if (lamDev > 0.05) { score -= 4 }
+    // ECT (weight 15)
+    if ((m.ect_above100_pct ?? 0) > 0) { score -= 15 }
+    else if ((m.ect_above95_pct ?? 0) > 30) { score -= 10 }
+    else if ((m.ect_above95_pct ?? 0) > 15) { score -= 5 }
+    // IACV (weight 10) - vacuum leak indicator
+    const iacv = m.iacv_mean ?? 35
+    if (iacv > 65) { score -= 10 }
+    else if (iacv > 50) { score -= 6 }
+    else if (iacv > 42) { score -= 3 }
+    // Knock (weight 15)
+    const knock = m.knock_events ?? 0
+    if (knock > 10) { score -= 15 }
+    else if (knock > 3) { score -= 8 }
+    else if (knock > 0) { score -= 4 }
+    // MIL (weight 5)
+    if ((m.mil_on_pct ?? 0) > 0) { score -= 5 }
+    // Battery (weight 5)
+    if ((m.bat_below12_pct ?? 0) > 5) { score -= 5 }
+    else if ((m.bat_below12_pct ?? 0) > 1) { score -= 2 }
+    // Closed loop (weight 5)
+    const cl = m.closed_loop_pct ?? 0
+    if (cl < 50) { score -= 5 }
+    else if (cl < 70) { score -= 2 }
+    return Math.max(0, Math.min(100, Math.round(score)))
+  })() : null
+
+  const healthColor = healthScore == null ? '#475569'
+    : healthScore >= 85 ? '#00e060'
+    : healthScore >= 65 ? '#ffe000'
+    : healthScore >= 40 ? '#ff9000'
+    : '#ff3030'
 
   const G: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10 }
 
@@ -393,9 +459,9 @@ export default function Home() {
           )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', height: 52 }}>
-          {(['overview', 'timeline', 'table'] as const).map(tb => (
+          {(['overview', 'timeline', 'table', 'score', 'compat'] as const).map(tb => (
             <button key={tb} onClick={() => setTab(tb)} style={{ padding: '0 20px', height: 52, border: 'none', borderBottom: tab === tb ? '2px solid #f97316' : '2px solid transparent', background: 'transparent', color: tab === tb ? '#f97316' : '#64748b', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', cursor: 'pointer', fontWeight: tab === tb ? 700 : 400, fontFamily: 'IBM Plex Mono, monospace' }}>
-              {t(tb === 'overview' ? 'overview' : tb === 'timeline' ? 'timeline' : 'table')}
+              {tb === 'overview' ? t('overview') : tb === 'timeline' ? t('timeline') : tb === 'table' ? t('table') : tb === 'score' ? 'Score' : 'Compat'}
             </button>
           ))}
           <div style={{ marginLeft: 16, display: 'flex', gap: 6, alignItems: 'center', paddingLeft: 16, borderLeft: '1px solid #1e2740' }}>
@@ -456,23 +522,67 @@ export default function Home() {
           {/* â”€â”€ OVERVIEW â”€â”€ */}
           {tab === 'overview' && active && (
             <div>
-              <div style={{ marginBottom: 24 }}>
-                <h1 style={{ fontSize: 22, fontWeight: 800, color: '#f1f5f9', marginBottom: 4 }}>{active.name}</h1>
-                <span style={{ fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#475569', fontFamily: 'IBM Plex Mono, monospace' }}>
-                  {active.rows?.toLocaleString()} rows{active.duration_min ? ` Â· ${active.duration_min} min` : ''}{active.km_estimated ? ` Â· ${fmt(active.km_estimated, 1)} km` : ''}
-                </span>
+              <div style={{ marginBottom: 24, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
+                <div>
+                  <h1 style={{ fontSize: 22, fontWeight: 800, color: '#f1f5f9', marginBottom: 4 }}>{active.name}</h1>
+                  <span style={{ fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#475569', fontFamily: 'IBM Plex Mono, monospace' }}>
+                    {active.rows?.toLocaleString()} rows{active.duration_min ? ` Â· ${active.duration_min} min` : ''}{active.km_estimated ? ` Â· ${fmt(active.km_estimated, 1)} km` : ''}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+                  {/* Health Score */}
+                  {healthScore != null && (
+                    <div style={{ background: '#111827', border: `1px solid ${healthColor}40`, borderRadius: 8, padding: '8px 16px', textAlign: 'center' }}>
+                      <div style={{ fontSize: 9, letterSpacing: 2, textTransform: 'uppercase', color: '#475569', fontFamily: 'IBM Plex Mono, monospace', marginBottom: 2 }}>Health</div>
+                      <div style={{ fontSize: 24, fontWeight: 800, color: healthColor, fontFamily: 'IBM Plex Mono, monospace', lineHeight: 1 }}>{healthScore}</div>
+                      <div style={{ fontSize: 8, color: '#334155', fontFamily: 'IBM Plex Mono, monospace', marginTop: 2 }}>/100</div>
+                    </div>
+                  )}
+                  {/* Section filter button */}
+                  <button onClick={() => setSectionFilter(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 14px', background: sectionFilter ? '#1e3a5f' : '#161c2a', border: '1px solid', borderColor: sectionFilter ? '#3b82f6' : '#1e2740', borderRadius: 7, cursor: 'pointer', color: sectionFilter ? '#60a5fa' : '#64748b', fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, fontWeight: 600, letterSpacing: 1 }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                    Sections
+                  </button>
+                </div>
               </div>
+              {/* Section filter panel */}
+              {sectionFilter && (
+                <div style={{ background: '#111827', border: '1px solid #1e2740', borderRadius: 10, padding: '16px 20px', marginBottom: 20 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: 2, textTransform: 'uppercase', fontFamily: 'IBM Plex Mono, monospace' }}>Show / Hide Sections</span>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={() => setHiddenSections(new Set())} style={{ fontSize: 10, padding: '3px 10px', border: '1px solid #1e3a5f', borderRadius: 4, background: '#0f1f3a', color: '#60a5fa', cursor: 'pointer', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 600 }}>{t('select_all')}</button>
+                      <button onClick={() => setHiddenSections(new Set(['elec','fuel','air','afr','ign','temp','idle','motion','act','diagnosis']))} style={{ fontSize: 10, padding: '3px 10px', border: '1px solid #1e2740', borderRadius: 4, background: 'transparent', color: '#475569', cursor: 'pointer', fontFamily: 'IBM Plex Mono, monospace' }}>{t('clear_sel')}</button>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 16px' }}>
+                    {[['elec',t('sec_elec')],['fuel',t('sec_fuel')],['air',t('sec_air')],['afr',t('sec_afr')],['ign',t('sec_ign')],['temp',t('sec_temp')],['idle',t('sec_idle')],['motion',t('sec_motion')],['act',t('sec_act')],['diagnosis',t('sec_diagnosis')]].map(([id,label]) => (
+                      <label key={id} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none' }}>
+                        <input type="checkbox" checked={!hiddenSections.has(id)} onChange={() => toggleSection(id as string)} style={{ accentColor: '#f97316', width: 13, height: 13, cursor: 'pointer' }} />
+                        <span style={{ fontSize: 11, color: !hiddenSections.has(id) ? '#e2e8f0' : '#334155', fontFamily: 'IBM Plex Mono, monospace', transition: 'color 0.15s' }}>{label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
 
               {/* 1. Electrical & Charging */}
-              <SectionHeader title={t('sec_elec')} accent={C.green} />
+              {showSec('elec') && <><SectionHeader title={t('sec_elec')} accent={C.green} />
               <div style={G}>
                 <Kpi label={t('bat')} value={fmt(active.bat_mean, 2)} unit="V" sub={`min ${fmt(active.bat_min, 2)}V`} status={kpiStatus(active.bat_below12_pct, 1, 5)} color={C.green} />
                 <Kpi label={t('alt_fr')} value={fmt(active.alt_fr_mean)} unit="%" sub="alternator FR" color={C.yellow} />
                 <Kpi label={t('eld_curr')} value={fmt(active.eld_mean, 0)} unit="A" sub={t('elec_load')} color={C.cyan} />
               </div>
 
+
+              
+              </>
+              )}
+{showSec('fuel') && (<>
+              </>}
               {/* 2. Fuel & Injection */}
-              <SectionHeader title={t('sec_fuel')} accent={C.orange} />
+              {showSec('fuel') && <><SectionHeader title={t('sec_fuel')} accent={C.orange} />
               <div style={G}>
                 <Kpi label={t('fuel_flow')} value={fmt(active.fuel_flow_mean, 2)} unit="l/h" sub="avg hourly" color={C.orange} />
                 <Kpi label={t('fuel_inst')} value={fmt(active.inst_consumption, 1)} unit="km/l" sub={t('cruise_avg')} color={C.lime} />
@@ -481,16 +591,28 @@ export default function Home() {
                 <Kpi label={t('inj_fr')} value={fmt(active.inj_fr_mean, 0)} unit="cc/min" color={C.pink} />
               </div>
 
+
+              
+              </>
+              )}
+{showSec('air') && (<>
+              </>}
               {/* 3. Air / Intake / Load */}
-              <SectionHeader title={t('sec_air')} accent={C.cyan} />
+              {showSec('air') && <><SectionHeader title={t('sec_air')} accent={C.cyan} />
               <div style={G}>
                 <Kpi label={t('map_psi')} value={fmt(active.map_mean)} unit="PSI" sub={`WOT: ${fmt(active.map_wot)} PSI`} color={C.cyan} />
                 <Kpi label={t('iat')} value={fmt(active.iat_mean)} unit="C" sub={`max ${fmt(active.iat_max)}C`} status={kpiStatus(active.iat_mean, 55, 65)} color={C.yellow} />
                 <Kpi label={t('clv')} value={fmt(active.clv_mean)} unit="%" sub="engine load" color={C.gray} />
               </div>
 
+
+              
+              </>
+              )}
+{showSec('afr') && (<>
+              </>}
               {/* 4. Mixture & AFR */}
-              <SectionHeader title={t('sec_afr')} accent={C.green} />
+              {showSec('afr') && <><SectionHeader title={t('sec_afr')} accent={C.green} />
               <div style={G}>
                 <Kpi label={t('ltft')} value={(active.ltft != null && active.ltft > 0 ? '+' : '') + fmt(active.ltft)} unit="%" sub="ideal: +-1.5%" status={kpiStatus(active.ltft, 2.5, 4)} color={C.orange} />
                 <Kpi label={t('stft')} value={fmt(active.stft_above15_pct)} unit="%" sub=">+15% of time" status={kpiStatus(active.stft_above15_pct, 3, 10)} color={C.red} />
@@ -499,31 +621,55 @@ export default function Home() {
                 <Kpi label={t('fls')} value={fmt(active.closed_loop_pct)} unit="%" sub="closed loop" status="info" color={C.blue} />
               </div>
 
+
+              
+              </>
+              )}
+{showSec('ign') && (<>
+              </>}
               {/* 5. Ignition */}
-              <SectionHeader title={t('sec_ign')} accent={C.purple} />
+              {showSec('ign') && <><SectionHeader title={t('sec_ign')} accent={C.purple} />
               <div style={G}>
                 <Kpi label={t('ign_adv')} value={fmt(active.adv_mean)} unit="deg" sub={`max ${fmt(active.adv_max)}deg`} color={C.purple} />
                 <Kpi label={t('ign_lim')} value={fmt(active.ign_limit_mean)} unit="deg" color={C.indigo} />
                 <Kpi label={t('knock')} value={active.knock_events ?? '--'} sub={`max ${fmt(active.knock_max, 3)}V`} status={active.knock_events === 0 ? 'good' : 'bad'} color={active.knock_events === 0 ? C.green : C.red} />
               </div>
 
+
+              
+              </>
+              )}
+{showSec('temp') && (<>
+              </>}
               {/* 6. Temperature & Cooling */}
-              <SectionHeader title={t('sec_temp')} accent={C.red} />
+              {showSec('temp') && <><SectionHeader title={t('sec_temp')} accent={C.red} />
               <div style={G}>
                 <Kpi label={t('ect')} value={fmt(active.ect_mean)} unit="C" sub={`max ${fmt(active.ect_max)}C`} status={kpiStatus(active.ect_max, 97, 102)} color={C.red} />
                 <Kpi label="ECT >95C" value={fmt(active.ect_above95_pct)} unit="%" sub={`${t('time_above')}C`} status={kpiStatus(active.ect_above95_pct, 20, 35)} color={C.orange} />
                 <Kpi label={t('fan')} value={fmt(active.fan_on_pct)} unit="%" sub="radiator fan" color={C.cyan} />
               </div>
 
+
+              
+              </>
+              )}
+{showSec('idle') && (<>
+              </>}
               {/* 7. Idle Control */}
-              <SectionHeader title={t('sec_idle')} accent={C.teal} />
+              {showSec('idle') && <><SectionHeader title={t('sec_idle')} accent={C.teal} />
               <div style={G}>
                 <Kpi label={t('iacv_dc')} value={fmt(active.iacv_mean)} unit="%" sub="expected: 30-38%" status={kpiStatus(active.iacv_mean, 42, 55)} color={C.teal} />
                 <Kpi label={t('rev')} value={fmt(active.rev_mean, 0)} unit="rpm" sub={`max ${fmt(active.rev_max, 0)} rpm`} color={C.pink} />
               </div>
 
+
+              
+              </>
+              )}
+{showSec('motion') && (<>
+              </>}
               {/* 8. Motion & Dynamics */}
-              <SectionHeader title={t('sec_motion')} accent={C.blue} />
+              {showSec('motion') && <><SectionHeader title={t('sec_motion')} accent={C.blue} />
               <div style={G}>
                 <Kpi label={t('vss')} value={fmt(active.vss_mean)} unit="km/h" sub={`max ${fmt(active.vss_max, 0)} km/h`} color={C.blue} />
                 <Kpi label={t('lng_accel')} value={fmt(active.lng_accel_max, 3)} unit="G" sub={`brake ${fmt(active.lng_accel_min, 3)}G`} color={C.cyan} />
@@ -531,14 +677,26 @@ export default function Home() {
                 <Kpi label="VTEC" value={fmt(active.vtec_pct)} unit="%" sub={t('high_rpm')} color={C.purple} />
               </div>
 
+
+              
+              </>
+              )}
+{showSec('act') && (<>
+              </>}
               {/* 9. Actuators & Emissions */}
-              <SectionHeader title={t('sec_act')} accent={C.gray} />
+              {showSec('act') && <><SectionHeader title={t('sec_act')} accent={C.gray} />
               <div style={G}>
                 <Kpi label="EGR" value={fmt(active.egr_active_pct)} unit="%" sub="recirculation" color={C.gray} />
               </div>
 
+
+              
+              </>
+              )}
+{showSec('diagnosis') && (<>
+              </>}
               {/* 10. Diagnosis */}
-              <SectionHeader title={t('sec_diagnosis')} accent={C.red} />
+              {showSec('diagnosis') && <><SectionHeader title={t('sec_diagnosis')} accent={C.red} />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {alerts.map((a, idx) => (
                   <div key={idx} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: '12px 16px', borderRadius: 8, border: `1px solid ${AC[a.type]}30`, background: `${AC[a.type]}0a` }}>
@@ -551,6 +709,8 @@ export default function Home() {
                 ))}
               </div>
             </div>
+              </>
+              )}
           )}
 
           {/* â”€â”€ TIMELINE â”€â”€ */}
@@ -684,6 +844,145 @@ export default function Home() {
 
         </div>
       </div>
+
+          {/* â”€â”€ SCORE â”€â”€ */}
+          {tab === 'score' && active && (() => {
+            // Weighted health score 0-100
+            const w = {
+              ltft:   { val: active.ltft,               weight: 25, goodAt: 1.5,  badAt: 5.0,  invert: true },
+              lambda: { val: active.lambda,              weight: 20, goodAt: 1.05, badAt: 1.20, invert: true },
+              stft:   { val: active.stft_above15_pct,    weight: 15, goodAt: 2,    badAt: 10,   invert: true },
+              iacv:   { val: active.iacv_mean,           weight: 15, goodAt: 42,   badAt: 60,   invert: true },
+              ect:    { val: active.ect_above95_pct,     weight: 10, goodAt: 15,   badAt: 35,   invert: true },
+              knock:  { val: active.knock_events,        weight: 10, goodAt: 0,    badAt: 5,    invert: true },
+              bat:    { val: active.bat_below12_pct,     weight:  5, goodAt: 0,    badAt: 5,    invert: true },
+            }
+            let totalScore = 0
+            let totalWeight = 0
+            const breakdown: {key:string;label:string;score:number;weight:number;val:string;color:string}[] = []
+            for (const [key, cfg] of Object.entries(w)) {
+              if (cfg.val == null) continue
+              const range = cfg.badAt - cfg.goodAt
+              let raw = range > 0 ? Math.min(1, Math.max(0, (cfg.val - cfg.goodAt) / range)) : 0
+              const componentScore = Math.round((1 - raw) * 100)
+              const color = componentScore >= 80 ? '#00e060' : componentScore >= 50 ? '#ffe000' : '#ff3030'
+              breakdown.push({ key, label: key.toUpperCase(), score: componentScore, weight: cfg.weight, val: fmt(cfg.val, 2), color })
+              totalScore += componentScore * cfg.weight
+              totalWeight += cfg.weight
+            }
+            const finalScore = Math.round(totalScore / (totalWeight || 1))
+            const scoreColor = finalScore >= 80 ? '#00e060' : finalScore >= 55 ? '#ffe000' : '#ff3030'
+            const scoreLabel = finalScore >= 80 ? 'HEALTHY' : finalScore >= 55 ? 'NEEDS ATTENTION' : 'CRITICAL'
+            return (
+              <div>
+                <div style={{ marginBottom: 24 }}>
+                  <h1 style={{ fontSize: 22, fontWeight: 800, color: '#f1f5f9', marginBottom: 4 }}>Engine Health Score</h1>
+                  <span style={{ fontSize: 11, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#475569', fontFamily: 'IBM Plex Mono, monospace' }}>{active.name} Â· weighted composite</span>
+                </div>
+                {/* Big score */}
+                <div style={{ background: '#111827', border: `1px solid ${scoreColor}40`, borderRadius: 16, padding: '32px 36px', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 40 }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 80, fontWeight: 900, color: scoreColor, fontFamily: 'IBM Plex Mono, monospace', lineHeight: 1 }}>{finalScore}</div>
+                    <div style={{ fontSize: 11, letterSpacing: 3, color: scoreColor, fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700, marginTop: 8 }}>{scoreLabel}</div>
+                    <div style={{ fontSize: 10, color: '#475569', fontFamily: 'IBM Plex Mono, monospace', marginTop: 4 }}>out of 100</div>
+                  </div>
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {breakdown.map(b => (
+                      <div key={b.key} style={{ display: 'grid', gridTemplateColumns: '80px 1fr 50px 40px', alignItems: 'center', gap: 12 }}>
+                        <span style={{ fontSize: 10, fontFamily: 'IBM Plex Mono, monospace', color: '#94a3b8', letterSpacing: 1 }}>{b.label}</span>
+                        <div style={{ height: 6, background: '#1e2740', borderRadius: 3, overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${b.score}%`, background: b.color, borderRadius: 3, transition: 'width 0.8s ease' }} />
+                        </div>
+                        <span style={{ fontSize: 11, fontFamily: 'IBM Plex Mono, monospace', color: b.color, fontWeight: 700, textAlign: 'right' }}>{b.score}</span>
+                        <span style={{ fontSize: 9, color: '#334155', fontFamily: 'IBM Plex Mono, monospace', textAlign: 'right' }}>w:{b.weight}%</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {/* Score over time */}
+                <div style={{ background: '#111827', border: '1px solid #1e2740', borderRadius: 12, padding: '18px 20px' }}>
+                  <div style={{ fontSize: 10, letterSpacing: 2, color: '#475569', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700, textTransform: 'uppercase', marginBottom: 14 }}>Score Evolution</div>
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', height: 100 }}>
+                    {allSessions.map((s, idx) => {
+                      let sc = 0, tw = 0
+                      const ww = [
+                        { val: s.ltft,             w: 25, g: 1.5,  b: 5.0  },
+                        { val: s.lambda,            w: 20, g: 1.05, b: 1.20 },
+                        { val: s.stft_above15_pct,  w: 15, g: 2,    b: 10   },
+                        { val: s.iacv_mean,         w: 15, g: 42,   b: 60   },
+                        { val: s.ect_above95_pct,   w: 10, g: 15,   b: 35   },
+                        { val: s.knock_events,      w: 10, g: 0,    b: 5    },
+                        { val: s.bat_below12_pct,   w:  5, g: 0,    b: 5    },
+                      ]
+                      for (const c of ww) {
+                        if (c.val == null) continue
+                        const r = c.b - c.g > 0 ? Math.min(1, Math.max(0, (c.val - c.g) / (c.b - c.g))) : 0
+                        sc += (1 - r) * 100 * c.w; tw += c.w
+                      }
+                      const sScore = tw > 0 ? Math.round(sc / tw) : 0
+                      const sColor = sScore >= 80 ? '#00e060' : sScore >= 55 ? '#ffe000' : '#ff3030'
+                      const isAct = s.name === active.name
+                      return (
+                        <div key={s.name} onClick={() => setActiveIdx(idx)} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+                          <div style={{ fontSize: 10, fontFamily: 'IBM Plex Mono, monospace', color: sColor, fontWeight: 700 }}>{sScore}</div>
+                          <div style={{ width: '100%', height: `${sScore}%`, minHeight: 4, background: sColor, borderRadius: '3px 3px 0 0', opacity: isAct ? 1 : 0.5, border: isAct ? `1px solid ${sColor}` : 'none' }} />
+                          <div style={{ fontSize: 8, color: '#334155', fontFamily: 'IBM Plex Mono, monospace', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>{s.name.split(' ')[0]}</div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* â”€â”€ COMPAT â”€â”€ */}
+          {tab === 'compat' && (
+            <div>
+              <div style={{ marginBottom: 24 }}>
+                <h1 style={{ fontSize: 22, fontWeight: 800, color: '#f1f5f9', marginBottom: 8 }}>Compatible Vehicles</h1>
+                <p style={{ fontSize: 13, color: '#64748b', lineHeight: 1.7, maxWidth: 680 }}>
+                  All Honda/Acura gasoline models produced from 1992 to 2001 that use the proprietary 3-pin or 5-pin DLC diagnostic connector are compatible with HondsH OBD1 scanner. Vehicles using the standard 16-pin OBD2 port (US/CA from 1996+) are not supported.
+                </p>
+              </div>
+              {[
+                { model: 'Honda Civic / CRX', years: '1992-2000', engines: 'D15B, D15Z1, D16Z6, D16Y5, D16Y7, D16Y8, B16A, B16A2', notes: 'EG, EK chassis. Includes Del Sol (CRX successor).' },
+                { model: 'Honda Civic Type R', years: '1997-2001', engines: 'B16B', notes: 'JDM EK9 only. 185ps DOHC VTEC. 3-pin DLC.' },
+                { model: 'Honda Accord', years: '1992-2001', engines: 'F22A, F22B1, F22B2, F23A, H23A, F18B', notes: 'CB7 (92-93), CD5/CD7 (94-97), CF8/CG5 (98-01). Your car: 1995 CD5 F22B1.' },
+                { model: 'Honda Prelude', years: '1992-2001', engines: 'F22A, F22B, H22A, H23A', notes: 'BB1/BB4 (92-96), BB6 (97-01). H22A VTEC is the performance variant.' },
+                { model: 'Honda Integra / Acura Integra', years: '1992-2001', engines: 'B17A1, B18A1, B18B1, B18C, B18C1, B18C5', notes: 'DA/DC chassis. Includes Type R (DC2 ITR).' },
+                { model: 'Honda CR-V', years: '1997-2001', engines: 'B20B, B20Z2', notes: 'RD1/RD3 chassis. 4WD variant. Non-VTEC B20.' },
+                { model: 'Honda HR-V / Logo', years: '1999-2001', engines: 'D13B, D16W', notes: 'Subcompact. EU/JDM markets primarily.' },
+                { model: 'Honda Orthia / Partner', years: '1996-2002', engines: 'B20B, D16A', notes: 'JDM wagon based on CR-V platform.' },
+                { model: 'Honda Stream (early)', years: '2000-2001', engines: 'D17A, K20A', notes: 'Pre-OBD2 JDM variants with 3-pin DLC.' },
+                { model: 'Honda Odyssey (JDM)', years: '1994-1999', engines: 'F22B, F23A', notes: 'JDM RA1/RA2. US Odyssey uses different connector.' },
+                { model: 'Honda Stepwgn', years: '1996-2001', engines: 'B20B', notes: 'JDM minivan. OBD1 3-pin DLC variants.' },
+                { model: 'Honda S-MX / Mobilio', years: '1996-2001', engines: 'B20B, L15A', notes: 'JDM compact MPV.' },
+                { model: 'Honda Domani / Integra SJ', years: '1992-2001', engines: 'D15B, D16A', notes: 'JDM sedan variant of Civic platform.' },
+                { model: 'Honda Logo / Capa', years: '1996-2001', engines: 'D13B', notes: 'JDM subcompact. Some EU variants included.' },
+                { model: 'Acura NSX', years: '1991-2001', engines: 'C30A, C32B', notes: 'NA1/NA2 chassis. 3.0L/3.2L DOHC VTEC V6. OBD1 variants.' },
+                { model: 'Acura Legend / Honda Legend', years: '1991-1995', engines: 'C32A', notes: 'KA7/KA8. V6 3.2L. JDM/EU markets. Last OBD0/1 generation.' },
+                { model: 'Acura Vigor / Honda Ascot', years: '1992-1994', engines: 'G25A', notes: 'CC2/CB chassis. Inline-5 2.5L. Rare.' },
+                { model: 'Acura TL / Honda Inspire (1st gen)', years: '1996-1998', engines: 'G25A4, G25A5', notes: 'UA3 chassis. Some variants use 3-pin DLC.' },
+              ].map((v, i) => (
+                <div key={i} style={{ background: '#111827', border: '1px solid #1e2740', borderRadius: 10, padding: '16px 20px', marginBottom: 10, display: 'grid', gridTemplateColumns: '200px 80px 1fr 1fr', gap: '0 20px', alignItems: 'start' }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#e2e8f0', marginBottom: 2 }}>{v.model}</div>
+                    <div style={{ fontSize: 10, background: '#1e3a5f', color: '#60a5fa', padding: '2px 7px', borderRadius: 3, display: 'inline-block', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700 }}>{v.years}</div>
+                  </div>
+                  <div style={{ fontSize: 10, color: '#64748b', fontFamily: 'IBM Plex Mono, monospace', paddingTop: 2 }}>OBD1<br/>3/5-pin</div>
+                  <div style={{ fontSize: 11, color: '#94a3b8', fontFamily: 'IBM Plex Mono, monospace', lineHeight: 1.6 }}>{v.engines}</div>
+                  <div style={{ fontSize: 11, color: '#475569', lineHeight: 1.6 }}>{v.notes}</div>
+                </div>
+              ))}
+              <div style={{ marginTop: 20, padding: '14px 18px', background: '#1a1f2e', border: '1px solid #1e2740', borderRadius: 8 }}>
+                <p style={{ fontSize: 12, color: '#475569', lineHeight: 1.7 }}>
+                  <strong style={{ color: '#94a3b8' }}>Note:</strong> Some early 92-95 models may have the 3-pin connector with only 2 wires connected (no power pin). In this case, the scanner requires an external power source. US/CA vehicles from 1996+ use the standard 16-pin OBD2 port and are not compatible. EU and JDM models from 1999+ with the 5-pin DLC but without the ECU communication wire are also not compatible.
+                </p>
+              </div>
+            </div>
+          )}
+
 
       {/* Global styles */}
       <style>{`
