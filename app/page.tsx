@@ -387,7 +387,7 @@ export default function Home() {
     let score = 100
     // STFT (weight 20) - most immediate indicator
     const stft = m.stft_above15_pct ?? 0
-    if (stft > 15) { score -= 20; // stft critical }
+    if (stft > 15) { score -= 20 }
     else if (stft > 5) { score -= 10 }
     else if (stft > 2) { score -= 4 }
     // LTFT (weight 15)
