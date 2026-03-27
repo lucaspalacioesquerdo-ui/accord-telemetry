@@ -133,6 +133,7 @@ export default function Home() {
   const [lang, setLang]                     = useState<Lang>('en')
   const [selectedCharts, setSelectedCharts] = useState<Set<string>>(new Set(CHART_DEFS.map(c=>c.id)))
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
+  const [filterOpen, setFilterOpen] = useState(false)
 
   const t = (k: string) => T[lang][k]??k
 
@@ -149,7 +150,7 @@ export default function Home() {
   })()
 
   const active = activeIdx!=null?allSessions[activeIdx]:allSessions[allSessions.length-1]
-  const alerts = active?generateAlerts(active):[]
+  const alerts = active?generateAlerts(active, lang):[]
   const tlLabels = allSessions.map(s=>s.name)
   const isNew = (s: LogSession) => dbSessions.some(d=>d.name===s.name)||localSessions.some(l=>l.name===s.name)
 
@@ -182,8 +183,12 @@ export default function Home() {
   // Sidebar date display
   const getDisplayDate = (s: LogSession) => {
     const ca = (s as any).created_at
-    if(ca) return new Date(ca).toLocaleDateString(lang==='pt'?'pt-BR':'en-US',{day:'2-digit',month:'short',year:'numeric'})
-    return s.name
+    if (ca) {
+      const d = new Date(ca)
+      if (lang === 'pt') return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })
+      return d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' })
+    }
+    return null
   }
 
   return (
@@ -211,8 +216,8 @@ export default function Home() {
             </button>
           ))}
           <div style={{marginLeft:20,display:'flex',gap:6,alignItems:'center',paddingLeft:20,borderLeft:'1px solid #e5e0d8'}}>
-            <button onClick={()=>setLang('en')} title="English" style={{background:'none',border:'none',cursor:'pointer',opacity:lang==='en'?1:0.3,transition:'opacity 0.2s',fontSize:22,padding:'0 2px',lineHeight:1}}>ðŸ‡ºðŸ‡¸</button>
-            <button onClick={()=>setLang('pt')} title="PortuguÃªs" style={{background:'none',border:'none',cursor:'pointer',opacity:lang==='pt'?1:0.3,transition:'opacity 0.2s',fontSize:22,padding:'0 2px',lineHeight:1}}>ðŸ‡§ðŸ‡·</button>
+            <button onClick={()=>setLang('en')} title="English" style={{background:lang==='en'?'#eff6ff':'transparent',border:'1px solid',borderColor:lang==='en'?'#bfdbfe':'#e5e0d8',borderRadius:5,cursor:'pointer',color:lang==='en'?'#1d4ed8':'#9ca3af',fontSize:11,fontFamily:'IBM Plex Mono,monospace',fontWeight:700,padding:'3px 9px',letterSpacing:1,transition:'all 0.15s'}}>EN</button>
+            <button onClick={()=>setLang('pt')} title="PortuguÃªs" style={{background:lang==='pt'?'#eff6ff':'transparent',border:'1px solid',borderColor:lang==='pt'?'#bfdbfe':'#e5e0d8',borderRadius:5,cursor:'pointer',color:lang==='pt'?'#1d4ed8':'#9ca3af',fontSize:11,fontFamily:'IBM Plex Mono,monospace',fontWeight:700,padding:'3px 9px',letterSpacing:1,transition:'all 0.15s'}}>PT</button>
           </div>
         </div>
       </div>
@@ -227,18 +232,22 @@ export default function Home() {
             {allSessions.map((s,i)=>{
               const isActive = active?.name===s.name
               const dot = s.ltft!=null?(s.ltft<=2.5?'#15803d':s.ltft<=4?'#a16207':'#b91c1c'):'#d1d5db'
-              const displayDate = getDisplayDate(s)
               return (
                 <div key={s.name} onClick={()=>setActiveIdx(i)} style={{padding:'12px 16px',borderBottom:'1px solid #f0eeea',cursor:'pointer',position:'relative',background:isActive?'#eff6ff':'transparent',transition:'background 0.15s'}}>
                   {isActive&&<div style={{position:'absolute',left:0,top:0,bottom:0,width:3,background:'#1d4ed8',borderRadius:'0 2px 2px 0'}}/>}
-                  <div style={{display:'flex',alignItems:'center',gap:7,marginBottom:4}}>
+                  <div style={{display:'flex',alignItems:'center',gap:7,marginBottom:3}}>
                     <span style={{width:8,height:8,borderRadius:'50%',background:dot,flexShrink:0}}/>
-                    <span style={{fontSize:13,fontWeight:700,color:isActive?'#1d4ed8':'#1a1814',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}}>{displayDate}</span>
-                    {isNew(s)&&<span style={{fontSize:9,background:'#dbeafe',color:'#1d4ed8',padding:'1px 6px',borderRadius:3,fontWeight:700,fontFamily:'IBM Plex Mono,monospace'}}>NEW</span>}
+                    {getDisplayDate(s)
+                      ? <span style={{fontSize:13,fontWeight:700,color:isActive?'#1d4ed8':'#1a1814',flex:1}}>{getDisplayDate(s)}</span>
+                      : <span style={{fontSize:13,fontWeight:700,color:isActive?'#1d4ed8':'#6b7280',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}}>{s.name}</span>
+                    }
+                    {isNew(s)&&<span style={{fontSize:9,background:'#dbeafe',color:'#1d4ed8',padding:'1px 5px',borderRadius:3,fontWeight:700,fontFamily:'IBM Plex Mono,monospace'}}>NEW</span>}
                   </div>
-                  <div style={{fontSize:11,color:'#9ca3af',paddingLeft:15,fontFamily:'IBM Plex Mono,monospace',letterSpacing:'0.5px'}}>
-                    {s.rows?.toLocaleString()} {t('records')}{s.km_estimated?` Â· ${fmt(s.km_estimated,1)} km`:''}
-                  </div>
+                  {getDisplayDate(s) && (
+                    <div style={{fontSize:11,color:'#6b7280',paddingLeft:15,fontFamily:'IBM Plex Mono,monospace',fontWeight:500}}>
+                      {s.name}
+                    </div>
+                  )}
                 </div>
               )
             })}
@@ -253,7 +262,7 @@ export default function Home() {
               style={{border:'1.5px dashed #c8c3b8',borderRadius:8,padding:'16px 12px',display:'flex',flexDirection:'column',alignItems:'center',gap:8,cursor:'pointer',transition:'all 0.15s',background:'transparent'}}
             >
               <input id="csv-upload" type="file" accept=".csv" multiple style={{display:'none'}} onChange={e=>{const files=Array.from(e.target.files||[]);if(files.length)handleFiles(files);e.target.value=''}}/>
-              <span style={{fontSize:20,opacity:0.5}}>ðŸ“¡</span>
+              
               <span style={{fontSize:11,fontWeight:600,color:'#6b7280',fontFamily:'IBM Plex Mono,monospace',letterSpacing:'0.5px',textAlign:'center'}}>
                 {uploading?'Processing...':(lang==='en'?'Drag CSV or click to import':'Arrastar CSV ou clicar para importar')}
               </span>
@@ -343,15 +352,24 @@ export default function Home() {
           {/* TIMELINE */}
           {tab==='timeline'&&(
             <div>
-              <div style={{marginBottom:28,display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:20,flexWrap:'wrap'}}>
+              {/* Timeline header + filter button */}
+              <div style={{marginBottom:28,display:'flex',alignItems:'center',justifyContent:'space-between',gap:16}}>
                 <div>
                   <h1 style={{fontSize:24,fontWeight:800,color:'#1a1814',marginBottom:6}}>{t('timeline')}</h1>
                   <span style={{fontSize:12,letterSpacing:'1.5px',textTransform:'uppercase',color:'#9ca3af',fontFamily:'IBM Plex Mono,monospace'}}>
                     {allSessions.length} {t('sessions')} Â· {visibleCharts.length} {lang==='en'?'charts visible':'grÃ¡ficos visÃ­veis'}
                   </span>
                 </div>
-                {/* Filter panel */}
-                <div style={{background:'#ffffff',border:'1px solid #e5e0d8',borderRadius:12,padding:'18px 22px',minWidth:290,maxWidth:380,boxShadow:'0 2px 8px rgba(0,0,0,0.06)'}}>
+                <button
+                  onClick={()=>setFilterOpen(o=>!o)}
+                  style={{display:'flex',alignItems:'center',gap:8,padding:'8px 16px',background:filterOpen?'#eff6ff':'#ffffff',border:'1px solid',borderColor:filterOpen?'#bfdbfe':'#e5e0d8',borderRadius:8,cursor:'pointer',color:filterOpen?'#1d4ed8':'#6b7280',fontFamily:'IBM Plex Mono,monospace',fontSize:12,fontWeight:600,letterSpacing:1,transition:'all 0.15s',boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                  {t('filter_charts')}
+                </button>
+              </div>
+              {/* Filter panel - collapsible */}
+              {filterOpen && (
+                <div style={{background:'#ffffff',border:'1px solid #e5e0d8',borderRadius:12,padding:'18px 22px',marginBottom:28,boxShadow:'0 2px 8px rgba(0,0,0,0.06)'}}>
                   <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
                     <span style={{fontSize:12,fontWeight:700,color:'#374151',letterSpacing:1.5,textTransform:'uppercase',fontFamily:'IBM Plex Mono,monospace'}}>{t('filter_charts')}</span>
                     <div style={{display:'flex',gap:8}}>
@@ -359,23 +377,25 @@ export default function Home() {
                       <button onClick={()=>setSelectedCharts(new Set())} style={{fontSize:11,padding:'4px 12px',border:'1px solid #e5e0d8',borderRadius:5,background:'transparent',color:'#9ca3af',cursor:'pointer',fontFamily:'IBM Plex Mono,monospace'}}>{t('clear_sel')}</button>
                     </div>
                   </div>
-                  {groups.map(grp=>(
-                    <div key={grp} style={{marginBottom:14}}>
-                      <div style={{fontSize:10,fontWeight:700,color:'#1d4ed8',letterSpacing:2,textTransform:'uppercase',marginBottom:8,fontFamily:'IBM Plex Mono,monospace'}}>{GROUP_LABELS[grp]}</div>
-                      <div style={{display:'flex',flexWrap:'wrap',gap:'5px 12px'}}>
-                        {CHART_DEFS.filter(c=>c.group===grp).map(c=>(
-                          <label key={c.id} style={{display:'flex',alignItems:'center',gap:5,cursor:'pointer',userSelect:'none'}}>
-                            <input type="checkbox" checked={selectedCharts.has(c.id)} onChange={()=>toggleChart(c.id)} style={{accentColor:'#1d4ed8',width:13,height:13,cursor:'pointer'}}/>
-                            <span style={{fontSize:12,color:selectedCharts.has(c.id)?'#1a1814':'#9ca3af',fontFamily:'IBM Plex Mono,monospace',transition:'color 0.15s'}}>
-                              {c.id.replace(/_/g,' ')}
-                            </span>
-                          </label>
-                        ))}
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))',gap:'16px 24px'}}>
+                    {groups.map(grp=>(
+                      <div key={grp}>
+                        <div style={{fontSize:10,fontWeight:700,color:'#1d4ed8',letterSpacing:2,textTransform:'uppercase',marginBottom:8,fontFamily:'IBM Plex Mono,monospace'}}>{GROUP_LABELS[grp]}</div>
+                        <div style={{display:'flex',flexDirection:'column',gap:6}}>
+                          {CHART_DEFS.filter(c=>c.group===grp).map(c=>(
+                            <label key={c.id} style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',userSelect:'none'}}>
+                              <input type="checkbox" checked={selectedCharts.has(c.id)} onChange={()=>toggleChart(c.id)} style={{accentColor:'#1d4ed8',width:13,height:13,cursor:'pointer'}}/>
+                              <span style={{fontSize:12,color:selectedCharts.has(c.id)?'#1a1814':'#9ca3af',fontFamily:'IBM Plex Mono,monospace',transition:'color 0.15s'}}>
+                                {c.id.replace(/_/g,' ')}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Collapsible groups */}
               {groups.map(grp=>{
@@ -388,7 +408,7 @@ export default function Home() {
                       <span style={{fontSize:18,fontWeight:800,color:'#1a1814'}}>{GROUP_LABELS[grp]}</span>
                       <div style={{display:'flex',alignItems:'center',gap:10}}>
                         <span style={{fontSize:12,color:'#9ca3af',fontFamily:'IBM Plex Mono,monospace'}}>{charts.length} {lang==='en'?'charts':'grÃ¡ficos'}</span>
-                        <span style={{fontSize:20,color:'#9ca3af',lineHeight:1,transform:collapsed?'rotate(-90deg)':'rotate(0deg)',transition:'transform 0.2s',display:'inline-block'}}>âŒ„</span>
+                        <span style={{fontSize:20,color:'#9ca3af',lineHeight:1,transform:collapsed?'rotate(-90deg)':'rotate(0deg)',transition:'transform 0.2s',display:'inline-block'}}>v</span>
                       </div>
                     </button>
                     {!collapsed&&(
