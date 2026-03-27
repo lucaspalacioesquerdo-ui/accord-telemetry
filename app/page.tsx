@@ -194,7 +194,7 @@ export default function Home() {
 
   const toggleChart = (id: string) => setSelectedCharts(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
   const visibleCharts = CHART_DEFS.filter(c => selectedCharts.has(c.id))
-  const groups = [...new Set(visibleCharts.map(c => c.group))]
+  const groups = Array.from(new Set(visibleCharts.map(c => c.group)))
 
   // sidebar item
   const SItem = ({ s, i }: { s: LogSession; i: number }) => {
