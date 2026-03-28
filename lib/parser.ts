@@ -260,11 +260,14 @@ export function extractMetrics(rows: Row[], name: string): LogSession {
       const rawLon = getCol(rows, 'lon')
       if (!rawLat.length || !rawLon.length) return null
       const step = Math.max(1, Math.floor(rows.length / 300))
-      const track: [number, number, number][] = []
+      const track: [number, number, number, number, number][] = []
       for (let i = 0; i < Math.min(rawLat.length, rawLon.length); i += step) {
-        const la = rawLat[i], lo = rawLon[i], sp = vss[i] ?? 0
+        const la = rawLat[i], lo = rawLon[i]
+        const sp  = vss[i] ?? 0
+        const tmp = ect[i] ?? 0
+        const rpm = rev[i] ?? 0
         if (isFinite(la) && isFinite(lo) && Math.abs(la) > 0.001 && Math.abs(lo) > 0.001) {
-          track.push([la, lo, sp])
+          track.push([la, lo, sp, tmp, rpm])
         }
       }
       return track.length > 5 ? track : null
