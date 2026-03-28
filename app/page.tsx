@@ -1656,135 +1656,260 @@ export default function Home(): React.ReactElement {
 
       {/* ONBOARDING WIZARD */}
       {wizardOpen && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.75)', zIndex:200, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}
-          onClick={(e: React.MouseEvent) => { if (e.target === e.currentTarget) { setWizardOpen(false); localStorage.setItem('hndsh_wizard_done','1') } }}>
-          <div style={{ background:'#111827', border:'1px solid #1e2740', borderRadius:16, width:'100%', maxWidth:520, overflow:'hidden', boxShadow:'0 24px 64px rgba(0,0,0,0.6)' }}>
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.82)', zIndex:200, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
+          <div style={{ background:'#111827', border:'1px solid #1e2740', borderRadius:16, width:'100%', maxWidth:560, overflow:'hidden', boxShadow:'0 24px 64px rgba(0,0,0,0.7)' }}>
 
             {/* Header */}
-            <div style={{ padding:'20px 24px 0', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-              <span style={{ fontSize:11, fontFamily:'IBM Plex Mono,monospace', color:'#f97316', fontWeight:700, letterSpacing:2 }}>
-                HNDSH.meters - {lang === 'en' ? 'Getting Started' : 'Como Comecar'}
+            <div style={{ padding:'18px 24px 0', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+              <span style={{ fontSize:10, fontFamily:'IBM Plex Mono,monospace', color:'#f97316', fontWeight:700, letterSpacing:2 }}>
+                HNDSH.meters - {lang === 'en' ? 'Setup' : 'Configuracao'} {wizardStep}/4
               </span>
               <button onClick={() => { setWizardOpen(false); localStorage.setItem('hndsh_wizard_done','1') }}
-                style={{ fontSize:11, color:'#334155', background:'none', border:'none', cursor:'pointer', fontFamily:'IBM Plex Mono,monospace', padding:'2px 6px' }}>
+                style={{ fontSize:11, color:'#334155', background:'none', border:'none', cursor:'pointer', fontFamily:'IBM Plex Mono,monospace' }}>
                 {lang === 'en' ? 'Skip' : 'Pular'}
               </button>
             </div>
 
-            {/* Step indicators */}
-            <div style={{ display:'flex', gap:6, padding:'16px 24px 0' }}>
-              {[1,2,3].map(n => (
+            {/* Progress bar */}
+            <div style={{ display:'flex', gap:5, padding:'12px 24px 0' }}>
+              {[1,2,3,4].map(n => (
                 <div key={n} style={{ flex:1, height:3, borderRadius:2, background: wizardStep >= n ? '#f97316' : '#1e2740', transition:'background 0.3s' }} />
               ))}
             </div>
 
-            {/* Step content */}
-            <div style={{ padding:'24px 24px 20px', minHeight:260 }}>
+            {/* STEP 1: Overview */}
+            {wizardStep === 1 && (
+              <div style={{ padding:'24px 24px 8px' }}>
+                <h2 style={{ fontSize:20, fontWeight:800, color:'#f1f5f9', marginBottom:8, textAlign:'center' }}>
+                  {lang === 'en' ? 'OBD1 telemetry for your Honda' : 'Telemetria OBD1 para o seu Honda'}
+                </h2>
+                <p style={{ fontSize:13, color:'#64748b', lineHeight:1.8, marginBottom:20, textAlign:'center' }}>
+                  {lang === 'en'
+                    ? 'HNDSH.meters reads CSV logs from the HondaSH app and turns them into engine health reports, charts and diagnostics.'
+                    : 'O HNDSH.meters le os logs CSV do app HondaSH e transforma em relatorios de saude do motor, graficos e diagnosticos.'}
+                </p>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr', gap:10, marginBottom:20 }}>
+                  {[
+                    { n:'1', icon:'>', title: lang==='en'?'Export CSV':'Exporte CSV', sub: lang==='en'?'From HondaSH':'Do HondaSH' },
+                    { n:'2', icon:'>', title: lang==='en'?'Create profile':'Crie perfil', sub: lang==='en'?'Select your car':'Selecione carro' },
+                    { n:'3', icon:'>', title: lang==='en'?'Upload log':'Suba o log', sub: lang==='en'?'Drag CSV file':'Arraste o CSV' },
+                    { n:'4', icon:'*', title: lang==='en'?'Analyze!':'Analise!', sub: lang==='en'?'Full diagnostics':'Diagnostico' },
+                  ].map(item => (
+                    <div key={item.n} style={{ background:'#0f1117', border:'1px solid #1e2740', borderRadius:10, padding:'14px 10px', textAlign:'center' }}>
+                      <div style={{ width:24, height:24, borderRadius:'50%', background:'#f97316', color:'#000', fontSize:11, fontWeight:800, fontFamily:'IBM Plex Mono,monospace', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 8px' }}>{item.n}</div>
+                      <div style={{ fontSize:10, fontWeight:700, color:'#e2e8f0', fontFamily:'IBM Plex Mono,monospace', marginBottom:3 }}>{item.title}</div>
+                      <div style={{ fontSize:9, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>{item.sub}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
-              {/* STEP 1: O que e */}
-              {wizardStep === 1 && (
-                <div>
-                  <div style={{ fontSize:32, marginBottom:16, textAlign:'center' }}>[chart]</div>
-                  <h2 style={{ fontSize:18, fontWeight:800, color:'#f1f5f9', marginBottom:10, textAlign:'center' }}>
-                    {lang === 'en' ? 'OBD1 telemetry for your Honda' : 'Telemetria OBD1 para o seu Honda'}
-                  </h2>
-                  <p style={{ fontSize:13, color:'#64748b', lineHeight:1.8, marginBottom:20, textAlign:'center' }}>
-                    {lang === 'en'
-                      ? 'HNDSH.meters reads CSV logs exported from the HondaSH app and turns them into detailed engine health reports, charts, and diagnostics.'
-                      : 'O HNDSH.meters le os logs CSV exportados pelo app HondaSH e transforma em relatorios detalhados de saude do motor, graficos e diagnosticos.'}
-                  </p>
-                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:8 }}>
-                    {[
-                      { icon:'[phone]', title: lang==='en'?'HondaSH App':'App HondaSH', sub: lang==='en'?'Export CSV log':'Exporte o log CSV' },
-                      { icon:'[up]', title: lang==='en'?'Upload here':'Suba aqui', sub: lang==='en'?'Drag & drop CSV':'Arraste o CSV' },
-                      { icon:'[data]', title: lang==='en'?'Analyze':'Analise', sub: lang==='en'?'Full diagnostics':'Diagnostico completo' },
-                    ].map(item => (
-                      <div key={item.icon} style={{ background:'#0f1117', border:'1px solid #1e2740', borderRadius:10, padding:'12px 10px', textAlign:'center' }}>
-                        <div style={{ fontSize:20, marginBottom:6 }}>{item.icon}</div>
-                        <div style={{ fontSize:10, fontWeight:700, color:'#e2e8f0', fontFamily:'IBM Plex Mono,monospace', marginBottom:3 }}>{item.title}</div>
-                        <div style={{ fontSize:9, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>{item.sub}</div>
+            {/* STEP 2: Export CSV tutorial */}
+            {wizardStep === 2 && (
+              <div style={{ padding:'24px 24px 8px' }}>
+                <h2 style={{ fontSize:18, fontWeight:800, color:'#f1f5f9', marginBottom:6, textAlign:'center' }}>
+                  {lang === 'en' ? 'Step 1 - Export from HondaSH' : 'Passo 1 - Exporte do HondaSH'}
+                </h2>
+                <p style={{ fontSize:12, color:'#64748b', lineHeight:1.7, marginBottom:16, textAlign:'center' }}>
+                  {lang === 'en' ? 'Follow these steps in the HondaSH app to export your log:' : 'Siga esses passos no app HondaSH para exportar seu log:'}
+                </p>
+                <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:16 }}>
+                  {(lang === 'en' ? [
+                    'Open HondaSH and connect to your car via the OBD1 adapter',
+                    'Start a recording session and drive normally',
+                    'When done, tap "Stop" and go to the Logs section',
+                    'Select your log and tap "Export" -> "Export as CSV"',
+                    'Save the .csv file to your device',
+                  ] : [
+                    'Abra o HondaSH e conecte ao carro pelo adaptador OBD1',
+                    'Inicie uma sessao de gravacao e dirija normalmente',
+                    'Ao terminar, toque em "Stop" e va para a secao de Logs',
+                    'Selecione seu log e toque em "Exportar" -> "Exportar como CSV"',
+                    'Salve o arquivo .csv no seu dispositivo',
+                  ]).map((step, i) => (
+                    <div key={i} style={{ display:'flex', gap:12, alignItems:'flex-start', background:'#0f1117', border:'1px solid #1e2740', borderRadius:8, padding:'10px 14px' }}>
+                      <span style={{ width:20, height:20, borderRadius:'50%', background:'#1e2740', color:'#f97316', fontSize:10, fontWeight:800, fontFamily:'IBM Plex Mono,monospace', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>{i+1}</span>
+                      <span style={{ fontSize:12, color:'#94a3b8', lineHeight:1.6 }}>{step}</span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ background:'#0a1a0a', border:'1px solid #14532d', borderRadius:8, padding:'10px 14px', marginBottom:8 }}>
+                  <span style={{ fontSize:11, color:'#00e060', fontFamily:'IBM Plex Mono,monospace' }}>
+                    {lang === 'en' ? 'Tip: You can upload multiple logs at once after setup.' : 'Dica: Voce pode subir multiplos logs de uma vez apos configurar.'}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 3: Create car profile inline */}
+            {wizardStep === 3 && (
+              <div style={{ padding:'24px 24px 8px' }}>
+                <h2 style={{ fontSize:18, fontWeight:800, color:'#f1f5f9', marginBottom:6, textAlign:'center' }}>
+                  {lang === 'en' ? 'Step 2 - Create your car profile' : 'Passo 2 - Crie o perfil do seu carro'}
+                </h2>
+                <p style={{ fontSize:12, color:'#64748b', marginBottom:16, textAlign:'center' }}>
+                  {lang === 'en' ? 'Select your model, year and trim.' : 'Selecione modelo, ano e versao.'}
+                </p>
+                {/* Breadcrumbs */}
+                <div style={{ display:'flex', gap:6, marginBottom:12 }}>
+                  {(['model','year','trim'] as const).map((step, i) => (
+                    <button key={step}
+                      onClick={() => { if(i===0 || (i===1&&selModel) || (i===2&&selModel&&selYear)) setCarModalStep(step) }}
+                      style={{ flex:1, fontSize:10, padding:'5px 8px', borderRadius:5, border:'1px solid', borderColor: carModalStep===step ? '#f97316' : '#1e2740', background: carModalStep===step ? '#2a1a0a' : 'transparent', color: carModalStep===step ? '#f97316' : '#475569', cursor:'pointer', fontFamily:'IBM Plex Mono,monospace', fontWeight:700 }}>
+                      {i===0 ? (selModel ?? t('step_model')) : i===1 ? (selYear ? String(selYear) : t('step_year')) : (selTrim ?? t('step_trim'))}
+                    </button>
+                  ))}
+                </div>
+                {/* Model */}
+                {carModalStep === 'model' && (
+                  <div style={{ maxHeight:200, overflowY:'auto', border:'1px solid #1e2740', borderRadius:8, marginBottom:12 }}>
+                    {CAR_CATALOG.map(car => (
+                      <div key={car.model} onClick={() => { setSelModel(car.model); setSelYear(null); setSelTrim(null); setCarModalStep('year') }}
+                        style={{ padding:'10px 14px', borderBottom:'1px solid #161c2a', cursor:'pointer', background: selModel===car.model ? '#1a2035' : 'transparent', display:'flex', justifyContent:'space-between' }}>
+                        <span style={{ fontSize:12, fontWeight:600, color: selModel===car.model ? '#f97316' : '#e2e8f0' }}>{car.model}</span>
+                        <span style={{ fontSize:10, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>{car.years[0].year}-{car.years[car.years.length-1].year}</span>
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
-
-              {/* STEP 2: Criar perfil */}
-              {wizardStep === 2 && (
-                <div>
-                  <div style={{ fontSize:32, marginBottom:16, textAlign:'center' }}>[car]</div>
-                  <h2 style={{ fontSize:18, fontWeight:800, color:'#f1f5f9', marginBottom:10, textAlign:'center' }}>
-                    {lang === 'en' ? 'Create your car profile' : 'Crie o perfil do seu carro'}
-                  </h2>
-                  <p style={{ fontSize:13, color:'#64748b', lineHeight:1.8, marginBottom:20, textAlign:'center' }}>
-                    {lang === 'en'
-                      ? 'Each car has its own profile with separate logs and history. You can add multiple cars and switch between them anytime.'
-                      : 'Cada carro tem seu proprio perfil com logs e historico separados. Voce pode adicionar varios carros e trocar entre eles a qualquer momento.'}
-                  </p>
-                  <div style={{ background:'#0f1117', border:'1px solid #1e2740', borderRadius:10, padding:16, marginBottom:8 }}>
-                    <div style={{ fontSize:11, color:'#475569', fontFamily:'IBM Plex Mono,monospace', marginBottom:12, letterSpacing:1 }}>
-                      {lang === 'en' ? 'v COMPATIBLE VEHICLES' : 'v VEICULOS COMPATIVEIS'}
-                    </div>
-                    {['Honda Accord 1992-2001', 'Honda Civic 1992-2000', 'Honda Prelude 1992-2001', 'Honda CR-V 1997-2001', 'Acura Integra 1994-2001'].map(v => (
-                      <div key={v} style={{ fontSize:11, color:'#64748b', fontFamily:'IBM Plex Mono,monospace', padding:'3px 0', borderBottom:'1px solid #1e2740' }}>{v}</div>
+                )}
+                {/* Year */}
+                {carModalStep === 'year' && selModel && (
+                  <div style={{ maxHeight:200, overflowY:'auto', border:'1px solid #1e2740', borderRadius:8, marginBottom:12 }}>
+                    {(CAR_CATALOG.find(c => c.model === selModel)?.years ?? []).map(yd => (
+                      <div key={yd.year} onClick={() => { setSelYear(yd.year); setSelTrim(null); setCarModalStep('trim') }}
+                        style={{ padding:'10px 14px', borderBottom:'1px solid #161c2a', cursor:'pointer', background: selYear===yd.year ? '#1a2035' : 'transparent', display:'flex', justifyContent:'space-between' }}>
+                        <span style={{ fontSize:13, fontWeight:700, color: selYear===yd.year ? '#f97316' : '#e2e8f0', fontFamily:'IBM Plex Mono,monospace' }}>{yd.year}</span>
+                        <span style={{ fontSize:10, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>{yd.trims.length} {lang==='en'?'trims':'versoes'}</span>
+                      </div>
                     ))}
-                    <div style={{ fontSize:10, color:'#334155', fontFamily:'IBM Plex Mono,monospace', marginTop:8 }}>+ {lang === 'en' ? 'others' : 'outros'}</div>
                   </div>
-                </div>
-              )}
-
-              {/* STEP 3: Upload log */}
-              {wizardStep === 3 && (
-                <div>
-                  <div style={{ fontSize:32, marginBottom:16, textAlign:'center' }}>[file]</div>
-                  <h2 style={{ fontSize:18, fontWeight:800, color:'#f1f5f9', marginBottom:10, textAlign:'center' }}>
-                    {lang === 'en' ? "You're all set!" : 'Tudo pronto!'}
-                  </h2>
-                  <p style={{ fontSize:13, color:'#64748b', lineHeight:1.8, marginBottom:20, textAlign:'center' }}>
-                    {lang === 'en'
-                      ? 'Create your car profile using the button below, then drag and drop your CSV log file into the sidebar to get started.'
-                      : 'Crie o perfil do seu carro pelo botao abaixo, depois arraste e solte seu arquivo CSV na sidebar para comecar.'}
-                  </p>
-                  <div style={{ background:'#0f1117', border:'1px dashed #f97316', borderRadius:10, padding:'20px 16px', textAlign:'center', marginBottom:8 }}>
-                    <div style={{ fontSize:24, marginBottom:8 }}>[drop]</div>
-                    <div style={{ fontSize:11, color:'#f97316', fontFamily:'IBM Plex Mono,monospace', fontWeight:700, marginBottom:4 }}>
-                      {lang === 'en' ? 'Drop CSV here (after setup)' : 'Solte o CSV aqui (apos configurar)'}
+                )}
+                {/* Trim + nickname */}
+                {carModalStep === 'trim' && selModel && selYear && (
+                  <div>
+                    <div style={{ maxHeight:140, overflowY:'auto', border:'1px solid #1e2740', borderRadius:8, marginBottom:10 }}>
+                      {(CAR_CATALOG.find(c => c.model === selModel)?.years.find(y => y.year === selYear)?.trims ?? []).map(td => (
+                        <div key={td.trim} onClick={() => setSelTrim(td.trim)}
+                          style={{ padding:'10px 14px', borderBottom:'1px solid #161c2a', cursor:'pointer', background: selTrim===td.trim ? '#1a2035' : 'transparent' }}>
+                          <div style={{ display:'flex', justifyContent:'space-between', marginBottom:2 }}>
+                            <span style={{ fontSize:12, fontWeight:700, color: selTrim===td.trim ? '#f97316' : '#e2e8f0' }}>{td.trim}</span>
+                            <span style={{ fontSize:11, fontFamily:'IBM Plex Mono,monospace', color:'#00cfff', fontWeight:700 }}>{td.engine} - {td.hp}hp</span>
+                          </div>
+                          <div style={{ fontSize:10, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>{td.notes}</div>
+                        </div>
+                      ))}
                     </div>
-                    <div style={{ fontSize:10, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>
-                      {lang === 'en' ? 'Exported from HondaSH app' : 'Exportado pelo app HondaSH'}
-                    </div>
+                    {selTrim && (
+                      <div style={{ background:'#0f1117', border:'1px solid #1e2740', borderRadius:8, padding:'12px 14px' }}>
+                        <div style={{ fontSize:10, color:'#64748b', fontFamily:'IBM Plex Mono,monospace', marginBottom:6 }}>{t('car_name_label')}</div>
+                        <input type="text" value={profileName} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setProfileName(e.target.value)}
+                          placeholder={t('car_name_ph')}
+                          style={{ width:'100%', background:'#161c2a', border:'1px solid #1e2740', borderRadius:5, padding:'7px 10px', color:'#e2e8f0', fontSize:12, fontFamily:'IBM Plex Mono,monospace', outline:'none', boxSizing:'border-box' }}
+                        />
+                      </div>
+                    )}
                   </div>
-                </div>
-              )}
-            </div>
-
-            {/* Footer buttons */}
-            <div style={{ padding:'0 24px 20px', display:'flex', gap:10, justifyContent:'space-between', alignItems:'center' }}>
-              <div style={{ fontSize:10, color:'#334155', fontFamily:'IBM Plex Mono,monospace' }}>
-                {wizardStep} / 3
+                )}
               </div>
-              <div style={{ display:'flex', gap:10 }}>
+            )}
+
+            {/* STEP 4: Upload log */}
+            {wizardStep === 4 && (
+              <div style={{ padding:'24px 24px 8px' }}>
+                <h2 style={{ fontSize:18, fontWeight:800, color:'#f1f5f9', marginBottom:6, textAlign:'center' }}>
+                  {lang === 'en' ? 'Step 3 - Upload your first log' : 'Passo 3 - Suba seu primeiro log'}
+                </h2>
+                <p style={{ fontSize:12, color:'#64748b', marginBottom:16, textAlign:'center' }}>
+                  {lang === 'en' ? 'Drop your CSV file below or click to browse. You can skip and upload later.' : 'Solte seu CSV abaixo ou clique para escolher. Voce pode pular e subir depois.'}
+                </p>
+                {/* Drop zone */}
+                <div
+                  onDragOver={(e: React.DragEvent) => { e.preventDefault(); e.stopPropagation() }}
+                  onDrop={(e: React.DragEvent) => {
+                    e.preventDefault(); e.stopPropagation()
+                    const files = (Array.from(e.dataTransfer.files) as File[]).filter(f => f.name.endsWith('.csv'))
+                    if (files.length) handleFiles(files)
+                  }}
+                  onClick={() => {
+                    const inp = document.createElement('input')
+                    inp.type = 'file'; inp.accept = '.csv'; inp.multiple = true
+                    inp.onchange = () => { if (inp.files) handleFiles(Array.from(inp.files)) }
+                    inp.click()
+                  }}
+                  style={{ border:'2px dashed #1e2740', borderRadius:12, padding:'28px 20px', textAlign:'center', cursor:'pointer', marginBottom:12, transition:'border-color 0.2s', background:'#0f1117' }}
+                  onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => (e.currentTarget.style.borderColor = '#f97316')}
+                  onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => (e.currentTarget.style.borderColor = '#1e2740')}
+                >
+                  {uploading && uploadProgress ? (
+                    <div>
+                      <div style={{ fontSize:12, color:'#f97316', fontFamily:'IBM Plex Mono,monospace', marginBottom:8 }}>
+                        {lang === 'en' ? 'Processing...' : 'Processando...'} {uploadProgress.current}/{uploadProgress.total}
+                      </div>
+                      <div style={{ background:'#1e2740', borderRadius:4, height:6, overflow:'hidden' }}>
+                        <div style={{ height:'100%', width:`${Math.round(uploadProgress.current/uploadProgress.total*100)}%`, background:'#f97316', borderRadius:4, transition:'width 0.3s' }} />
+                      </div>
+                    </div>
+                  ) : allSessions.length > 0 ? (
+                    <div>
+                      <div style={{ fontSize:24, marginBottom:8, color:'#00e060' }}>v</div>
+                      <div style={{ fontSize:13, fontWeight:700, color:'#00e060', fontFamily:'IBM Plex Mono,monospace', marginBottom:4 }}>
+                        {allSessions.length} {lang === 'en' ? 'log(s) loaded!' : 'log(s) carregado(s)!'}
+                      </div>
+                      <div style={{ fontSize:11, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>
+                        {lang === 'en' ? 'Click to add more' : 'Clique para adicionar mais'}
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div style={{ fontSize:32, marginBottom:8, color:'#334155' }}>+</div>
+                      <div style={{ fontSize:13, fontWeight:700, color:'#64748b', fontFamily:'IBM Plex Mono,monospace', marginBottom:4 }}>
+                        {lang === 'en' ? 'Drop CSV here or click to browse' : 'Solte o CSV aqui ou clique para escolher'}
+                      </div>
+                      <div style={{ fontSize:11, color:'#334155', fontFamily:'IBM Plex Mono,monospace' }}>
+                        {lang === 'en' ? 'Exported from HondaSH app (.csv)' : 'Exportado pelo app HondaSH (.csv)'}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Footer */}
+            <div style={{ padding:'12px 24px 20px', display:'flex', gap:10, justifyContent:'space-between', alignItems:'center' }}>
+              <div>
                 {wizardStep > 1 && (
                   <button onClick={() => setWizardStep((s: number) => s - 1)}
                     style={{ padding:'8px 16px', background:'none', border:'1px solid #1e2740', borderRadius:7, color:'#64748b', fontSize:12, fontFamily:'IBM Plex Mono,monospace', cursor:'pointer' }}>
                     {lang === 'en' ? 'Back' : 'Voltar'}
                   </button>
                 )}
-                {wizardStep < 3 ? (
-                  <button onClick={() => setWizardStep((s: number) => s + 1)}
-                    style={{ padding:'8px 20px', background:'#f97316', border:'none', borderRadius:7, color:'#000', fontSize:12, fontFamily:'IBM Plex Mono,monospace', fontWeight:800, cursor:'pointer' }}>
-                    {lang === 'en' ? 'Next' : 'Proximo'}
+              </div>
+              <div style={{ display:'flex', gap:10, alignItems:'center' }}>
+                {wizardStep === 4 && allSessions.length === 0 && (
+                  <button onClick={() => { setWizardOpen(false); localStorage.setItem('hndsh_wizard_done','1') }}
+                    style={{ padding:'8px 14px', background:'none', border:'1px solid #1e2740', borderRadius:7, color:'#64748b', fontSize:11, fontFamily:'IBM Plex Mono,monospace', cursor:'pointer' }}>
+                    {lang === 'en' ? 'Skip for now' : 'Pular por agora'}
+                  </button>
+                )}
+                {wizardStep < 4 ? (
+                  <button
+                    disabled={wizardStep === 3 && (!selTrim || !profileName.trim())}
+                    onClick={() => {
+                      if (wizardStep === 3) {
+                        // Save profile before going to step 4
+                        saveProfile()
+                      }
+                      setWizardStep((s: number) => s + 1)
+                    }}
+                    style={{ padding:'8px 22px', background: (wizardStep === 3 && (!selTrim || !profileName.trim())) ? '#2a2a2a' : '#f97316', border:'none', borderRadius:7, color: (wizardStep === 3 && (!selTrim || !profileName.trim())) ? '#475569' : '#000', fontSize:12, fontFamily:'IBM Plex Mono,monospace', fontWeight:800, cursor: (wizardStep === 3 && (!selTrim || !profileName.trim())) ? 'not-allowed' : 'pointer' }}>
+                    {wizardStep === 3 ? (lang === 'en' ? 'Save & Continue' : 'Salvar e Continuar') : (lang === 'en' ? 'Next' : 'Proximo')}
                   </button>
                 ) : (
-                  <button onClick={() => {
-                    setWizardOpen(false)
-                    localStorage.setItem('hndsh_wizard_done', '1')
-                    setCarModalOpen(true)
-                    setCarModalMode('add')
-                    setCarModalStep('model')
-                  }}
-                    style={{ padding:'8px 20px', background:'#f97316', border:'none', borderRadius:7, color:'#000', fontSize:12, fontFamily:'IBM Plex Mono,monospace', fontWeight:800, cursor:'pointer' }}>
-                    {lang === 'en' ? 'Create my car' : 'Criar meu carro'}
+                  <button
+                    onClick={() => { setWizardOpen(false); localStorage.setItem('hndsh_wizard_done','1') }}
+                    style={{ padding:'8px 22px', background: allSessions.length > 0 ? '#f97316' : '#2a2a2a', border:'none', borderRadius:7, color: allSessions.length > 0 ? '#000' : '#475569', fontSize:12, fontFamily:'IBM Plex Mono,monospace', fontWeight:800, cursor: allSessions.length > 0 ? 'pointer' : 'not-allowed' }}>
+                    {lang === 'en' ? 'Finish' : 'Finalizar'}
                   </button>
                 )}
               </div>
@@ -1793,6 +1918,7 @@ export default function Home(): React.ReactElement {
           </div>
         </div>
       )}
+
       {/* Global styles */}
       <style>{`
         * { box-sizing: border-box; }
