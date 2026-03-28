@@ -8,7 +8,7 @@ import type { LogSession } from '@/lib/supabase'
 
 // -- Types -------------------------------------------------------------
 type Lang    = 'en' | 'pt'
-type Tab     = 'overview' | 'timeline' | 'table' | 'score' | 'compat'
+type Tab     = 'overview' | 'timeline' | 'table' | 'score' | 'performance'
 type SecKey  = 'elec' | 'fuel' | 'air' | 'afr' | 'ign' | 'temp' | 'idle' | 'motion' | 'act' | 'diag'
 type Profile = { key: string; name: string }
 
@@ -61,6 +61,8 @@ const T: Record<Lang, Record<string,string>> = {
     th_inj:'Inj ms', th_lh:'l/h', th_kml:'km/l', th_vtec:'VTEC%',
     th_bat:'Bat V', th_mil:'MIL',
     charts_visible:'charts visible', no_charts:'No charts selected.',
+    performance:'Performance', t0_60:'0-60 km/h', t0_100:'0-100 km/h', t0_140:'0-140 km/h',
+    perf_sub:'Best sprint detected', perf_none:'No sprint detected (requires standing start)',
   },
   pt: {
     overview:'Visao Geral', timeline:'Linha do Tempo', table:'Tabela', sessions:'Sessoes',
@@ -102,6 +104,8 @@ const T: Record<Lang, Record<string,string>> = {
     th_inj:'Inj ms', th_lh:'l/h', th_kml:'km/l', th_vtec:'VTEC%',
     th_bat:'Bat V', th_mil:'MIL',
     charts_visible:'graficos visiveis', no_charts:'Nenhum grafico selecionado.',
+    performance:'Performance', t0_60:'0-60 km/h', t0_100:'0-100 km/h', t0_140:'0-140 km/h',
+    perf_sub:'Melhor arrancada detectada', perf_none:'Nenhuma arrancada (partida do 0)',
   },
 }
 
@@ -756,11 +760,11 @@ export default function Home(): React.ReactElement {
 
         {/* Tabs */}
         <div style={{ display:'flex', alignItems:'center', height:52 }}>
-          {(['overview','timeline','table','score','compat'] as Tab[])
-            .filter(tb => activeProfileKey || tb === 'overview' || tb === 'compat')
+          {(['overview','timeline','table','score','performance'] as Tab[])
+            .filter(tb => activeProfileKey || tb === 'overview')
             .map(tb => (
               <button key={tb} onClick={() => setTab(tb)} style={{ padding:'0 16px', height:52, border:'none', borderBottom: tab===tb ? '2px solid #f97316' : '2px solid transparent', background:'transparent', color: tab===tb ? '#f97316' : '#64748b', fontSize:11, letterSpacing:2, textTransform:'uppercase', cursor:'pointer', fontWeight: tab===tb ? 700 : 400, fontFamily:'IBM Plex Mono,monospace' }}>
-                {tb === 'score' ? 'Score' : tb === 'compat' ? 'Compat' : t(tb)}
+                {tb === 'score' ? 'Score' : false ? 'Compat' : t(tb)}
               </button>
             ))}
           <div style={{ marginLeft:12, display:'flex', gap:6, paddingLeft:12, borderLeft:'1px solid #1e2740' }}>
@@ -1165,52 +1169,119 @@ export default function Home(): React.ReactElement {
                         })}
                       </div>
                     </div>
+                    {/* Formula explanation */}
+                    <div style={{ marginTop:20, background:'#0f1117', border:'1px solid #1e2740', borderRadius:10, padding:'18px 20px' }}>
+                      <div style={{ fontSize:10, fontWeight:700, letterSpacing:2, color:'#f97316', fontFamily:'IBM Plex Mono,monospace', textTransform:'uppercase', marginBottom:14 }}>
+                        {lang==='en' ? 'Score Formula' : 'Formula do Score'}
+                      </div>
+                      <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                        {[
+                          { param:'STFT >15%', weight:'20%', ideal:'<2%',  bad:'>15%', desc:lang==='en'?'Short-term correction frequency':'Frequencia de correcao de curto prazo' },
+                          { param:'LTFT',      weight:'15%', ideal:'<2.5%',bad:'>6%',  desc:lang==='en'?'Long-term fuel trim':'Trim de combustivel longo prazo' },
+                          { param:'Lambda',    weight:'15%', ideal:'<0.05',bad:'>0.25',desc:lang==='en'?'Deviation from stoichiometric (1.0)':'Desvio do estequiometrico (1.0)' },
+                          { param:'ECT',       weight:'15%', ideal:'<15%', bad:'>35%', desc:lang==='en'?'Time above 95C':'Tempo acima de 95C' },
+                          { param:'IACV',      weight:'10%', ideal:'<42%', bad:'>65%', desc:lang==='en'?'Idle air control (vacuum leak indicator)':'Valvula de ar de marcha lenta (vacuum leak)' },
+                          { param:'Knock',     weight:'15%', ideal:'0',    bad:'>10',  desc:lang==='en'?'Detonation events':'Eventos de detonacao' },
+                          { param:'Battery',   weight:'5%',  ideal:'0%',   bad:'>5%',  desc:lang==='en'?'Time below 12V':'Tempo abaixo de 12V' },
+                          { param:'MIL',       weight:'5%',  ideal:'0%',   bad:'>0%',  desc:lang==='en'?'Check engine on during session':'Check engine ativo na sessao' },
+                        ].map(row => (
+                          <div key={row.param} style={{ display:'grid', gridTemplateColumns:'80px 40px 1fr 80px 80px', gap:'0 12px', alignItems:'center', padding:'6px 0', borderBottom:'1px solid #1e2740' }}>
+                            <span style={{ fontSize:10, fontFamily:'IBM Plex Mono,monospace', color:'#e2e8f0', fontWeight:700 }}>{row.param}</span>
+                            <span style={{ fontSize:10, fontFamily:'IBM Plex Mono,monospace', color:'#f97316', fontWeight:700, textAlign:'right' }}>{row.weight}</span>
+                            <span style={{ fontSize:10, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>{row.desc}</span>
+                            <span style={{ fontSize:9, color:'#00e060', fontFamily:'IBM Plex Mono,monospace', textAlign:'right' }}>ok: {row.ideal}</span>
+                            <span style={{ fontSize:9, color:'#ff3030', fontFamily:'IBM Plex Mono,monospace', textAlign:'right' }}>bad: {row.bad}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ marginTop:12, fontSize:10, color:'#334155', fontFamily:'IBM Plex Mono,monospace', lineHeight:1.7 }}>
+                        {lang==='en'
+                          ? 'Score = 100 minus weighted deductions. Each parameter is scored 0-100 based on where it falls between the ideal and bad thresholds.'
+                          : 'Score = 100 menos deducoes ponderadas. Cada parametro e avaliado de 0-100 com base na posicao entre o ideal e o limite critico.'}
+                      </div>
+                    </div>
                   </>
                 )
               })()}
             </div>
           )}
 
-          {/* COMPAT */}
-          {tab === 'compat' && (
+          {/* PERFORMANCE */}
+          {activeProfileKey && tab === 'performance' && active && (
             <div>
               <div style={{ marginBottom:20 }}>
-                <h1 style={{ fontSize:20, fontWeight:800, color:'#f1f5f9', marginBottom:8 }}>Compatible Vehicles</h1>
-                <p style={{ fontSize:13, color:'#64748b', lineHeight:1.7, maxWidth:640 }}>
-                  All Honda/Acura gasoline models from 1992 to 2001 that use the proprietary 3-pin or 5-pin DLC diagnostic connector. Vehicles with the standard 16-pin OBD2 port (US/CA from 1996+) are not supported.
-                </p>
+                <h1 style={{ fontSize:20, fontWeight:800, color:'#f1f5f9', marginBottom:4 }}>{t('performance')}</h1>
+                <span style={{ fontSize:11, letterSpacing:'1.5px', textTransform:'uppercase', color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>
+                  {active.name} -- {lang === 'en' ? 'Sprint times detected from log data' : 'Tempos de arrancada detectados no log'}
+                </span>
               </div>
-              <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-                {[
-                  {model:'Honda Civic / CRX / Del Sol',years:'1992-2000',engines:'D15B, D16Z6, D16Y7/8, B16A, B16A2'},
-                  {model:'Honda Civic Type R',years:'1997-2001',engines:'B16B 185ps DOHC VTEC'},
-                  {model:'Honda Accord',years:'1992-2001',engines:'F22A, F22B1, F22B2, F23A, H23A'},
-                  {model:'Honda Prelude',years:'1992-2001',engines:'F22A, F22B, H22A, H23A'},
-                  {model:'Honda Integra / Acura Integra',years:'1992-2001',engines:'B17A1, B18A1, B18B1, B18C, B18C1, B18C5'},
-                  {model:'Honda CR-V',years:'1997-2001',engines:'B20B, B20Z2'},
-                  {model:'Honda HR-V',years:'1999-2001',engines:'D13B, D16W'},
-                  {model:'Honda Odyssey (JDM)',years:'1994-1999',engines:'F22B, F23A'},
-                  {model:'Honda Stepwgn',years:'1996-2001',engines:'B20B'},
-                  {model:'Honda Orthia / Partner',years:'1996-2002',engines:'B20B, D16A'},
-                  {model:'Honda Domani / Integra SJ',years:'1996-2001',engines:'D15B, D16A'},
-                  {model:'Acura NSX',years:'1991-2001',engines:'C30A, C32B 3.0/3.2L V6'},
-                  {model:'Acura Legend / Honda Legend',years:'1991-1995',engines:'C32A 3.2L V6'},
-                  {model:'Acura Vigor / Honda Ascot',years:'1992-1994',engines:'G25A 2.5L inline-5'},
-                  {model:'Honda Logo / Capa',years:'1996-2001',engines:'D13B'},
-                  {model:'Honda S-MX',years:'1996-2001',engines:'B20B'},
-                  {model:'Honda Stream (early JDM)',years:'2000-2001',engines:'D17A, K20A'},
-                  {model:'Honda Acty / Beat (Kei)',years:'1992-1999',engines:'E07A'},
-                ].map((v, i) => (
-                  <div key={i} style={{ background:'#111827', border:'1px solid #1e2740', borderRadius:8, padding:'12px 16px', display:'grid', gridTemplateColumns:'1fr 80px 1fr', gap:'0 16px', alignItems:'center' }}>
-                    <div style={{ fontSize:12, fontWeight:700, color:'#e2e8f0' }}>{v.model}</div>
-                    <div style={{ fontSize:10, background:'#1e3a5f', color:'#60a5fa', padding:'2px 7px', borderRadius:3, fontFamily:'IBM Plex Mono,monospace', fontWeight:700, textAlign:'center' }}>{v.years}</div>
-                    <div style={{ fontSize:10, color:'#94a3b8', fontFamily:'IBM Plex Mono,monospace' }}>{v.engines}</div>
+
+              {/* Sprint time cards */}
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))', gap:16, marginBottom:28 }}>
+                {([
+                  { key:'t0_60',  label:t('t0_60'),  val:active.t0_60,  color:'#00e060', suffix:'s' },
+                  { key:'t0_100', label:t('t0_100'), val:active.t0_100, color:'#f97316', suffix:'s' },
+                  { key:'t0_140', label:t('t0_140'), val:active.t0_140, color:'#ff3030', suffix:'s' },
+                  { key:'vmax',   label:lang==='en'?'Top Speed':'Veloc. Max.', val:active.vmax ?? active.vss_max, color:'#c060ff', suffix:' km/h' },
+                ] as const).map(item => (
+                  <div key={item.key} style={{ background:'#111827', border:`1px solid ${item.color}30`, borderRadius:12, padding:'20px 18px', position:'relative', overflow:'hidden' }}>
+                    <div style={{ position:'absolute', top:0, left:0, right:0, height:3, background:item.color }} />
+                    <div style={{ fontSize:10, letterSpacing:'2px', textTransform:'uppercase', color:'#64748b', fontFamily:'IBM Plex Mono,monospace', fontWeight:600, marginBottom:10 }}>{item.label}</div>
+                    {item.val != null ? (
+                      <>
+                        <div style={{ fontSize:40, fontWeight:900, color:item.color, fontFamily:'IBM Plex Mono,monospace', lineHeight:1 }}>
+                          {typeof item.val === 'number' ? item.val.toFixed(2) : item.val}
+                        </div>
+                        <div style={{ fontSize:14, color:item.color, fontFamily:'IBM Plex Mono,monospace', marginTop:4, opacity:0.7 }}>{item.suffix}</div>
+                        <div style={{ fontSize:10, color:'#334155', fontFamily:'IBM Plex Mono,monospace', marginTop:8 }}>{t('perf_sub')}</div>
+                      </>
+                    ) : (
+                      <div style={{ fontSize:12, color:'#334155', fontFamily:'IBM Plex Mono,monospace', marginTop:8, lineHeight:1.7 }}>{t('perf_none')}</div>
+                    )}
                   </div>
                 ))}
               </div>
-              <div style={{ marginTop:14, padding:'12px 16px', background:'#1a1f2e', border:'1px solid #1e2740', borderRadius:8 }}>
-                <p style={{ fontSize:11, color:'#475569', lineHeight:1.7 }}>
-                  Note: Some 92-95 models have the 3-pin connector with only 2 wires (no power pin) - requires external power source. US/CA vehicles from 1996+ use the 16-pin OBD2 port and are not compatible.
+
+              {/* Sprint evolution across sessions */}
+              {allSessions.some(s => s.t0_100 != null) && (
+                <div style={{ background:'#111827', border:'1px solid #1e2740', borderRadius:12, padding:'20px 18px', marginBottom:20 }}>
+                  <div style={{ fontSize:11, fontWeight:700, letterSpacing:'2px', textTransform:'uppercase', color:'#64748b', fontFamily:'IBM Plex Mono,monospace', marginBottom:16 }}>
+                    {lang==='en' ? '0-100 km/h Evolution' : 'Evolucao 0-100 km/h'}
+                  </div>
+                  <div style={{ display:'flex', gap:6, alignItems:'flex-end', height:80 }}>
+                    {allSessions.map((s, idx) => {
+                      const t100 = s.t0_100
+                      if (t100 == null) return (
+                        <div key={s.name} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
+                          <div style={{ fontSize:8, color:'#1e2740', fontFamily:'IBM Plex Mono,monospace' }}>--</div>
+                          <div style={{ width:'100%', height:3, background:'#1e2740', borderRadius:2 }} />
+                          <div style={{ fontSize:7, color:'#334155', fontFamily:'IBM Plex Mono,monospace', textAlign:'center', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', width:'100%' }}>{s.name.split(' ')[0]}</div>
+                        </div>
+                      )
+                      // Lower time = better. Normalize against worst (highest t100)
+                      const times = allSessions.map(x => x.t0_100).filter((v): v is number => v != null)
+                      const worst = Math.max(...times)
+                      const barH = Math.round((1 - (t100 / (worst * 1.2))) * 100)
+                      const col = t100 < 10 ? '#00e060' : t100 < 13 ? '#f97316' : '#ff3030'
+                      const isAct = s.name === active?.name
+                      return (
+                        <div key={s.name} onClick={() => setActiveIdx(idx)} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:3, cursor:'pointer' }}>
+                          <div style={{ fontSize:9, fontFamily:'IBM Plex Mono,monospace', color:col, fontWeight:700 }}>{t100.toFixed(1)}s</div>
+                          <div style={{ width:'100%', height:`${Math.max(barH, 5)}%`, background:col, borderRadius:'2px 2px 0 0', opacity: isAct ? 1 : 0.5, outline: isAct ? `1px solid ${col}` : 'none' }} />
+                          <div style={{ fontSize:7, color:'#334155', fontFamily:'IBM Plex Mono,monospace', textAlign:'center', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', width:'100%' }}>{s.name.split(' ')[0]}</div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Explanation */}
+              <div style={{ background:'#0f1117', border:'1px solid #1e2740', borderRadius:8, padding:'14px 16px' }}>
+                <p style={{ fontSize:11, color:'#475569', lineHeight:1.8, fontFamily:'IBM Plex Mono,monospace' }}>
+                  {lang==='en'
+                    ? 'Sprint times are calculated from VSS (vehicle speed sensor) data. The algorithm scans for runs starting below 5 km/h and records the time to reach the target speed. The best (lowest) time from each log is shown. GPS-corrected speed is used when available.'
+                    : 'Os tempos de arrancada sao calculados a partir do VSS (sensor de velocidade). O algoritmo busca arrancadas que partem abaixo de 5 km/h e mede o tempo ate atingir a velocidade alvo. O melhor tempo do log e exibido. Velocidade calibrada GPS e usada quando disponivel.'}
                 </p>
               </div>
             </div>
