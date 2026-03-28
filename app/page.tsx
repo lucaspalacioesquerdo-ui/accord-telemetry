@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback, useRef } from 'react'
 import TimelineChart from '@/components/TimelineChart'
-import { parseCSVFile, BASELINE } from '@/lib/parser'
+import { parseCSVFile } from '@/lib/parser'
 import { generateAlerts, type Alert } from '@/lib/alerts'
 import type { LogSession } from '@/lib/supabase'
 
@@ -776,7 +776,6 @@ export default function Home(): React.ReactElement {
   const profileLocal = activeProfileKey ? (profileSessions[activeProfileKey] ?? []) : localSessions
   const allSessions: LogSession[] = (() => {
     const map = new Map<string,LogSession>()
-    if (!activeProfileKey) BASELINE.forEach((s: LogSession) => map.set(s.name, s))
     dbSessions
       .filter((s: LogSession) => !activeProfileKey || (s as LogSession & {profile?: string}).profile === activeProfileKey)
       .forEach((s: LogSession) => map.set(s.name, s))
