@@ -1013,8 +1013,6 @@ export default function Home(): React.ReactElement {
                             refLine: c.refLine as {value:number;label:string;color?:string}|undefined,
                           }
                           return (
-                            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-                            // @ts-expect-error key is a React prop, not a TimelineChart prop
                             <TimelineChart key={c.id} {...chartProps} />
                           )
                         })}
