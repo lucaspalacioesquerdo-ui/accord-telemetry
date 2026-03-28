@@ -1288,28 +1288,19 @@ export default function Home(): React.ReactElement {
                 </div>
               )}
 
-              {/* Health score chart - always first */}
-              <div style={{ marginBottom:28 }}>
-                <div style={{ borderBottom:'1px solid #1e2740', paddingBottom:10, marginBottom:16 }}>
-                  <span style={{ fontSize:13, fontWeight:700, color:'#e2e8f0', fontFamily:'IBM Plex Mono,monospace' }}>Health Score</span>
-                </div>
-                <div style={{ background:'#111827', border:'1px solid #1e2740', borderRadius:10, padding:'16px 18px' }}>
-                  <div style={{ display:'flex', gap:6, alignItems:'flex-end', height:80 }}>
-                    {allSessions.map((s, idx) => {
-                      const sc = calcHealth(s)
-                      const col = scoreCol(sc)
-                      const isAct = s.name === active?.name
-                      return (
-                        <div key={s.name} onClick={() => { setActiveIdx(idx); setTab('score') }} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:3, cursor:'pointer' }}>
-                          <div style={{ fontSize:9, fontFamily:'IBM Plex Mono,monospace', color:col, fontWeight:700 }}>{sc}</div>
-                          <div style={{ width:'100%', height:`${sc}%`, minHeight:3, background:col, borderRadius:'2px 2px 0 0', opacity: isAct ? 1 : 0.5, outline: isAct ? `1px solid ${col}` : 'none' }} />
-                          <div style={{ fontSize:7, color:'#334155', fontFamily:'IBM Plex Mono,monospace', textAlign:'center', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', width:'100%' }}>{s.name.split(' ')[0]}</div>
-                        </div>
-                      )
-                    })}
+              {/* Health score line chart - always first */}
+              {allSessions.length > 0 && (
+                <div style={{ marginBottom:28 }}>
+                  <div style={{ borderBottom:'1px solid #1e2740', paddingBottom:10, marginBottom:16 }}>
+                    <span style={{ fontSize:13, fontWeight:700, color:'#e2e8f0', fontFamily:'IBM Plex Mono,monospace' }}>Health Score</span>
                   </div>
+                  <ScoreLineChart
+                    sessions={allSessions.map(s => ({ name: s.name, score: calcHealth(s), col: scoreCol(calcHealth(s)) }))}
+                    activeIdx={activeI}
+                    onSelect={(i) => { setActiveIdx(i); setTab('score') }}
+                  />
                 </div>
-              </div>
+              )}
 
               {/* Chart groups */}
               {chartGroups.map(grp => {
@@ -1461,11 +1452,23 @@ export default function Home(): React.ReactElement {
                         onSelect={(i) => setActiveIdx(i)}
                       />
                     </div>
-                    {/* Formula explanation */}
-                    <div style={{ marginTop:20, background:'#0f1117', border:'1px solid #1e2740', borderRadius:10, padding:'18px 20px' }}>
-                      <div style={{ fontSize:10, fontWeight:700, letterSpacing:2, color:'#f97316', fontFamily:'IBM Plex Mono,monospace', textTransform:'uppercase', marginBottom:14 }}>
-                        {lang==='en' ? 'Score Formula' : 'Formula do Score'}
-                      </div>
+                    {/* Formula explanation - collapsible */}
+                    {(() => {
+                      const [formulaOpen, setFormulaOpen] = React.useState(false)
+                      return (
+                      <div style={{ marginTop:20, background:'#0f1117', border:'1px solid #1e2740', borderRadius:10, overflow:'hidden' }}>
+                        <button onClick={() => setFormulaOpen((o: boolean) => !o)}
+                          style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 20px', background:'none', border:'none', cursor:'pointer', textAlign:'left' }}>
+                          <span style={{ fontSize:11, color:'#64748b', fontFamily:'IBM Plex Mono,monospace' }}>
+                            {lang==='en' ? 'Click to understand the score' : 'Clique para entender o score'}
+                          </span>
+                          <span style={{ fontSize:11, color:'#475569', fontFamily:'IBM Plex Mono,monospace', transform: formulaOpen ? 'rotate(180deg)' : 'none', display:'inline-block', transition:'transform 0.2s' }}>v</span>
+                        </button>
+                        {formulaOpen && (
+                        <div style={{ padding:'0 20px 18px' }}>
+                        <div style={{ fontSize:10, fontWeight:700, letterSpacing:2, color:'#f97316', fontFamily:'IBM Plex Mono,monospace', textTransform:'uppercase', marginBottom:14 }}>
+                          {lang==='en' ? 'Score Formula' : 'Formula do Score'}
+                        </div>
                       <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
                         {[
                           { param:'STFT >15%', weight:'20%', ideal:'<2%',  bad:'>15%', desc:lang==='en'?'Short-term correction frequency':'Frequencia de correcao de curto prazo' },
@@ -1491,7 +1494,9 @@ export default function Home(): React.ReactElement {
                           ? 'Score = 100 minus weighted deductions. Each parameter is scored 0-100 based on where it falls between the ideal and bad thresholds.'
                           : 'Score = 100 menos deducoes ponderadas. Cada parametro e avaliado de 0-100 com base na posicao entre o ideal e o limite critico.'}
                       </div>
-                    </div>
+                        </div>)}
+                      </div>)
+                    })()}
                   </>
                 )
               })()}
