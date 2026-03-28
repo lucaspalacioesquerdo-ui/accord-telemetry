@@ -766,14 +766,7 @@ export default function Home(): React.ReactElement {
           {show('inj_dur')   && <Kpi label={t('inj_dur')}   value={fmt(v.inj_dur,2)}           unit="ms"     sub={`DC: ${fmt(v.inj_dc_mean)}%`} color="#ffd080" />}
           {show('inj_dc')    && <Kpi label={t('inj_dc')}    value={fmt(v.inj_dc_mean)}         unit="%"      color="#ff9000" />}
           {show('inj_fr')    && <Kpi label={t('inj_fr')}    value={fmt(v.inj_fr_mean,0)}       unit="cc/min" color="#ffa830" />}
-          {v.inj_dc_mean != null && (
-            <div style={{ display:'flex', justifyContent:'center', padding:'8px 0 32px' }}>
-              <MiniDonut size={90} slices={[
-                { value: v.inj_dc_mean, color:'#f97316', label:'INJ ON' },
-                { value: 100 - v.inj_dc_mean, color:'#1e2740', label:'OFF' },
-              ]} />
-            </div>
-          )}
+
         </div>
       )
       case 'air': return (
@@ -791,11 +784,7 @@ export default function Home(): React.ReactElement {
           {show('lambda')  && <Kpi label={t('lambda')}  value={fmt(v.lambda,3)}         sub="ideal: ~1.000"                                         color="#c0ff60"  prevValue={pv?.lambda ?? null} lowerIsBetter={true} />}
           {show('fls')     && <Kpi label={t('fls')}     value={fmt(v.closed_loop_pct)} unit="%" sub="closed loop"                                    color="#60b800"  />}
           {show('iacv_dc') && <Kpi label={t('iacv_dc')} value={fmt(v.iacv_mean)} unit="%" sub="expected: 30-38%"                                     color="#50a000"  prevValue={pv?.iacv_mean ?? null} lowerIsBetter={true} />}
-          {v.iacv_mean != null && (
-            <div style={{ display:'flex', justifyContent:'center', padding:'8px 0 20px' }}>
-              <MiniGauge value={v.iacv_mean} min={0} max={100} goodMin={30} goodMax={38} color="#50a000" label="IACV target: 30-38%" />
-            </div>
-          )}
+
         </div>
       )
       case 'ign': return (
@@ -820,10 +809,11 @@ export default function Home(): React.ReactElement {
       )
       case 'motion': return (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))', gap:8, marginBottom:8 }}>
-          {show('vss')       && <Kpi label={t('vss')}       value={fmt(v.vss_mean)} unit="km/h" sub={`max ${fmt(v.vss_max,0)} km/h`} color="#4080ff" />}
+          {show('vss')       && <Kpi label={lang==='en'?'Avg Speed':'Veloc. Media'} value={fmt(v.vss_mean)} unit="km/h" color="#4080ff" />}
+          {show('vss')       && <Kpi label={lang==='en'?'Top Speed':'Veloc. Max.'}  value={fmt(v.vss_max,0)} unit="km/h" color="#2060ff" />}
           {show('lng_accel') && <Kpi label={t('lng_accel')} value={fmt(v.lng_accel_max,3)} unit="G" sub={`brake ${fmt(v.lng_accel_min,3)}G`} color="#80a8ff" />}
           {show('km_est')    && <Kpi label={t('km_est')}    value={fmt(v.km_estimated,1)} unit="km"                                    color="#2060e0" />}
-          {show('vtec')      && <Kpi label={t('vtec')}      value={fmt(v.vtec_pct)} unit="%"                                           color="#60a0ff" />}
+          {show('vtec')      && <Kpi label={lang==='en'?'VTEC Active':'VTEC Ativo'} value={fmt(v.vtec_pct)} unit="%" color="#60a0ff" />}
         </div>
       )
       case 'act': return (
