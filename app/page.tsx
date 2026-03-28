@@ -529,6 +529,7 @@ export default function Home() {
   const [profileName, setProfileName]       = useState('')
   const [carModalMode, setCarModalMode]     = useState<'list' | 'add'>('list')
   const carModalRef                         = useRef<HTMLDivElement>(null)
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null)
 
   // Derive selected car display name
   const selectedCarDef = activeProfile ? (() => {
@@ -574,8 +575,6 @@ export default function Home() {
   const isNew     = (s: LogSession) => dbSessions.some(d => d.name === s.name) || profileLocalSessions.some(l => l.name === s.name)
   const hs        = active ? calcHealth(active) : null
   const hsColor   = hs != null ? scoreCol(hs) : '#475569'
-
-  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null)
 
   const handleFiles = useCallback(async (files: File[]) => {
     if (files.length === 0) return
