@@ -286,11 +286,22 @@ function ScoreLineChart({ sessions, activeIdx, onSelect }: {
           plugins: {
             legend: { display: false },
             tooltip: {
+              mode: 'index' as const,
+              intersect: false,
               backgroundColor: '#0c0f14', borderColor: '#1a2330', borderWidth: 1,
               titleColor: '#f97316', bodyColor: '#94a3b8',
               titleFont: { family: "'IBM Plex Mono'", size: 11, weight: 'bold' as const },
-              bodyFont: { family: "'IBM Plex Mono'", size: 10 },
-              callbacks: { label: (item: import('chart.js').TooltipItem<'line'>) => ` Score: ${item.parsed.y} - ${sessions[item.dataIndex]?.col === '#00e060' ? 'Healthy' : sessions[item.dataIndex]?.col === '#ffe000' ? 'Attention' : 'Critical'}` },
+              bodyFont:  { family: "'IBM Plex Mono'", size: 10 },
+              padding: 10,
+              callbacks: {
+                title: (items: import('chart.js').TooltipItem<'line'>[]) => items[0]?.label ?? '',
+                label: (item: import('chart.js').TooltipItem<'line'>) => {
+                  const sc = item.parsed.y
+                  const col = sessions[item.dataIndex]?.col
+                  const status = col === '#00e060' ? 'Healthy' : col === '#ffe000' ? 'Attention' : 'Critical'
+                  return ' Score: ' + sc + ' (' + status + ')'
+                },
+              },
             },
           },
           scales: {
@@ -305,6 +316,88 @@ function ScoreLineChart({ sessions, activeIdx, onSelect }: {
   }, [sessions, activeIdx])
 
   return <div style={{ position:'relative', height:140 }}><canvas ref={canvasRef} /></div>
+}
+
+// -- MiniGauge: semicircle gauge (0-100%) --------------------------------
+function MiniGauge({ value, min, max, goodMin, goodMax, color, label }: {
+  value: number | null; min: number; max: number
+  goodMin: number; goodMax: number; color: string; label: string
+}): React.ReactElement {
+  const pct = value != null ? Math.max(0, Math.min(1, (value - min) / (max - min))) : null
+  const angle = pct != null ? -180 + pct * 180 : null  // -180 = left, 0 = right
+  const inGood = value != null && value >= goodMin && value <= goodMax
+  const needleColor = inGood ? '#00e060' : '#ff3030'
+  // SVG arc helper
+  const arc = (pct0: number, pct1: number, r: number, col: string) => {
+    const a0 = Math.PI * pct0 - Math.PI
+    const a1 = Math.PI * pct1 - Math.PI
+    const x0 = 50 + r * Math.cos(a0), y0 = 50 + r * Math.sin(a0)
+    const x1 = 50 + r * Math.cos(a1), y1 = 50 + r * Math.sin(a1)
+    return <path d={`M ${x0} ${y0} A ${r} ${r} 0 0 1 ${x1} ${y1}`} stroke={col} strokeWidth={8} fill="none" strokeLinecap="round" />
+  }
+  const goodP0 = (goodMin - min) / (max - min)
+  const goodP1 = (goodMax - min) / (max - min)
+  return (
+    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
+      <svg viewBox="0 0 100 55" style={{ width:100, overflow:'visible' }}>
+        {arc(0, 1, 38, '#1e2740')}
+        {arc(goodP0, goodP1, 38, color + '60')}
+        {angle != null && (() => {
+          const rad = angle * Math.PI / 180
+          const nx = 50 + 30 * Math.cos(rad), ny = 50 + 30 * Math.sin(rad)
+          return <>
+            <line x1="50" y1="50" x2={nx} y2={ny} stroke={needleColor} strokeWidth={2} strokeLinecap="round" />
+            <circle cx="50" cy="50" r="3" fill={needleColor} />
+          </>
+        })()}
+      </svg>
+      <div style={{ fontSize:11, fontWeight:700, color: pct != null ? needleColor : '#475569', fontFamily:'IBM Plex Mono,monospace', marginTop:-8 }}>
+        {value != null ? value.toFixed(1) + '%' : '--'}
+      </div>
+      <div style={{ fontSize:9, color:'#334155', fontFamily:'IBM Plex Mono,monospace' }}>{label}</div>
+    </div>
+  )
+}
+
+// -- MiniDonut: small donut chart -----------------------------------------
+function MiniDonut({ slices, size }: {
+  slices: { value: number; color: string; label: string }[]
+  size?: number
+}): React.ReactElement {
+  const sz = size ?? 80
+  const r = sz * 0.38, cx = sz / 2, cy = sz / 2
+  const total = slices.reduce((a, s) => a + Math.max(0, s.value), 0)
+  if (total === 0) return <div style={{ width:sz, height:sz }} />
+  let angle = -Math.PI / 2
+  const paths = slices.map(s => {
+    const frac = Math.max(0, s.value) / total
+    const sweep = frac * 2 * Math.PI
+    const x0 = cx + r * Math.cos(angle), y0 = cy + r * Math.sin(angle)
+    const x1 = cx + r * Math.cos(angle + sweep), y1 = cy + r * Math.sin(angle + sweep)
+    const large = sweep > Math.PI ? 1 : 0
+    const path = sweep > 0.01
+      ? `M ${cx} ${cy} L ${x0} ${y0} A ${r} ${r} 0 ${large} 1 ${x1} ${y1} Z`
+      : ''
+    angle += sweep
+    return { path, color: s.color, label: s.label, pct: Math.round(frac * 100) }
+  })
+  return (
+    <div style={{ position:'relative', width:sz, height:sz }}>
+      <svg viewBox={`0 0 ${sz} ${sz}`} style={{ width:sz, height:sz }}>
+        {/* hole */}
+        <circle cx={cx} cy={cy} r={r * 0.55} fill="#0f1117" />
+        {paths.map((p, i) => p.path ? <path key={i} d={p.path} fill={p.color} opacity={0.85} /> : null)}
+      </svg>
+      {/* Legend */}
+      <div style={{ position:'absolute', bottom:-28, left:0, right:0, display:'flex', gap:6, justifyContent:'center', flexWrap:'wrap' }}>
+        {paths.map((p, i) => (
+          <span key={i} style={{ fontSize:8, color:p.color, fontFamily:'IBM Plex Mono,monospace' }}>
+            {p.label} {p.pct}%
+          </span>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 // -- DiagList component ------------------------------------------------
@@ -673,6 +766,14 @@ export default function Home(): React.ReactElement {
           {show('inj_dur')   && <Kpi label={t('inj_dur')}   value={fmt(v.inj_dur,2)}           unit="ms"     sub={`DC: ${fmt(v.inj_dc_mean)}%`} color="#ffd080" />}
           {show('inj_dc')    && <Kpi label={t('inj_dc')}    value={fmt(v.inj_dc_mean)}         unit="%"      color="#ff9000" />}
           {show('inj_fr')    && <Kpi label={t('inj_fr')}    value={fmt(v.inj_fr_mean,0)}       unit="cc/min" color="#ffa830" />}
+          {v.inj_dc_mean != null && (
+            <div style={{ display:'flex', justifyContent:'center', padding:'8px 0 32px' }}>
+              <MiniDonut size={90} slices={[
+                { value: v.inj_dc_mean, color:'#f97316', label:'INJ ON' },
+                { value: 100 - v.inj_dc_mean, color:'#1e2740', label:'OFF' },
+              ]} />
+            </div>
+          )}
         </div>
       )
       case 'air': return (
@@ -690,6 +791,11 @@ export default function Home(): React.ReactElement {
           {show('lambda')  && <Kpi label={t('lambda')}  value={fmt(v.lambda,3)}         sub="ideal: ~1.000"                                         color="#c0ff60"  prevValue={pv?.lambda ?? null} lowerIsBetter={true} />}
           {show('fls')     && <Kpi label={t('fls')}     value={fmt(v.closed_loop_pct)} unit="%" sub="closed loop"                                    color="#60b800"  />}
           {show('iacv_dc') && <Kpi label={t('iacv_dc')} value={fmt(v.iacv_mean)} unit="%" sub="expected: 30-38%"                                     color="#50a000"  prevValue={pv?.iacv_mean ?? null} lowerIsBetter={true} />}
+          {v.iacv_mean != null && (
+            <div style={{ display:'flex', justifyContent:'center', padding:'8px 0 20px' }}>
+              <MiniGauge value={v.iacv_mean} min={0} max={100} goodMin={30} goodMax={38} color="#50a000" label="IACV target: 30-38%" />
+            </div>
+          )}
         </div>
       )
       case 'ign': return (
@@ -727,15 +833,11 @@ export default function Home(): React.ReactElement {
         </div>
       )
       case 'perf': {
-        // Best values across ALL sessions (not just active)
-        const bestT60  = allSessions.map(s => s.t0_60).filter((v): v is number => v != null).reduce((a,b) => Math.min(a,b), Infinity)
-        const bestT100 = allSessions.map(s => s.t0_100).filter((v): v is number => v != null).reduce((a,b) => Math.min(a,b), Infinity)
-        const bestT140 = allSessions.map(s => s.t0_140).filter((v): v is number => v != null).reduce((a,b) => Math.min(a,b), Infinity)
-        const bestVmax = allSessions.map(s => s.vmax ?? s.vss_max).filter((v): v is number => v != null).reduce((a,b) => Math.max(a,b), 0)
-        const t60  = isFinite(bestT60)  ? bestT60  : null
-        const t100 = isFinite(bestT100) ? bestT100 : null
-        const t140 = isFinite(bestT140) ? bestT140 : null
-        const vmax = bestVmax > 0 ? bestVmax : null
+        // Values from the currently active session
+        const t60  = active.t0_60
+        const t100 = active.t0_100
+        const t140 = active.t0_140
+        const vmax = active.vmax ?? active.vss_max
         const noData = t60 === null && t100 === null && t140 === null
         if (noData) return (
           <div style={{ padding:'10px 0 6px', color:'#334155', fontSize:11, fontFamily:'IBM Plex Mono,monospace' }}>
