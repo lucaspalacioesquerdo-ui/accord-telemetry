@@ -428,27 +428,21 @@ function ensureLeaflet(cb: () => void) {
 }
 
 function RouteMap({ track, lang }: {
-  track: [number, number, number][]
+  track: [number, number, number, number, number][]  // [lat, lon, speed, ect, rev]
   lang: string
 }): React.ReactElement {
-  const mapRef  = React.useRef<HTMLDivElement>(null)
-  const instRef = React.useRef<{ remove(): void } | null>(null)
+  const mapRef    = React.useRef<HTMLDivElement>(null)
+  const instRef   = React.useRef<{ remove(): void } | null>(null)
+  const [overlay, setOverlay] = React.useState<'speed'|'temp'|'rpm'>('speed')
 
   React.useEffect(() => {
     if (!mapRef.current || !track.length) return
-
-    // Destroy previous instance if exists
     if (instRef.current) { instRef.current.remove(); instRef.current = null }
 
     ensureLeaflet(() => {
       if (!mapRef.current) return
-      // Double-destroy guard: Leaflet marks the container with _leaflet_id
       const container = mapRef.current as HTMLDivElement & { _leaflet_id?: number }
-      if (container._leaflet_id) {
-        // Container already initialized - clear it
-        container._leaflet_id = undefined
-        container.innerHTML = ''
-      }
+      if (container._leaflet_id) { container._leaflet_id = undefined; container.innerHTML = '' }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const L = (window as any).L
@@ -458,22 +452,32 @@ function RouteMap({ track, lang }: {
       instRef.current = m
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '(c) OpenStreetMap',
-        maxZoom: 19,
+        attribution: '(c) OpenStreetMap', maxZoom: 19,
       }).addTo(m)
 
-      const speedColor = (sp: number): string =>
-        sp < 30 ? '#ff3030' : sp < 60 ? '#f97316' : '#2060ff'
+      // Color by selected overlay
+      const getColor = (pt: [number, number, number, number, number]): string => {
+        if (overlay === 'speed') {
+          const sp = pt[2]
+          return sp < 30 ? '#ff3030' : sp < 60 ? '#f97316' : '#2060ff'
+        }
+        if (overlay === 'temp') {
+          const t = pt[3]
+          return t < 70 ? '#2060ff' : t < 90 ? '#f97316' : '#ff3030'
+        }
+        // rpm
+        const r = pt[4]
+        return r < 2000 ? '#2060ff' : r < 4000 ? '#f97316' : '#ff3030'
+      }
 
       for (let i = 0; i < track.length - 1; i++) {
-        const [la, lo, sp] = track[i]
+        const [la, lo] = track[i]
         const [la2, lo2] = track[i + 1]
         L.polyline([[la, lo], [la2, lo2]], {
-          color: speedColor(sp), weight: 4, opacity: 0.85,
+          color: getColor(track[i]), weight: 4, opacity: 0.85,
         }).addTo(m)
       }
 
-      // Start marker (green) and end marker (red)
       L.circleMarker([track[0][0], track[0][1]], {
         radius: 7, color: '#00e060', fillColor: '#00e060', fillOpacity: 1, weight: 2,
       }).addTo(m)
@@ -481,35 +485,70 @@ function RouteMap({ track, lang }: {
         radius: 7, color: '#ff3030', fillColor: '#ff3030', fillOpacity: 1, weight: 2,
       }).addTo(m)
 
-      // Fit bounds
       const bounds = track.map(([la, lo]) => [la, lo] as [number, number])
       m.fitBounds(bounds, { padding: [20, 20] })
     })
 
-    return () => {
-      if (instRef.current) { instRef.current.remove(); instRef.current = null }
-    }
-  }, [track])
+    return () => { if (instRef.current) { instRef.current.remove(); instRef.current = null } }
+  }, [track, overlay])
+
+  // Legend config per overlay
+  const legends: Record<string, { color: string; label: string }[]> = {
+    speed: [
+      { color: '#ff3030', label: '<30 km/h' },
+      { color: '#f97316', label: '30-60 km/h' },
+      { color: '#2060ff', label: '>60 km/h' },
+    ],
+    temp: [
+      { color: '#2060ff', label: lang === 'en' ? '<70C' : '<70C' },
+      { color: '#f97316', label: '70-90C' },
+      { color: '#ff3030', label: '>90C' },
+    ],
+    rpm: [
+      { color: '#2060ff', label: '<2000 rpm' },
+      { color: '#f97316', label: '2-4k rpm' },
+      { color: '#ff3030', label: '>4000 rpm' },
+    ],
+  }
+
+  const overlayLabels: Record<string, string> = {
+    speed: lang === 'en' ? 'Speed' : 'Velocidade',
+    temp:  lang === 'en' ? 'Temperature' : 'Temperatura',
+    rpm:   lang === 'en' ? 'RPM' : 'Rotacao',
+  }
 
   return (
     <div>
       <div ref={mapRef} style={{ height: 280, borderRadius: 10, overflow: 'hidden', border: '1px solid #1e2740', background: '#1a2035' }} />
-      <div style={{ display: 'flex', gap: 14, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        {([
-          { color: '#ff3030', label: '<30 km/h' },
-          { color: '#f97316', label: '30-60 km/h' },
-          { color: '#2060ff', label: '>60 km/h' },
-        ] as const).map(item => (
+      {/* Controls row */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 8, flexWrap: 'wrap' }}>
+        {/* Legend */}
+        {legends[overlay].map(item => (
           <div key={item.color} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <div style={{ width: 20, height: 4, background: item.color, borderRadius: 2 }} />
+            <div style={{ width: 18, height: 4, background: item.color, borderRadius: 2 }} />
             <span style={{ fontSize: 10, color: '#475569', fontFamily: 'IBM Plex Mono,monospace' }}>{item.label}</span>
           </div>
         ))}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
-          <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#00e060' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ width: 9, height: 9, borderRadius: '50%', background: '#00e060' }} />
           <span style={{ fontSize: 10, color: '#475569', fontFamily: 'IBM Plex Mono,monospace' }}>{lang === 'en' ? 'Start' : 'Inicio'}</span>
-          <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#ff3030' }} />
+          <div style={{ width: 9, height: 9, borderRadius: '50%', background: '#ff3030' }} />
           <span style={{ fontSize: 10, color: '#475569', fontFamily: 'IBM Plex Mono,monospace' }}>{lang === 'en' ? 'End' : 'Fim'}</span>
+        </div>
+        {/* Overlay selector */}
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: 10, color: '#475569', fontFamily: 'IBM Plex Mono,monospace' }}>
+            {lang === 'en' ? 'Color by:' : 'Cor por:'}
+          </span>
+          <select
+            value={overlay}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setOverlay(e.target.value as 'speed'|'temp'|'rpm')}
+            style={{ background: '#161c2a', border: '1px solid #1e2740', borderRadius: 5, padding: '3px 8px', color: '#e2e8f0', fontSize: 10, fontFamily: 'IBM Plex Mono,monospace', cursor: 'pointer', outline: 'none' }}
+          >
+            {(['speed','temp','rpm'] as const).map(k => (
+              <option key={k} value={k}>{overlayLabels[k]}</option>
+            ))}
+          </select>
         </div>
       </div>
     </div>
@@ -1327,23 +1366,39 @@ export default function Home(): React.ReactElement {
                     </div>
                     {origName(s) && <div style={{ fontSize:9, color:'#334155', paddingLeft:14, fontFamily:'IBM Plex Mono,monospace', fontStyle:'italic' }}>{s.name}</div>}
                     {isNew(s) && <span style={{ fontSize:8, background:'#1e3a5f', color:'#60a5fa', padding:'1px 5px', borderRadius:3, fontWeight:700, fontFamily:'IBM Plex Mono,monospace', marginLeft:14 }}>NEW</span>}
-                    {/* Hover actions: edit overlay + delete */}
+                    {/* Hover actions: bottom-right aligned */}
                     {hoveredSession === i && (
-                      <div style={{ display:'flex', gap:6, marginLeft:14, marginTop:4, alignItems:'center' }}>
+                      <div style={{ position:'absolute', bottom:4, right:6, display:'flex', gap:4, alignItems:'center' }}>
+                        {/* Edit icon */}
                         <button onClick={(e: React.MouseEvent) => {
                           e.stopPropagation()
                           setEditLogSession(s.name)
                           setEditLogDesc((sessionDescs[activeProfileKey!] ?? {})[s.name] ?? '')
                         }}
-                          style={{ fontSize:8, color:'#64748b', background:'#1e2740', border:'1px solid #2a3040', borderRadius:3, cursor:'pointer', padding:'2px 7px', fontFamily:'IBM Plex Mono,monospace' }}>
-                          {lang === 'en' ? 'edit' : 'editar'}
+                          title={lang === 'en' ? 'Edit log' : 'Editar log'}
+                          style={{ background:'none', border:'none', cursor:'pointer', padding:3, color:'#475569', display:'flex', alignItems:'center', borderRadius:3 }}
+                          onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => (e.currentTarget.style.color = '#f97316')}
+                          onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => (e.currentTarget.style.color = '#475569')}>
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                          </svg>
                         </button>
+                        {/* Trash icon */}
                         <button onClick={(e: React.MouseEvent) => {
                           e.stopPropagation()
                           if (window.confirm(lang === 'en' ? `Delete "${displayName(s)}"?` : `Deletar "${displayName(s)}"?`)) deleteSession(s.name)
                         }}
-                          style={{ fontSize:8, color:'#dc2626', background:'#2d0a0a', border:'1px solid #7f1d1d', borderRadius:3, cursor:'pointer', padding:'2px 7px', fontFamily:'IBM Plex Mono,monospace' }}>
-                          {lang === 'en' ? 'delete' : 'deletar'}
+                          title={lang === 'en' ? 'Delete log' : 'Deletar log'}
+                          style={{ background:'none', border:'none', cursor:'pointer', padding:3, color:'#475569', display:'flex', alignItems:'center', borderRadius:3 }}
+                          onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => (e.currentTarget.style.color = '#dc2626')}
+                          onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => (e.currentTarget.style.color = '#475569')}>
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="3 6 5 6 21 6"/>
+                            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                            <path d="M10 11v6M14 11v6"/>
+                            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                          </svg>
                         </button>
                       </div>
                     )}
@@ -1557,7 +1612,7 @@ export default function Home(): React.ReactElement {
               {active.gps_track && active.gps_track.length > 5 && (
                 <div style={{ marginBottom:8 }}>
                   <SecHead title={lang === 'en' ? 'Route' : 'Percurso'} color="#4080ff" open={!collapsedSecs.has('diag')} onToggle={() => {}} />
-                  <RouteMap track={active.gps_track as [number,number,number][]} lang={lang} />
+                  <RouteMap track={active.gps_track as [number,number,number,number,number][]} lang={lang} />
                 </div>
               )}
 
