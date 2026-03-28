@@ -508,6 +508,7 @@ export default function Home(): React.ReactElement {
   const [collapsedSecs, setCollapsedSecs]       = useState<Set<SecKey>>(new Set())
   const DEFAULT_SECTION_ORDER: SecKey[] = ['diag','elec','fuel','air','afr','ign','temp','idle','motion','act','perf']
   const [sectionOrder, setSectionOrder]         = useState<SecKey[]>(DEFAULT_SECTION_ORDER)
+  const [collapsedMonths, setCollapsedMonths]   = useState<Set<string>>(new Set())
   const [dragSec, setDragSec]                   = useState<SecKey|null>(null)
   const [formulaOpen, setFormulaOpen]           = useState(false)
   const [dragOverSec, setDragOverSec]           = useState<SecKey|null>(null)
@@ -515,6 +516,7 @@ export default function Home(): React.ReactElement {
   const [sessionNotes, setSessionNotes]         = useState<Record<string,Record<string,string>>>({})
   const [editingNote, setEditingNote]           = useState<string|null>(null)  // session name being edited
   const [compareIdx, setCompareIdx]             = useState<number|null>(null)   // index of session to compare with
+  const [hoveredSession, setHoveredSession]     = useState<number|null>(null)
   const allParamKeys                            = ['bat','alt_fr','eld_curr','fuel_flow','fuel_inst','inj_dur','inj_dc','inj_fr','map_psi','map_wot','iat','clv','ltft','stft','lambda','fls','iacv_dc','ign_adv','ign_lim','knock','ect','ect_hot','fan','iacv_dc2','rev','vss','lng_accel','km_est','vtec','egr','mil']
   const [visibleParams, setVisibleParams]       = useState<Set<string>>(new Set(allParamKeys))
   const [paramFilterOpen, setParamFilterOpen]   = useState(false)
@@ -1056,16 +1058,54 @@ export default function Home(): React.ReactElement {
                 </button>
               )}
             </div>
-            {/* Session list */}
+            {/* Session list grouped by month */}
             <div style={{ flex:1, overflowY:'auto' }}>
-              {allSessions.map((s, i) => {
+              {(() => {
+                // Group sessions by month label
+                const groups: { monthKey: string; label: string; items: { s: typeof allSessions[0]; i: number }[] }[] = []
+                allSessions.forEach((s, i) => {
+                  const ds = s.date_start
+                  let monthKey = 'other'
+                  let label = lang === 'en' ? 'Other' : 'Outros'
+                  if (ds) {
+                    const d = new Date(ds)
+                    if (!isNaN(d.getTime())) {
+                      monthKey = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')
+                      label = d.toLocaleString(lang === 'en' ? 'en-US' : 'pt-BR', { month: 'long', year: 'numeric' })
+                      label = label.charAt(0).toUpperCase() + label.slice(1)
+                    }
+                  }
+                  let grp = groups.find(g => g.monthKey === monthKey)
+                  if (!grp) { grp = { monthKey, label, items: [] }; groups.push(grp) }
+                  grp.items.push({ s, i })
+                })
+                return groups.map(grp => {
+                  const collapsed = collapsedMonths.has(grp.monthKey)
+                  const hasActive = grp.items.some(({ s }) => s.name === active?.name)
+                  return (
+                    <div key={grp.monthKey}>
+                      {/* Month header */}
+                      <button onClick={() => setCollapsedMonths((prev: Set<string>) => {
+                        const n = new Set(prev); n.has(grp.monthKey) ? n.delete(grp.monthKey) : n.add(grp.monthKey); return n
+                      })} style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'6px 14px', background: hasActive ? '#1a1f2e' : '#0f1117', border:'none', borderBottom:'1px solid #161c2a', cursor:'pointer', textAlign:'left' }}>
+                        <span style={{ fontSize:9, fontWeight:700, letterSpacing:'1.5px', textTransform:'uppercase', color: hasActive ? '#f97316' : '#475569', fontFamily:'IBM Plex Mono,monospace' }}>
+                          {grp.label} <span style={{ color:'#334155', fontWeight:400 }}>({grp.items.length})</span>
+                        </span>
+                        <span style={{ fontSize:9, color:'#334155', transform: collapsed ? 'none' : 'rotate(90deg)', display:'inline-block', transition:'transform 0.15s' }}>{'>'}</span>
+                      </button>
+                      {/* Session items */}
+                      {!collapsed && grp.items.map(({ s, i }) => {
                 const isActive = s.name === active?.name
                 const dot = s.ltft != null ? (s.ltft <= 2.5 ? C.green : s.ltft <= 4 ? C.yellow : C.red) : '#334155'
                 const dateStr = getDate(s)
                 const sc = calcHealth(s)
                 const scCol = scoreCol(sc)
                 return (
-                  <div key={s.name} onClick={() => setActiveIdx(i)} style={{ padding:'10px 14px', borderBottom:'1px solid #161c2a', cursor:'pointer', position:'relative', background: isActive ? '#1a2035' : 'transparent' }}>
+                  <div key={s.name}
+                      onClick={() => setActiveIdx(i)}
+                      onMouseEnter={() => setHoveredSession(i)}
+                      onMouseLeave={() => setHoveredSession(null)}
+                      style={{ padding:'10px 14px', borderBottom:'1px solid #161c2a', cursor:'pointer', position:'relative', background: isActive ? '#1a2035' : hoveredSession === i ? '#141928' : 'transparent', transition:'background 0.1s' }}>
                     {isActive && <div style={{ position:'absolute', left:0, top:0, bottom:0, width:3, background:'#f97316' }} />}
                     <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:3 }}>
                       <span style={{ width:7, height:7, borderRadius:'50%', background:dot, flexShrink:0 }} />
@@ -1076,11 +1116,11 @@ export default function Home(): React.ReactElement {
                         style={{ width:22, height:22, borderRadius:'50%', border:`1.5px solid ${scCol}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, padding:0 }}>
                         <span style={{ fontSize:8, fontFamily:'IBM Plex Mono,monospace', fontWeight:800, color:scCol }}>{sc}</span>
                       </button>
-                      {!isActive && (
+                      {!isActive && (hoveredSession === i || compareIdx === i) && (
                         <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); setCompareIdx(compareIdx === i ? null : i) }}
-                          title={lang === 'en' ? 'Compare with active' : 'Comparar com ativo'}
-                          style={{ width:18, height:18, borderRadius:3, border:`1px solid ${compareIdx === i ? '#f97316' : '#1e2740'}`, background: compareIdx === i ? '#2a1a0a' : 'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, padding:0 }}>
-                          <span style={{ fontSize:7, color: compareIdx === i ? '#f97316' : '#334155', fontFamily:'IBM Plex Mono,monospace', fontWeight:800 }}>VS</span>
+                          title={lang === 'en' ? 'Compare with active session' : 'Comparar com sessao ativa'}
+                          style={{ width:22, height:22, borderRadius:4, border:`1px solid ${compareIdx === i ? '#f97316' : '#2a3a50'}`, background: compareIdx === i ? '#2a1a0a' : '#0f1520', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, padding:0, transition:'all 0.15s' }}>
+                          <span style={{ fontSize:7, color: compareIdx === i ? '#f97316' : '#4a6a8a', fontFamily:'IBM Plex Mono,monospace', fontWeight:800 }}>VS</span>
                         </button>
                       )}
                     </div>
@@ -1119,7 +1159,11 @@ export default function Home(): React.ReactElement {
                     )}
                   </div>
                 )
-              })}
+                      })}
+                    </div>
+                  )
+                })
+              })()}
             </div>
             {/* Upload zone */}
             <div style={{ padding:10, borderTop:'1px solid #1e2740' }}>
@@ -1244,7 +1288,14 @@ export default function Home(): React.ReactElement {
               {/* Header */}
               <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:12, marginBottom:16, flexWrap:'wrap' }}>
                 <div>
-                  <h1 style={{ fontSize:20, fontWeight:800, color:'#f1f5f9', marginBottom:4 }}>{active.name}</h1>
+                  <h1 style={{ fontSize:20, fontWeight:800, color:'#f1f5f9', marginBottom:2 }}>{active.name}</h1>
+                  {activeProfileKey && (sessionNotes[activeProfileKey] ?? {})[active.name] && (
+                    <div style={{ fontSize:12, color:'#f97316', fontFamily:'IBM Plex Mono,monospace', marginBottom:4, display:'flex', alignItems:'center', gap:6 }}>
+                      <span style={{ opacity:0.5 }}>--</span>
+                      <span>{(sessionNotes[activeProfileKey] ?? {})[active.name]}</span>
+                      <button onClick={() => setEditingNote(active.name)} style={{ fontSize:8, color:'#334155', background:'none', border:'none', cursor:'pointer', padding:0 }}>edit</button>
+                    </div>
+                  )}
                   <span style={{ fontSize:11, letterSpacing:'1.5px', textTransform:'uppercase', color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>
                     {active.rows?.toLocaleString()} rows{active.duration_min ? ` - ${active.duration_min} min` : ''}{active.km_estimated ? ` - ${fmt(active.km_estimated,1)} km` : ''}
                   </span>
