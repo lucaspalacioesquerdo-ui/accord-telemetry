@@ -401,94 +401,115 @@ function MiniDonut({ slices, size }: {
 }
 
 // -- RouteMap: GPS track with speed-colored polyline -------------------------
+// Load Leaflet once globally and reuse
+let leafletLoaded = false
+let leafletLoading = false
+const leafletCallbacks: (() => void)[] = []
+
+function ensureLeaflet(cb: () => void) {
+  if (leafletLoaded) { cb(); return }
+  leafletCallbacks.push(cb)
+  if (leafletLoading) return
+  leafletLoading = true
+
+  const link = document.createElement('link')
+  link.rel = 'stylesheet'
+  link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
+  document.head.appendChild(link)
+
+  const script = document.createElement('script')
+  script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+  script.onload = () => {
+    leafletLoaded = true
+    leafletCallbacks.forEach(fn => fn())
+    leafletCallbacks.length = 0
+  }
+  document.head.appendChild(script)
+}
+
 function RouteMap({ track, lang }: {
-  track: [number, number, number][]  // [lat, lon, speed]
+  track: [number, number, number][]
   lang: string
 }): React.ReactElement {
-  const mapRef = React.useRef<HTMLDivElement>(null)
-  const leafRef = React.useRef<unknown>(null)
+  const mapRef  = React.useRef<HTMLDivElement>(null)
+  const instRef = React.useRef<{ remove(): void } | null>(null)
 
   React.useEffect(() => {
     if (!mapRef.current || !track.length) return
-    // Dynamically load Leaflet from CDN
-    const link = document.createElement('link')
-    link.rel = 'stylesheet'
-    link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
-    document.head.appendChild(link)
 
-    const script = document.createElement('script')
-    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
-    script.onload = () => {
-      const L = (window as unknown as {L: {
-        map: (el: HTMLElement, opts: object) => {setView: (c:[number,number],z:number)=>unknown; remove:()=>void}
-        tileLayer: (url: string, opts: object) => {addTo:(m:unknown)=>void}
-        polyline: (pts:[number,number][], opts: object) => {addTo:(m:unknown)=>void; getBounds:()=>unknown}
-        CircleMarker: new (latlng:[number,number], opts:object)=>{addTo:(m:unknown)=>void}
-        fitBounds: (b:unknown)=>void
-      }}).L
+    // Destroy previous instance if exists
+    if (instRef.current) { instRef.current.remove(); instRef.current = null }
+
+    ensureLeaflet(() => {
       if (!mapRef.current) return
-      if (leafRef.current) (leafRef.current as {remove:()=>void}).remove()
+      // Double-destroy guard: Leaflet marks the container with _leaflet_id
+      const container = mapRef.current as HTMLDivElement & { _leaflet_id?: number }
+      if (container._leaflet_id) {
+        // Container already initialized - clear it
+        container._leaflet_id = undefined
+        container.innerHTML = ''
+      }
 
-      const center: [number, number] = [track[0][0], track[0][1]]
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const L = (window as any).L
+      if (!L) return
+
       const m = L.map(mapRef.current, { zoomControl: true, scrollWheelZoom: false })
-      leafRef.current = m
-      m.setView(center, 13)
+      instRef.current = m
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '? OpenStreetMap contributors',
+        attribution: '(c) OpenStreetMap',
+        maxZoom: 19,
       }).addTo(m)
 
-      // Speed color: 0-30 blue, 30-60 orange, 60+ red
-      const speedColor = (sp: number): string => sp < 30 ? '#2060ff' : sp < 60 ? '#f97316' : '#ff3030'
+      const speedColor = (sp: number): string =>
+        sp < 30 ? '#ff3030' : sp < 60 ? '#f97316' : '#2060ff'
 
-      // Draw colored segments
       for (let i = 0; i < track.length - 1; i++) {
         const [la, lo, sp] = track[i]
         const [la2, lo2] = track[i + 1]
-        ;(L.polyline([[la, lo], [la2, lo2]], {
-          color: speedColor(sp), weight: 4, opacity: 0.85
-        }) as unknown as {addTo:(m:unknown)=>void}).addTo(m)
+        L.polyline([[la, lo], [la2, lo2]], {
+          color: speedColor(sp), weight: 4, opacity: 0.85,
+        }).addTo(m)
       }
 
-      // Start and end markers
-      const startPt = track[0]
-      const endPt   = track[track.length - 1]
-      ;(new (L as unknown as {CircleMarker: new(latlng:[number,number],opts:object)=>object}).CircleMarker(
-        [startPt[0], startPt[1]], { radius: 7, color: '#00e060', fillColor: '#00e060', fillOpacity: 1, weight: 2 }
-      ) as unknown as {addTo:(m:unknown)=>void}).addTo(m)
-      ;(new (L as unknown as {CircleMarker: new(latlng:[number,number],opts:object)=>object}).CircleMarker(
-        [endPt[0], endPt[1]], { radius: 7, color: '#ff3030', fillColor: '#ff3030', fillOpacity: 1, weight: 2 }
-      ) as unknown as {addTo:(m:unknown)=>void}).addTo(m)
+      // Start marker (green) and end marker (red)
+      L.circleMarker([track[0][0], track[0][1]], {
+        radius: 7, color: '#00e060', fillColor: '#00e060', fillOpacity: 1, weight: 2,
+      }).addTo(m)
+      L.circleMarker([track[track.length - 1][0], track[track.length - 1][1]], {
+        radius: 7, color: '#ff3030', fillColor: '#ff3030', fillOpacity: 1, weight: 2,
+      }).addTo(m)
 
       // Fit bounds
-      const allPts = track.map(([la, lo]) => [la, lo] as [number, number])
-      ;(m as unknown as {fitBounds:(b:[number,number][],opts:object)=>void}).fitBounds(allPts, { padding: [20, 20] })
+      const bounds = track.map(([la, lo]) => [la, lo] as [number, number])
+      m.fitBounds(bounds, { padding: [20, 20] })
+    })
+
+    return () => {
+      if (instRef.current) { instRef.current.remove(); instRef.current = null }
     }
-    document.head.appendChild(script)
-    return () => { if (leafRef.current) (leafRef.current as {remove:()=>void}).remove() }
   }, [track])
 
   return (
     <div>
-      <div ref={mapRef} style={{ height:280, borderRadius:10, overflow:'hidden', border:'1px solid #1e2740' }} />
-      <div style={{ display:'flex', gap:14, marginTop:8, flexWrap:'wrap' }}>
-        <div style={{ display:'flex', alignItems:'center', gap:5 }}>
-          <div style={{ width:20, height:4, background:'#2060ff', borderRadius:2 }} />
-          <span style={{ fontSize:10, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>&lt;30 km/h</span>
-        </div>
-        <div style={{ display:'flex', alignItems:'center', gap:5 }}>
-          <div style={{ width:20, height:4, background:'#f97316', borderRadius:2 }} />
-          <span style={{ fontSize:10, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>30-60 km/h</span>
-        </div>
-        <div style={{ display:'flex', alignItems:'center', gap:5 }}>
-          <div style={{ width:20, height:4, background:'#ff3030', borderRadius:2 }} />
-          <span style={{ fontSize:10, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>&gt;60 km/h</span>
-        </div>
-        <div style={{ display:'flex', alignItems:'center', gap:5, marginLeft:'auto' }}>
-          <div style={{ width:10, height:10, borderRadius:'50%', background:'#00e060' }} />
-          <span style={{ fontSize:10, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>{lang === 'en' ? 'Start' : 'Inicio'}</span>
-          <div style={{ width:10, height:10, borderRadius:'50%', background:'#ff3030', marginLeft:6 }} />
-          <span style={{ fontSize:10, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>{lang === 'en' ? 'End' : 'Fim'}</span>
+      <div ref={mapRef} style={{ height: 280, borderRadius: 10, overflow: 'hidden', border: '1px solid #1e2740', background: '#1a2035' }} />
+      <div style={{ display: 'flex', gap: 14, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        {([
+          { color: '#ff3030', label: '<30 km/h' },
+          { color: '#f97316', label: '30-60 km/h' },
+          { color: '#2060ff', label: '>60 km/h' },
+        ] as const).map(item => (
+          <div key={item.color} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <div style={{ width: 20, height: 4, background: item.color, borderRadius: 2 }} />
+            <span style={{ fontSize: 10, color: '#475569', fontFamily: 'IBM Plex Mono,monospace' }}>{item.label}</span>
+          </div>
+        ))}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
+          <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#00e060' }} />
+          <span style={{ fontSize: 10, color: '#475569', fontFamily: 'IBM Plex Mono,monospace' }}>{lang === 'en' ? 'Start' : 'Inicio'}</span>
+          <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#ff3030' }} />
+          <span style={{ fontSize: 10, color: '#475569', fontFamily: 'IBM Plex Mono,monospace' }}>{lang === 'en' ? 'End' : 'Fim'}</span>
         </div>
       </div>
     </div>
