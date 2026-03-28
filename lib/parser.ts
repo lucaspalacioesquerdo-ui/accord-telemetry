@@ -256,17 +256,34 @@ export function extractMetrics(rows: Row[], name: string): LogSession {
   }
 }
 
-export async function parseCSVFile(file: File): Promise<{ session: LogSession; rows: Row[] }> {
+export async function parseCSVFile(
+  file: File,
+  onProgress?: (pct: number) => void
+): Promise<{ session: LogSession; rows: Row[] }> {
+  // Estimate row count from file size (avg ~200 bytes/row for OBD logs)
+  const estRows = Math.max(1, Math.round(file.size / 200))
+  let rowCount = 0
+
   return new Promise((resolve, reject) => {
+    const rows: Row[] = []
     Papa.parse<Row>(file, {
       header: true,
       dynamicTyping: true,
       skipEmptyLines: true,
-      complete: (result: { data: Row[] }) => {
-        const rows = result.data
+      step: (result: { data: Row }) => {
+        rows.push(result.data)
+        rowCount++
+        if (onProgress) {
+          // Use estimate for progress, cap at 95% until complete
+          const pct = Math.min(95, Math.round((rowCount / estRows) * 100))
+          onProgress(pct)
+        }
+      },
+      complete: () => {
         if (!rows.length) { reject(new Error('CSV vazio')); return }
         const name = file.name.replace(/\.csv$/i, '').replace(/_/g, ' ')
         const session = extractMetrics(rows, name)
+        if (onProgress) onProgress(100)
         resolve({ session, rows })
       },
       error: reject,
