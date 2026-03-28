@@ -72,7 +72,8 @@ export default function TimelineChart({
       },
     }
 
-    const plugins: Plugin<'line'>[] = [alarmPlugin as Plugin<'line'>]
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const plugins: any[] = [alarmPlugin]
 
     if (refLine) {
       plugins.push({
