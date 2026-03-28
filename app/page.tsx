@@ -8,7 +8,7 @@ import type { LogSession } from '@/lib/supabase'
 
 // -- Types -------------------------------------------------------------
 type Lang    = 'en' | 'pt'
-type Tab     = 'overview' | 'timeline' | 'table' | 'score'
+type Tab     = 'overview' | 'timeline' | 'score'
 type SecKey  = 'elec' | 'fuel' | 'air' | 'afr' | 'ign' | 'temp' | 'idle' | 'motion' | 'act' | 'diag' | 'perf'
 type Profile = { key: string; name: string }
 
@@ -516,9 +516,12 @@ export default function Home(): React.ReactElement {
   const [dragOverSec, setDragOverSec]           = useState<SecKey|null>(null)
   // Session notes: { [profileKey]: { [sessionName]: string } }
   const [sessionNotes, setSessionNotes]         = useState<Record<string,Record<string,string>>>({})
+  const [sessionDescs, setSessionDescs]         = useState<Record<string,Record<string,string>>>({})
   const [editingNote, setEditingNote]           = useState<string|null>(null)  // session name being edited
   const [compareIdx, setCompareIdx]             = useState<number|null>(null)   // index of session to compare with
   const [hoveredSession, setHoveredSession]     = useState<number|null>(null)
+  const [editLogSession, setEditLogSession]     = useState<string|null>(null)  // session name being edited in overlay
+  const [editLogDesc, setEditLogDesc]           = useState<string>('')
   const allParamKeys                            = ['bat','alt_fr','eld_curr','fuel_flow','fuel_inst','inj_dur','inj_dc','inj_fr','map_psi','map_wot','iat','clv','ltft','stft','lambda','fls','iacv_dc','ign_adv','ign_lim','knock','ect','ect_hot','fan','iacv_dc2','rev','vss','lng_accel','km_est','vtec','egr','mil']
   const [visibleParams, setVisibleParams]       = useState<Set<string>>(new Set(allParamKeys))
   const [paramFilterOpen, setParamFilterOpen]   = useState(false)
@@ -553,6 +556,8 @@ export default function Home(): React.ReactElement {
       if (Object.keys(sessions).length) setProfileSessions(sessions)
       const notes = JSON.parse(localStorage.getItem('hndsh_notes') || '{}')
       if (Object.keys(notes).length) setSessionNotes(notes)
+      const descs = JSON.parse(localStorage.getItem('hndsh_descs') || '{}')
+      if (Object.keys(descs).length) setSessionDescs(descs)
       // Show wizard on first visit
       if (!localStorage.getItem('hndsh_wizard_done')) setWizardOpen(true)
     } catch {}
@@ -577,6 +582,10 @@ export default function Home(): React.ReactElement {
     if (!hydrated) return
     try { localStorage.setItem('hndsh_notes', JSON.stringify(sessionNotes)) } catch {}
   }, [sessionNotes, hydrated])
+  useEffect(() => {
+    if (!hydrated) return
+    try { localStorage.setItem('hndsh_descs', JSON.stringify(sessionDescs)) } catch {}
+  }, [sessionDescs, hydrated])
 
   useEffect(() => {
     fetch('/api/sessions').then(r => r.json()).then((d: {sessions?: LogSession[]}) => {
@@ -619,6 +628,15 @@ export default function Home(): React.ReactElement {
   const isNew     = (s: LogSession) =>
     dbSessions.some((d: LogSession) => d.name === s.name) ||
     profileLocal.some((l: LogSession) => l.name === s.name)
+  const displayName = (s: LogSession): string => {
+    if (!activeProfileKey) return s.name
+    return (sessionNotes[activeProfileKey] ?? {})[s.name] ?? s.name
+  }
+  const origName = (s: LogSession): string | null => {
+    if (!activeProfileKey) return null
+    const note = (sessionNotes[activeProfileKey] ?? {})[s.name]
+    return note ? s.name : null
+  }
   const hs        = active ? calcHealth(active) : null
   const hsColor   = hs != null ? scoreCol(hs) : '#475569'
   const AC: Record<string,string> = { bad:C.red, warn:C.orange, good:C.green, info:C.blue }
@@ -716,6 +734,24 @@ export default function Home(): React.ReactElement {
     setSavedProfiles((prev: Profile[]) => prev.filter((x: Profile) => x.key !== key))
     setProfileSessions((p: Record<string,LogSession[]>) => { const n = {...p}; delete n[key]; return n })
     if (activeProfileKey === key) { setActiveProfileKey(null); setActiveIdx(null) }
+  }
+  const deleteSession = (sessionName: string) => {
+    if (!activeProfileKey) return
+    setProfileSessions((prev: Record<string,LogSession[]>) => ({
+      ...prev,
+      [activeProfileKey]: (prev[activeProfileKey] ?? []).filter((s: LogSession) => s.name !== sessionName)
+    }))
+    setSessionNotes((prev: Record<string,Record<string,string>>) => {
+      const profileNotes = { ...(prev[activeProfileKey] ?? {}) }
+      delete profileNotes[sessionName]
+      return { ...prev, [activeProfileKey]: profileNotes }
+    })
+    setSessionDescs((prev: Record<string,Record<string,string>>) => {
+      const profileDescs = { ...(prev[activeProfileKey] ?? {}) }
+      delete profileDescs[sessionName]
+      return { ...prev, [activeProfileKey]: profileDescs }
+    })
+    setActiveIdx(null)
   }
 
   const saveProfile = () => {
@@ -1021,7 +1057,7 @@ export default function Home(): React.ReactElement {
 
         {/* Tabs */}
         <div style={{ display:'flex', alignItems:'center', height:52 }}>
-          {(['overview','timeline','table','score'] as Tab[])
+          {(['overview','timeline','score'] as Tab[])
             .filter(tb => activeProfileKey || tb === 'overview')
             .map(tb => (
               <button key={tb} onClick={() => setTab(tb)} style={{ padding:'0 16px', height:52, border:'none', borderBottom: tab===tb ? '2px solid #f97316' : '2px solid transparent', background:'transparent', color: tab===tb ? '#f97316' : '#64748b', fontSize:11, letterSpacing:2, textTransform:'uppercase', cursor:'pointer', fontWeight: tab===tb ? 700 : 400, fontFamily:'IBM Plex Mono,monospace' }}>
@@ -1114,7 +1150,7 @@ export default function Home(): React.ReactElement {
                     <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:3 }}>
                       <span style={{ width:7, height:7, borderRadius:'50%', background:dot, flexShrink:0 }} />
                       <span style={{ fontSize:11, fontWeight:700, color: isActive ? '#f97316' : (dateStr ? '#e2e8f0' : '#94a3b8'), overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1, fontFamily:'IBM Plex Mono,monospace' }}>
-                        {dateStr ?? s.name}
+                        {displayName(s)}
                       </span>
                       <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); setActiveIdx(i); setTab('score') }}
                         style={{ width:22, height:22, borderRadius:'50%', border:`1.5px solid ${scCol}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, padding:0 }}>
@@ -1128,36 +1164,25 @@ export default function Home(): React.ReactElement {
                         </button>
                       )}
                     </div>
-                    {dateStr && <div style={{ fontSize:10, color:'#475569', paddingLeft:14, fontFamily:'IBM Plex Mono,monospace' }}>{s.name}</div>}
+                    {origName(s) && <div style={{ fontSize:9, color:'#334155', paddingLeft:14, fontFamily:'IBM Plex Mono,monospace', fontStyle:'italic' }}>{s.name}</div>}
                     {isNew(s) && <span style={{ fontSize:8, background:'#1e3a5f', color:'#60a5fa', padding:'1px 5px', borderRadius:3, fontWeight:700, fontFamily:'IBM Plex Mono,monospace', marginLeft:14 }}>NEW</span>}
-                    {/* Note display/edit */}
-                    {editingNote === s.name ? (
-                      <input
-                        autoFocus
-                        defaultValue={(sessionNotes[activeProfileKey!] ?? {})[s.name] ?? ''}
-                        onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
-                          const note = e.target.value.trim()
-                          setSessionNotes((prev: Record<string,Record<string,string>>) => ({
-                            ...prev,
-                            [activeProfileKey!]: { ...(prev[activeProfileKey!] ?? {}), [s.name]: note }
-                          }))
-                          setEditingNote(null)
+                    {/* Hover actions: edit overlay + delete */}
+                    {hoveredSession === i && (
+                      <div style={{ display:'flex', gap:6, marginLeft:14, marginTop:4, alignItems:'center' }}>
+                        <button onClick={(e: React.MouseEvent) => {
+                          e.stopPropagation()
+                          setEditLogSession(s.name)
+                          setEditLogDesc((sessionDescs[activeProfileKey!] ?? {})[s.name] ?? '')
                         }}
-                        onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-                        onClick={(e: React.MouseEvent) => e.stopPropagation()}
-                        placeholder={lang === 'en' ? 'Add note...' : 'Adicionar nota...'}
-                        style={{ width:'100%', marginTop:4, marginLeft:14, background:'#1e2740', border:'1px solid #f97316', borderRadius:3, padding:'2px 6px', color:'#e2e8f0', fontSize:9, fontFamily:'IBM Plex Mono,monospace', outline:'none' }}
-                      />
-                    ) : (
-                      <div style={{ display:'flex', alignItems:'center', gap:4, marginLeft:14, marginTop:2 }}>
-                        {(sessionNotes[activeProfileKey!] ?? {})[s.name] ? (
-                          <span style={{ fontSize:9, color:'#475569', fontFamily:'IBM Plex Mono,monospace', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                            {(sessionNotes[activeProfileKey!] ?? {})[s.name]}
-                          </span>
-                        ) : null}
-                        <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); setEditingNote(s.name) }}
-                          style={{ fontSize:8, color:'#334155', background:'none', border:'none', cursor:'pointer', padding:0, flexShrink:0 }}>
-                          {(sessionNotes[activeProfileKey!] ?? {})[s.name] ? 'edit' : '+note'}
+                          style={{ fontSize:8, color:'#64748b', background:'#1e2740', border:'1px solid #2a3040', borderRadius:3, cursor:'pointer', padding:'2px 7px', fontFamily:'IBM Plex Mono,monospace' }}>
+                          {lang === 'en' ? 'edit' : 'editar'}
+                        </button>
+                        <button onClick={(e: React.MouseEvent) => {
+                          e.stopPropagation()
+                          if (window.confirm(lang === 'en' ? `Delete "${displayName(s)}"?` : `Deletar "${displayName(s)}"?`)) deleteSession(s.name)
+                        }}
+                          style={{ fontSize:8, color:'#dc2626', background:'#2d0a0a', border:'1px solid #7f1d1d', borderRadius:3, cursor:'pointer', padding:'2px 7px', fontFamily:'IBM Plex Mono,monospace' }}>
+                          {lang === 'en' ? 'delete' : 'deletar'}
                         </button>
                       </div>
                     )}
@@ -1292,12 +1317,19 @@ export default function Home(): React.ReactElement {
               {/* Header */}
               <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:12, marginBottom:16, flexWrap:'wrap' }}>
                 <div>
-                  <h1 style={{ fontSize:20, fontWeight:800, color:'#f1f5f9', marginBottom:2 }}>{active.name}</h1>
-                  {activeProfileKey && (sessionNotes[activeProfileKey] ?? {})[active.name] && (
-                    <div style={{ fontSize:12, color:'#f97316', fontFamily:'IBM Plex Mono,monospace', marginBottom:4, display:'flex', alignItems:'center', gap:6 }}>
-                      <span style={{ opacity:0.5 }}>--</span>
-                      <span>{(sessionNotes[activeProfileKey] ?? {})[active.name]}</span>
-                      <button onClick={() => setEditingNote(active.name)} style={{ fontSize:8, color:'#334155', background:'none', border:'none', cursor:'pointer', padding:0 }}>edit</button>
+                  <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:2 }}>
+                    <h1 style={{ fontSize:20, fontWeight:800, color:'#f1f5f9' }}>{active ? displayName(active) : ''}</h1>
+                    <button onClick={() => { setEditLogSession(active.name); setEditLogDesc((sessionDescs[activeProfileKey!] ?? {})[active.name] ?? '') }}
+                      style={{ fontSize:9, color:'#334155', background:'#1e2740', border:'1px solid #2a3040', borderRadius:4, cursor:'pointer', padding:'2px 8px', fontFamily:'IBM Plex Mono,monospace', flexShrink:0 }}>
+                      {lang === 'en' ? 'Edit log' : 'Editar log'}
+                    </button>
+                  </div>
+                  {active && origName(active) && (
+                    <div style={{ fontSize:10, color:'#334155', fontFamily:'IBM Plex Mono,monospace', marginBottom:4, fontStyle:'italic' }}>{active.name}</div>
+                  )}
+                  {activeProfileKey && (sessionDescs[activeProfileKey] ?? {})[active.name] && (
+                    <div style={{ fontSize:13, color:'#94a3b8', lineHeight:1.6, marginBottom:8, maxWidth:600 }}>
+                      {(sessionDescs[activeProfileKey] ?? {})[active.name]}
                     </div>
                   )}
                   <span style={{ fontSize:11, letterSpacing:'1.5px', textTransform:'uppercase', color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>
@@ -1494,53 +1526,6 @@ export default function Home(): React.ReactElement {
               {filteredCharts.length === 0 && (
                 <div style={{ textAlign:'center', padding:'60px 0', color:'#475569', fontFamily:'IBM Plex Mono,monospace', fontSize:13 }}>{t('no_charts')}</div>
               )}
-            </div>
-          )}
-
-          {/* TABLE */}
-          {activeProfileKey && tab === 'table' && (
-            <div>
-              <div style={{ marginBottom:20 }}>
-                <h1 style={{ fontSize:20, fontWeight:800, color:'#f1f5f9', marginBottom:4 }}>{t('table')}</h1>
-                <span style={{ fontSize:11, letterSpacing:'1.5px', textTransform:'uppercase', color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>{t('all_logs')} - {allSessions.length} {t('sessions')}</span>
-              </div>
-              <div style={{ overflowX:'auto', background:'#111827', borderRadius:10, border:'1px solid #1e2740' }}>
-                <table style={{ width:'100%', borderCollapse:'collapse', fontFamily:'IBM Plex Mono,monospace', fontSize:11 }}>
-                  <thead><tr>
-                    {[t('th_session'),t('th_km'),t('th_ect_avg'),t('th_ect_max'),t('th_iat'),t('th_ltft'),t('th_stft'),t('th_lambda'),t('th_iacv'),t('th_map_wot'),t('th_adv'),t('th_knock'),t('th_inj'),t('th_lh'),t('th_kml'),t('th_vtec'),t('th_bat'),t('th_mil'),'Score'].map(h => (
-                      <th key={h} style={{ padding:'10px 11px', textAlign:'left', fontSize:9, letterSpacing:1.5, textTransform:'uppercase', color:'#475569', borderBottom:'1px solid #1e2740', whiteSpace:'nowrap', background:'#0f1117', fontWeight:700 }}>{h}</th>
-                    ))}
-                  </tr></thead>
-                  <tbody>
-                    {allSessions.map((s, i) => {
-                      const sc = calcHealth(s); const scCol = scoreCol(sc)
-                      return (
-                        <tr key={s.name} onClick={() => { setActiveIdx(i); setTab('overview') }} style={{ borderBottom:'1px solid #161c2a', background: isNew(s) ? '#1a2035' : 'transparent', cursor:'pointer' }}>
-                          <td style={{ padding:'9px 11px', color: isNew(s) ? '#f97316' : '#e2e8f0', fontWeight:700, whiteSpace:'nowrap' }}>{s.name}</td>
-                          <td style={{ padding:'9px 11px', color:'#94a3b8' }}>{fmt(s.km_estimated,1)}</td>
-                          <td style={{ padding:'9px 11px', color:'#94a3b8' }}>{fmt(s.ect_mean)}C</td>
-                          <td style={{ padding:'9px 11px', color:'#94a3b8' }}>{fmt(s.ect_max)}C</td>
-                          <td style={{ padding:'9px 11px', color:'#94a3b8' }}>{fmt(s.iat_mean)}C</td>
-                          <td style={{ padding:'9px 11px' }}><span className={pillCls(s.ltft,2.5,4)}>{s.ltft != null ? (s.ltft > 0 ? '+':'') + fmt(s.ltft) : '--'}%</span></td>
-                          <td style={{ padding:'9px 11px' }}><span className={pillCls(s.stft_above15_pct,3,10)}>{fmt(s.stft_above15_pct)}%</span></td>
-                          <td style={{ padding:'9px 11px' }}><span className={pillCls(s.lambda,1.05,1.15)}>{fmt(s.lambda,3)}</span></td>
-                          <td style={{ padding:'9px 11px' }}><span className={pillCls(s.iacv_mean,42,55)}>{fmt(s.iacv_mean)}%</span></td>
-                          <td style={{ padding:'9px 11px', color:'#94a3b8' }}>{fmt(s.map_wot)}</td>
-                          <td style={{ padding:'9px 11px', color:'#94a3b8' }}>{fmt(s.adv_mean)}</td>
-                          <td style={{ padding:'9px 11px' }}><span className={s.knock_events === 0 ? 'pg':'pr'}>{s.knock_events ?? '--'}</span></td>
-                          <td style={{ padding:'9px 11px', color:'#94a3b8' }}>{fmt(s.inj_dur,2)}</td>
-                          <td style={{ padding:'9px 11px', color:'#94a3b8' }}>{fmt(s.fuel_flow_mean,2)}</td>
-                          <td style={{ padding:'9px 11px', color:'#94a3b8' }}>{fmt(s.inst_consumption,1)}</td>
-                          <td style={{ padding:'9px 11px', color:'#94a3b8' }}>{fmt(s.vtec_pct)}%</td>
-                          <td style={{ padding:'9px 11px', color:'#94a3b8' }}>{fmt(s.bat_mean,2)}V</td>
-                          <td style={{ padding:'9px 11px' }}><span className={!s.mil_on_pct ? 'pg':'pr'}>{s.mil_on_pct ? t('active_str') : 'OFF'}</span></td>
-                          <td style={{ padding:'9px 11px' }}><span style={{ fontSize:10, fontWeight:700, color:scCol, fontFamily:'IBM Plex Mono,monospace' }}>{sc}</span></td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
             </div>
           )}
 
@@ -1918,6 +1903,94 @@ export default function Home(): React.ReactElement {
           </div>
         </div>
       )}
+
+
+      {/* EDIT LOG OVERLAY */}
+      {editLogSession && (() => {
+        const sName = editLogSession
+        const currentNote = (sessionNotes[activeProfileKey ?? ''] ?? {})[sName] ?? ''
+        const currentDesc = (sessionDescs[activeProfileKey ?? ''] ?? {})[sName] ?? ''
+        return (
+          <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.75)', zIndex:150, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}
+            onClick={(e: React.MouseEvent) => { if (e.target === e.currentTarget) setEditLogSession(null) }}>
+            <div style={{ background:'#111827', border:'1px solid #1e2740', borderRadius:14, width:'100%', maxWidth:480, overflow:'hidden' }}>
+              <div style={{ padding:'18px 22px', borderBottom:'1px solid #1e2740', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                <span style={{ fontSize:12, fontWeight:700, color:'#f97316', fontFamily:'IBM Plex Mono,monospace', letterSpacing:2 }}>
+                  {lang === 'en' ? 'EDIT LOG' : 'EDITAR LOG'}
+                </span>
+                <button onClick={() => setEditLogSession(null)} style={{ fontSize:14, color:'#475569', background:'none', border:'none', cursor:'pointer', lineHeight:1 }}>x</button>
+              </div>
+              <div style={{ padding:'20px 22px', display:'flex', flexDirection:'column', gap:16 }}>
+                {/* Name / Note */}
+                <div>
+                  <label style={{ fontSize:10, color:'#64748b', fontFamily:'IBM Plex Mono,monospace', display:'block', marginBottom:6, letterSpacing:1 }}>
+                    {lang === 'en' ? 'LOG NAME (replaces filename)' : 'NOME DO LOG (substitui o nome do arquivo)'}
+                  </label>
+                  <input
+                    autoFocus
+                    defaultValue={currentNote}
+                    id="editLogNote"
+                    placeholder={sName}
+                    style={{ width:'100%', background:'#161c2a', border:'1px solid #1e2740', borderRadius:6, padding:'8px 12px', color:'#e2e8f0', fontSize:13, fontFamily:'IBM Plex Mono,monospace', outline:'none', boxSizing:'border-box' }}
+                  />
+                  <div style={{ fontSize:9, color:'#334155', fontFamily:'IBM Plex Mono,monospace', marginTop:4 }}>
+                    {lang === 'en' ? 'Original filename: ' : 'Nome original: '}{sName}
+                  </div>
+                </div>
+                {/* Description */}
+                <div>
+                  <label style={{ fontSize:10, color:'#64748b', fontFamily:'IBM Plex Mono,monospace', display:'block', marginBottom:6, letterSpacing:1 }}>
+                    {lang === 'en' ? 'DESCRIPTION (shown below title in Overview)' : 'DESCRICAO (aparece abaixo do titulo no Overview)'}
+                  </label>
+                  <textarea
+                    defaultValue={currentDesc}
+                    id="editLogDesc"
+                    rows={3}
+                    placeholder={lang === 'en' ? 'e.g. After coolant flush, new thermostat installed...' : 'ex: Apos troca do fluido, termostato novo instalado...'}
+                    style={{ width:'100%', background:'#161c2a', border:'1px solid #1e2740', borderRadius:6, padding:'8px 12px', color:'#e2e8f0', fontSize:12, fontFamily:'IBM Plex Mono,monospace', outline:'none', resize:'vertical', boxSizing:'border-box', lineHeight:1.6 }}
+                  />
+                </div>
+                {/* Actions */}
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:4 }}>
+                  <button onClick={() => {
+                    if (window.confirm(lang === 'en' ? 'Delete this log permanently?' : 'Deletar este log permanentemente?')) {
+                      deleteSession(sName)
+                      setEditLogSession(null)
+                    }
+                  }}
+                    style={{ fontSize:11, color:'#dc2626', background:'#2d0a0a', border:'1px solid #7f1d1d', borderRadius:6, cursor:'pointer', padding:'7px 14px', fontFamily:'IBM Plex Mono,monospace', fontWeight:600 }}>
+                    {lang === 'en' ? 'Delete log' : 'Deletar log'}
+                  </button>
+                  <div style={{ display:'flex', gap:10 }}>
+                    <button onClick={() => setEditLogSession(null)}
+                      style={{ padding:'7px 16px', background:'none', border:'1px solid #1e2740', borderRadius:6, color:'#64748b', fontSize:12, fontFamily:'IBM Plex Mono,monospace', cursor:'pointer' }}>
+                      {lang === 'en' ? 'Cancel' : 'Cancelar'}
+                    </button>
+                    <button onClick={() => {
+                      const noteInput = document.getElementById('editLogNote') as HTMLInputElement
+                      const descInput = document.getElementById('editLogDesc') as HTMLTextAreaElement
+                      const note = noteInput?.value.trim() ?? ''
+                      const desc = descInput?.value.trim() ?? ''
+                      if (activeProfileKey) {
+                        setSessionNotes((prev: Record<string,Record<string,string>>) => ({
+                          ...prev, [activeProfileKey]: { ...(prev[activeProfileKey] ?? {}), [sName]: note }
+                        }))
+                        setSessionDescs((prev: Record<string,Record<string,string>>) => ({
+                          ...prev, [activeProfileKey]: { ...(prev[activeProfileKey] ?? {}), [sName]: desc }
+                        }))
+                      }
+                      setEditLogSession(null)
+                    }}
+                      style={{ padding:'7px 20px', background:'#f97316', border:'none', borderRadius:6, color:'#000', fontSize:12, fontFamily:'IBM Plex Mono,monospace', fontWeight:800, cursor:'pointer' }}>
+                      {lang === 'en' ? 'Save' : 'Salvar'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Global styles */}
       <style>{`
