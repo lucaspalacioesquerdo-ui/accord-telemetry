@@ -1,122 +1,213 @@
 import type { LogSession } from './supabase'
 
-export type AlertType = 'good' | 'warn' | 'bad' | 'info'
+export type AlertType = 'bad' | 'warn' | 'good' | 'info'
 
 export interface Alert {
   type: AlertType
+  param: string
   title: string
   detail: string
-  param: string
+  // Smart diagnosis fields
+  severity: number      // 0-10, for sorting
+  correlation?: string  // related finding
 }
 
-export function generateAlerts(m: LogSession, lang: 'en' | 'pt' = 'en'): Alert[] {
+// Smart multi-parameter correlations
+function analyzeCorrelations(m: LogSession, lang: 'en' | 'pt'): Alert[] {
   const alerts: Alert[] = []
   const en = lang === 'en'
 
-  // STFT
-  if ((m.stft_above15_pct ?? 0) > 10)
-    alerts.push({ type: 'bad', param: 'STFT',
-      title: en ? 'STFT critical — ECU at correction limit' : 'STFT crítico — ECU no limite de correção',
-      detail: en ? `${m.stft_above15_pct?.toFixed(1)}% of time above +15%. Timing off or severe vacuum leak.` : `${m.stft_above15_pct?.toFixed(1)}% do tempo acima de +15%. Motor fora de ponto ou vacuum leak severo.` })
-  else if ((m.stft_above15_pct ?? 0) > 3)
-    alerts.push({ type: 'warn', param: 'STFT',
-      title: en ? 'STFT elevated' : 'STFT elevado',
-      detail: en ? `${m.stft_above15_pct?.toFixed(1)}% above +15% — monitor. Possible vacuum leak.` : `${m.stft_above15_pct?.toFixed(1)}% acima de +15% — monitorar. Possível vacuum leak.` })
-  else
-    alerts.push({ type: 'good', param: 'STFT',
-      title: en ? 'STFT normalized' : 'STFT normalizado',
-      detail: en ? `Only ${m.stft_above15_pct?.toFixed(1)}% above +15%. Combustion stable.` : `Apenas ${m.stft_above15_pct?.toFixed(1)}% acima de +15%. Combustão estável.` })
+  const stft   = m.stft_above15_pct ?? 0
+  const ltft   = m.ltft ?? 0
+  const lam    = m.lambda ?? 1
+  const iacv   = m.iacv_mean ?? 35
+  const ect    = m.ect_above95_pct ?? 0
+  const ect100 = m.ect_above100_pct ?? 0
+  const knock  = m.knock_events ?? 0
+  const bat    = m.bat_mean ?? 13.5
+  const batMin = m.bat_min ?? 13.0
+  const eld    = m.eld_mean ?? 50
+  const mil    = m.mil_on_pct ?? 0
+  const iat    = m.iat_mean ?? 40
+  const adv    = m.adv_mean ?? 28
+  const vtec   = m.vtec_pct ?? 0
+  const cl     = m.closed_loop_pct ?? 0
 
-  // LTFT
-  if ((m.ltft ?? 0) > 4)
-    alerts.push({ type: 'bad', param: 'LTFT',
-      title: en ? 'LTFT high — chronic lean mixture' : 'LTFT alto — mistura pobre crônica',
-      detail: en ? `+${m.ltft?.toFixed(2)}%. ECU compensating heavily. Check vacuum leaks. Remap needed post-swap.` : `+${m.ltft?.toFixed(2)}%. ECU compensando muito. Verificar vacuum leaks. Remap necessário pós-swap.` })
-  else if ((m.ltft ?? 0) > 2.5)
-    alerts.push({ type: 'warn', param: 'LTFT',
-      title: en ? 'LTFT above ideal' : 'LTFT acima do ideal',
-      detail: en ? `+${m.ltft?.toFixed(2)}%. Slightly lean. Expected to improve with remap.` : `+${m.ltft?.toFixed(2)}%. Mistura levemente pobre. Melhora esperada com remap.` })
-  else
-    alerts.push({ type: 'good', param: 'LTFT',
-      title: en ? 'LTFT within normal range' : 'LTFT dentro do normal',
-      detail: en ? `+${m.ltft?.toFixed(2)}% — good.` : `+${m.ltft?.toFixed(2)}% — bom.` })
+  // ── CORRELATION 1: Vacuum leak pattern ────────────────────────────────────
+  // High IACV + elevated LTFT + lean lambda = classic vacuum leak triangle
+  const vacuumLeakScore = (iacv > 45 ? 1 : 0) + (ltft > 2.5 ? 1 : 0) + (lam > 1.10 ? 1 : 0) + (stft > 5 ? 1 : 0)
+  if (vacuumLeakScore >= 3) {
+    alerts.push({
+      type: 'bad', param: 'IACV+LTFT+Lambda', severity: 9,
+      title: en ? 'Strong vacuum leak signature' : 'Assinatura forte de vacuum leak',
+      detail: en
+        ? `3 indicators aligned: IACV ${iacv.toFixed(1)}% (expected 30-38%), LTFT +${ltft.toFixed(2)}%, Lambda ${lam.toFixed(3)}. Unmeasured air after MAF sensor is causing lean mixture. Priority: check intake manifold gasket, IACV hoses, and PCV valve.`
+        : `3 indicadores alinhados: IACV ${iacv.toFixed(1)}% (esperado 30-38%), LTFT +${ltft.toFixed(2)}%, Lambda ${lam.toFixed(3)}. Ar nao medido apos sensor MAP causa mistura pobre. Prioridade: junta do coletor, mangueiras do IACV e valvula PCV.`,
+      correlation: en ? 'IACV + LTFT + Lambda correlation' : 'Correlacao IACV + LTFT + Lambda'
+    })
+  } else if (vacuumLeakScore === 2 && iacv > 42) {
+    alerts.push({
+      type: 'warn', param: 'IACV+LTFT', severity: 6,
+      title: en ? 'Possible vacuum leak — 2 indicators' : 'Possivel vacuum leak — 2 indicadores',
+      detail: en
+        ? `IACV ${iacv.toFixed(1)}% elevated with LTFT +${ltft.toFixed(2)}%. Partial vacuum leak or IACV valve wear. Monitor and inspect hoses.`
+        : `IACV ${iacv.toFixed(1)}% elevado com LTFT +${ltft.toFixed(2)}%. Vacuum leak parcial ou desgaste da valvula IACV. Monitorar e inspecionar mangueiras.`,
+    })
+  }
 
-  // Lambda
-  if ((m.lambda ?? 0) > 1.15)
-    alerts.push({ type: 'warn', param: 'Lambda',
-      title: en ? 'Lean mixture — lambda above 1.15' : 'Mistura pobre — lambda acima de 1.15',
-      detail: en ? `Avg lambda ${m.lambda?.toFixed(3)}. Ideal: ~1.000. 2.75" intake without remap causes this.` : `Lambda médio ${m.lambda?.toFixed(3)}. Ideal: ~1.000. Intake 2.75" sem remap causa isso.` })
-  else
-    alerts.push({ type: 'good', param: 'Lambda',
-      title: en ? 'Lambda acceptable' : 'Lambda aceitável',
-      detail: en ? `Avg lambda ${m.lambda?.toFixed(3)}.` : `Lambda médio ${m.lambda?.toFixed(3)}.` })
+  // ── CORRELATION 2: Intake heat-soak (CAI issue) ───────────────────────────
+  // High IAT + lean lambda + elevated LTFT = hot air causing lean mixture
+  if (iat > 55 && lam > 1.10 && ltft > 2) {
+    alerts.push({
+      type: 'warn', param: 'IAT+Lambda', severity: 5,
+      title: en ? 'Heat-soak: hot intake air causing lean mixture' : 'Heat-soak: ar de admissao quente causando mistura pobre',
+      detail: en
+        ? `IAT avg ${iat.toFixed(1)}C — hot air is less dense, causing lean mixture (Lambda ${lam.toFixed(3)}). Cold Air Intake without heat shield worsens this. Consider heat wrap or shield.`
+        : `IAT media ${iat.toFixed(1)}C — ar quente e menos denso, causando mistura pobre (Lambda ${lam.toFixed(3)}). CAI sem protetor termico agrava. Considere heat wrap ou protetor.`,
+      correlation: en ? 'IAT + Lambda' : 'IAT + Lambda'
+    })
+  }
 
-  // IACV
-  if ((m.iacv_mean ?? 0) > 55)
-    alerts.push({ type: 'bad', param: 'IACV',
-      title: en ? 'IACV very high — vacuum leak likely' : 'IACV muito alto — vacuum leak provável',
-      detail: en ? `${m.iacv_mean?.toFixed(1)}% (expected 30-38% warm). Unmeasured air entering engine.` : `${m.iacv_mean?.toFixed(1)}% (esperado 30-38% quente). Ar não medido entrando no motor.` })
-  else if ((m.iacv_mean ?? 0) > 42)
-    alerts.push({ type: 'warn', param: 'IACV',
-      title: en ? 'IACV elevated — possible vacuum leak' : 'IACV elevado — possível vacuum leak',
-      detail: en ? `${m.iacv_mean?.toFixed(1)}% (expected 30-38%). Check vacuum hoses at manifold.` : `${m.iacv_mean?.toFixed(1)}% (esperado 30-38%). Checar mangueiras de vacuum no coletor.` })
-  else
-    alerts.push({ type: 'good', param: 'IACV',
-      title: en ? 'IACV within normal range' : 'IACV dentro do normal',
-      detail: en ? `${m.iacv_mean?.toFixed(1)}% — idle stable.` : `${m.iacv_mean?.toFixed(1)}% — marcha lenta estável.` })
+  // ── CORRELATION 3: Ignition timing issue ──────────────────────────────────
+  // Retarded timing + knock events = detonation under load
+  if (knock > 0 && adv < 25) {
+    alerts.push({
+      type: 'bad', param: 'Knock+ADV', severity: 9,
+      title: en ? 'Knock with retarded timing — check fuel grade' : 'Knock com avanco retardado — verificar octanagem',
+      detail: en
+        ? `${knock} knock events with average advance ${adv.toFixed(1)} deg. ECU already retarding timing to protect engine. Check: fuel octane, carbon deposits, coolant temperature.`
+        : `${knock} eventos de knock com avanco medio ${adv.toFixed(1)} graus. ECU ja retardando avanco para proteger o motor. Verificar: octanagem do combustivel, depositos de carbono, temperatura do motor.`,
+    })
+  } else if (knock > 5) {
+    alerts.push({
+      type: 'bad', param: 'Knock', severity: 8,
+      title: en ? `${knock} knock events detected` : `${knock} eventos de knock detectados`,
+      detail: en
+        ? `Significant detonation. Check fuel quality, intake temperature, and timing calibration. Persistent knock causes piston damage.`
+        : `Detonacao significativa. Verificar qualidade do combustivel, temperatura de admissao e calibracao de avanco. Knock persistente causa danos ao pistao.`,
+    })
+  }
 
-  // ECT
-  if ((m.ect_above100_pct ?? 0) > 0)
-    alerts.push({ type: 'bad', param: 'ECT',
-      title: en ? 'Engine above 100°C' : 'Motor acima de 100°C',
-      detail: en ? `${m.ect_above100_pct?.toFixed(1)}% of time above 100°C. Check cooling on long climbs.` : `${m.ect_above100_pct?.toFixed(1)}% do tempo acima de 100°C. Verificar arrefecimento em subidas longas.` })
-  else if ((m.ect_above95_pct ?? 0) > 25)
-    alerts.push({ type: 'warn', param: 'ECT',
-      title: en ? 'ECT frequently high' : 'ECT alta com frequência',
-      detail: en ? `${m.ect_above95_pct?.toFixed(1)}% of time above 95°C. Monitor on climbs.` : `${m.ect_above95_pct?.toFixed(1)}% do tempo acima de 95°C. Monitorar em subidas.` })
-  else
-    alerts.push({ type: 'good', param: 'ECT',
-      title: en ? 'Engine temperature OK' : 'Temperatura do motor ok',
-      detail: en ? `Avg ${m.ect_mean?.toFixed(1)}°C, peak ${m.ect_max?.toFixed(1)}°C.` : `Média ${m.ect_mean?.toFixed(1)}°C, pico ${m.ect_max?.toFixed(1)}°C.` })
+  // ── CORRELATION 4: Cooling system stress ─────────────────────────────────
+  if (ect100 > 0.5 && ect > 25) {
+    alerts.push({
+      type: 'bad', param: 'ECT', severity: 8,
+      title: en ? 'Engine reaching critical temperature' : 'Motor atingindo temperatura critica',
+      detail: en
+        ? `Above 100C for ${ect100.toFixed(1)}% of session, above 95C for ${ect.toFixed(1)}%. Risk of head gasket failure on sustained climbs. Check thermostat opening temp and coolant level.`
+        : `Acima de 100C por ${ect100.toFixed(1)}% da sessao, acima de 95C por ${ect.toFixed(1)}%. Risco de junta de cabecote em subidas longas. Verificar temp de abertura do termostato e nivel do fluido.`,
+    })
+  } else if (ect > 30) {
+    alerts.push({
+      type: 'warn', param: 'ECT', severity: 5,
+      title: en ? 'Coolant temp frequently above 95C' : 'Temperatura do fluido frequentemente acima de 95C',
+      detail: en
+        ? `${ect.toFixed(1)}% of time above 95C. Normal for traffic with modified cooling, but monitor on highway climbs.`
+        : `${ect.toFixed(1)}% do tempo acima de 95C. Normal em trafego com arrefecimento modificado, mas monitorar em subidas na estrada.`,
+    })
+  } else {
+    alerts.push({
+      type: 'good', param: 'ECT', severity: 0,
+      title: en ? 'Cooling system healthy' : 'Sistema de arrefecimento saudavel',
+      detail: en
+        ? `Max ${m.ect_max?.toFixed(1)}C, avg ${m.ect_mean?.toFixed(1)}C. Radiator and thermostat working correctly.`
+        : `Max ${m.ect_max?.toFixed(1)}C, media ${m.ect_mean?.toFixed(1)}C. Radiador e termostato funcionando corretamente.`,
+    })
+  }
 
-  // Battery
-  if ((m.bat_below12_pct ?? 0) > 5)
-    alerts.push({ type: 'warn', param: 'BAT',
-      title: en ? 'Recurring voltage drops' : 'Quedas de tensão recorrentes',
-      detail: en ? `${m.bat_below12_pct?.toFixed(1)}% of time below 12V. Min: ${m.bat_min?.toFixed(2)}V. Check ELD and battery.` : `${m.bat_below12_pct?.toFixed(1)}% do tempo abaixo de 12V. Mínimo: ${m.bat_min?.toFixed(2)}V. Verificar ELD e bateria.` })
-  else
-    alerts.push({ type: 'good', param: 'BAT',
-      title: en ? 'Voltage stable' : 'Tensão elétrica estável',
-      detail: en ? `Avg ${m.bat_mean?.toFixed(2)}V. Electrical system normal.` : `Média ${m.bat_mean?.toFixed(2)}V. Sistema elétrico normal.` })
+  // ── CORRELATION 5: Electrical / charging ─────────────────────────────────
+  if (batMin < 12.0 && eld > 60) {
+    alerts.push({
+      type: 'bad', param: 'BAT+ELD', severity: 7,
+      title: en ? 'High electrical load causing voltage drop' : 'Carga eletrica elevada causando queda de tensao',
+      detail: en
+        ? `Battery dropped to ${batMin.toFixed(2)}V with ELD averaging ${eld.toFixed(0)}A. ELD sensor may be stuck at high reading (known issue). Test: disconnect A/C, check alternator output at idle.`
+        : `Bateria caiu para ${batMin.toFixed(2)}V com ELD media ${eld.toFixed(0)}A. Sensor ELD pode estar travado em leitura alta (problema conhecido). Teste: desligar A/C, verificar saida do alternador em marcha lenta.`,
+    })
+  } else if (batMin < 12.2) {
+    alerts.push({
+      type: 'warn', param: 'BAT', severity: 4,
+      title: en ? 'Occasional voltage drop at idle' : 'Queda de tensao ocasional em marcha lenta',
+      detail: en
+        ? `Battery min ${batMin.toFixed(2)}V. Alternator may not be fully charging at low RPM. Check belt tension and alternator output.`
+        : `Bateria min ${batMin.toFixed(2)}V. Alternador pode nao estar carregando totalmente em baixa rotacao. Verificar tensao da correia e saida do alternador.`,
+    })
+  } else {
+    alerts.push({
+      type: 'good', param: 'BAT', severity: 0,
+      title: en ? 'Electrical system stable' : 'Sistema eletrico estavel',
+      detail: en
+        ? `Avg ${bat.toFixed(2)}V, min ${batMin.toFixed(2)}V. Charging system operating normally.`
+        : `Media ${bat.toFixed(2)}V, min ${batMin.toFixed(2)}V. Sistema de carga funcionando normalmente.`,
+    })
+  }
 
-  // Knock
-  if ((m.knock_events ?? 0) === 0)
-    alerts.push({ type: 'good', param: 'Knock',
-      title: en ? 'Zero knock' : 'Zero knock',
-      detail: en ? 'No detonation events detected. Engine healthy.' : 'Nenhum evento de detonação. Motor saudável.' })
-  else
-    alerts.push({ type: 'bad', param: 'Knock',
-      title: en ? `${m.knock_events} knock events` : `${m.knock_events} eventos de knock`,
-      detail: en ? 'Investigate fuel, timing or temperature.' : 'Investigar combustível, avanço ou temperatura.' })
+  // ── CORRELATION 6: Fuel trim summary ─────────────────────────────────────
+  if (vacuumLeakScore < 3) { // only if no vacuum leak alert already covers this
+    if (ltft > 5 || stft > 15) {
+      alerts.push({
+        type: 'bad', param: 'Fuel Trim', severity: 7,
+        title: en ? 'ECU at correction limit — remap needed' : 'ECU no limite de correcao — remap necessario',
+        detail: en
+          ? `LTFT ${ltft > 0 ? '+' : ''}${ltft.toFixed(2)}%, STFT above +15% for ${stft.toFixed(1)}% of time. Stock ECU cannot compensate for modified intake/exhaust. Neptune or Crome remap strongly recommended.`
+          : `LTFT ${ltft > 0 ? '+' : ''}${ltft.toFixed(2)}%, STFT acima de +15% por ${stft.toFixed(1)}% do tempo. ECU stock nao consegue compensar intake/escapamento modificados. Remap Neptune ou Crome fortemente recomendado.`,
+      })
+    } else if (ltft > 2.5) {
+      alerts.push({
+        type: 'warn', param: 'LTFT', severity: 4,
+        title: en ? 'Lean bias — remap will fix this' : 'Tendencia pobre — remap vai corrigir',
+        detail: en
+          ? `LTFT +${ltft.toFixed(2)}%. Mixture slightly lean, likely due to 2.75" intake without remap. Expected after engine modifications.`
+          : `LTFT +${ltft.toFixed(2)}%. Mistura levemente pobre, provavelmente pelo intake 2.75" sem remap. Esperado apos modificacoes no motor.`,
+      })
+    } else {
+      alerts.push({
+        type: 'good', param: 'Fuel Trim', severity: 0,
+        title: en ? 'Fuel trim within normal range' : 'Fuel trim dentro do normal',
+        detail: en
+          ? `LTFT +${ltft.toFixed(2)}%, STFT nominal. ECU compensating correctly.`
+          : `LTFT +${ltft.toFixed(2)}%, STFT nominal. ECU compensando corretamente.`,
+      })
+    }
+  }
 
-  // MIL
-  if ((m.mil_on_pct ?? 0) > 0)
-    alerts.push({ type: 'bad', param: 'MIL',
-      title: en ? 'Check Engine active' : 'Check Engine ativo',
-      detail: en ? `MIL on for ${m.mil_on_pct?.toFixed(1)}% of session.` : `MIL ligado em ${m.mil_on_pct?.toFixed(1)}% do tempo.` })
-  else
-    alerts.push({ type: 'good', param: 'MIL',
-      title: en ? 'Check Engine off' : 'Check Engine desligado',
-      detail: en ? 'No active faults recorded.' : 'Sem falhas ativas registradas.' })
+  // ── CORRELATION 7: MIL + system check ────────────────────────────────────
+  if (mil > 0) {
+    alerts.push({
+      type: 'bad', param: 'MIL', severity: 8,
+      title: en ? 'Check Engine active during session' : 'Check Engine ativo durante sessao',
+      detail: en
+        ? `MIL on for ${mil.toFixed(1)}% of session. Connect HondsH to read fault codes before next drive.`
+        : `MIL ligado por ${mil.toFixed(1)}% da sessao. Conectar HondsH para ler codigos de falha antes da proxima viagem.`,
+    })
+  }
 
-  // IAT
-  if ((m.iat_above70_pct ?? 0) > 15)
-    alerts.push({ type: 'warn', param: 'IAT',
-      title: en ? 'IAT very high' : 'IAT muito alta',
-      detail: en ? `${m.iat_above70_pct?.toFixed(1)}% above 70°C. Hot air = less power. Typical in traffic with CAI.` : `${m.iat_above70_pct?.toFixed(1)}% acima de 70°C. Ar quente = menos potência. Típico em congestionamento com CAI.` })
+  // ── CORRELATION 8: VTEC engagement health ────────────────────────────────
+  if (vtec > 5 && knock === 0 && stft < 5) {
+    alerts.push({
+      type: 'good', param: 'VTEC', severity: 0,
+      title: en ? 'VTEC engaging cleanly' : 'VTEC acionando sem problemas',
+      detail: en
+        ? `VTEC active ${vtec.toFixed(1)}% of time with zero knock and stable fuel trim. High-rpm operation is healthy.`
+        : `VTEC ativo ${vtec.toFixed(1)}% do tempo sem knock e fuel trim estavel. Operacao em alta rotacao saudavel.`,
+    })
+  }
 
-  return alerts.sort((a, b) => {
-    const order = { bad: 0, warn: 1, good: 2, info: 3 }
-    return order[a.type] - order[b.type]
-  })
+  // ── CORRELATION 9: Closed loop status ────────────────────────────────────
+  if (cl < 30) {
+    alerts.push({
+      type: 'warn', param: 'Closed Loop', severity: 3,
+      title: en ? 'Mostly open loop — O2 sensor cold or disabled' : 'Majoritariamente malha aberta — sonda O2 fria ou desativada',
+      detail: en
+        ? `Closed loop only ${cl.toFixed(1)}% of time. ECU running on fuel map without O2 feedback. Check O2 sensor heater and warm-up time.`
+        : `Malha fechada apenas ${cl.toFixed(1)}% do tempo. ECU rodando em mapa sem feedback da sonda O2. Verificar aquecedor da sonda O2 e tempo de aquecimento.`,
+    })
+  }
+
+  // Sort by severity descending (bad/high first, good last)
+  return alerts.sort((a, b) => b.severity - a.severity)
+}
+
+export function generateAlerts(m: LogSession, lang: 'en' | 'pt' = 'en'): Alert[] {
+  return analyzeCorrelations(m, lang)
 }
