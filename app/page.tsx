@@ -322,6 +322,10 @@ export default function Home(): React.ReactElement {
   const [tab, setTab]                           = useState<Tab>('overview')
   const [lang, setLang]                         = useState<Lang>('en')
   const [collapsedSecs, setCollapsedSecs]       = useState<Set<SecKey>>(new Set())
+  const DEFAULT_SECTION_ORDER: SecKey[] = ['diag','elec','fuel','air','afr','ign','temp','idle','motion','act','perf']
+  const [sectionOrder, setSectionOrder]         = useState<SecKey[]>(DEFAULT_SECTION_ORDER)
+  const [dragSec, setDragSec]                   = useState<SecKey|null>(null)
+  const [dragOverSec, setDragOverSec]           = useState<SecKey|null>(null)
   const allParamKeys                            = ['bat','alt_fr','eld_curr','fuel_flow','fuel_inst','inj_dur','inj_dc','inj_fr','map_psi','map_wot','iat','clv','ltft','stft','lambda','fls','iacv_dc','ign_adv','ign_lim','knock','ect','ect_hot','fan','iacv_dc2','rev','vss','lng_accel','km_est','vtec','egr','mil']
   const [visibleParams, setVisibleParams]       = useState<Set<string>>(new Set(allParamKeys))
   const [paramFilterOpen, setParamFilterOpen]   = useState(false)
@@ -336,31 +340,42 @@ export default function Home(): React.ReactElement {
   const [selYear, setSelYear]                   = useState<number|null>(null)
   const [selTrim, setSelTrim]                   = useState<string|null>(null)
   const [profileName, setProfileName]           = useState('')
-  const [savedProfiles, setSavedProfiles]       = useState<Profile[]>(() => {
-    try { return JSON.parse(typeof window !== 'undefined' ? localStorage.getItem('hndsh_profiles') || '[]' : '[]') } catch { return [] }
-  })
-  const [activeProfileKey, setActiveProfileKey] = useState<string|null>(() => {
-    try { return typeof window !== 'undefined' ? localStorage.getItem('hndsh_active_profile') : null } catch { return null }
-  })
-  const [profileSessions, setProfileSessions]   = useState<Record<string,LogSession[]>>(() => {
-    try { return JSON.parse(typeof window !== 'undefined' ? localStorage.getItem('hndsh_sessions') || '{}' : '{}') } catch { return {} }
-  })
+  const [savedProfiles, setSavedProfiles]       = useState<Profile[]>([])
+  const [activeProfileKey, setActiveProfileKey] = useState<string|null>(null)
+  const [profileSessions, setProfileSessions]   = useState<Record<string,LogSession[]>>({})
+  const [hydrated, setHydrated]                 = useState(false)
   const carModalRef                             = useRef<HTMLDivElement>(null)
 
   const t = (k: string): string => (T[lang as Lang] ?? T.en)[k as string] ?? k
 
   // -- Effects -----------------------------------------------------------
-  // Persist profiles/sessions to localStorage
+  // Load from localStorage on mount (client only)
   useEffect(() => {
+    try {
+      const profiles = JSON.parse(localStorage.getItem('hndsh_profiles') || '[]')
+      const activeKey = localStorage.getItem('hndsh_active_profile')
+      const sessions  = JSON.parse(localStorage.getItem('hndsh_sessions') || '{}')
+      if (profiles.length) setSavedProfiles(profiles)
+      if (activeKey) setActiveProfileKey(activeKey)
+      if (Object.keys(sessions).length) setProfileSessions(sessions)
+    } catch {}
+    setHydrated(true)
+  }, [])
+
+  // Persist to localStorage whenever state changes (only after hydration)
+  useEffect(() => {
+    if (!hydrated) return
     try { localStorage.setItem('hndsh_profiles', JSON.stringify(savedProfiles)) } catch {}
-  }, [savedProfiles])
+  }, [savedProfiles, hydrated])
   useEffect(() => {
+    if (!hydrated) return
     try { if (activeProfileKey) localStorage.setItem('hndsh_active_profile', activeProfileKey)
           else localStorage.removeItem('hndsh_active_profile') } catch {}
-  }, [activeProfileKey])
+  }, [activeProfileKey, hydrated])
   useEffect(() => {
+    if (!hydrated) return
     try { localStorage.setItem('hndsh_sessions', JSON.stringify(profileSessions)) } catch {}
-  }, [profileSessions])
+  }, [profileSessions, hydrated])
 
   useEffect(() => {
     fetch('/api/sessions').then(r => r.json()).then((d: {sessions?: LogSession[]}) => {
@@ -967,17 +982,52 @@ export default function Home(): React.ReactElement {
 
               {/* KPI sections - 2 column when wide */}
               <div style={{ columns:'2 400px', columnGap:20 }}>
-                {(['elec','fuel','air','afr','ign','temp','idle','motion','act','perf'] as SecKey[]).map(key => {
+                {sectionOrder.filter((k: SecKey) => k !== 'diag').map((key: SecKey) => {
+                  const colors: Record<string,string> = { elec:C.green, fuel:C.orange, air:C.cyan, afr:C.green, ign:C.purple, temp:C.red, idle:C.teal, motion:C.blue, act:C.gray, perf:'#c060ff' }
                   const rendered = renderSection(key)
                   if (!rendered && collapsedSecs.has(key)) return (
-                    <div key={key} style={{ breakInside:'avoid', marginBottom:4 }}>
-                      <SecHead title={t(`sec_${key}`)} color={C.gray} open={false} onToggle={() => toggleSec(key)} />
+                    <div key={key}
+                      draggable
+                      onDragStart={() => setDragSec(key)}
+                      onDragEnd={() => { setDragSec(null); setDragOverSec(null) }}
+                      onDragOver={(e: React.DragEvent) => { e.preventDefault(); setDragOverSec(key) }}
+                      onDragLeave={() => setDragOverSec(null)}
+                      onDrop={() => {
+                        if (!dragSec || dragSec === key) return
+                        setSectionOrder((prev: SecKey[]) => {
+                          const next = prev.filter((k: SecKey) => k !== dragSec)
+                          const idx  = next.indexOf(key)
+                          next.splice(idx, 0, dragSec)
+                          return next
+                        })
+                        setDragSec(null); setDragOverSec(null)
+                      }}
+                      style={{ breakInside:'avoid', marginBottom:4, cursor:'grab', opacity: dragSec === key ? 0.4 : 1 }}>
+                      <SecHead title={t(`sec_${key}`)} color={colors[key] ?? C.gray} open={false} onToggle={() => toggleSec(key)} />
                     </div>
                   )
                   if (!rendered) return null
-                  const colors: Record<string,string> = { elec:C.green, fuel:C.orange, air:C.cyan, afr:C.green, ign:C.purple, temp:C.red, idle:C.teal, motion:C.blue, act:C.gray, perf:'#c060ff' }
+                  const isDragOver = dragOverSec === key && dragSec !== key
                   return (
-                    <div key={key} style={{ breakInside:'avoid', marginBottom:4 }}>
+                    <div key={key}
+                      draggable
+                      onDragStart={() => setDragSec(key)}
+                      onDragEnd={() => { setDragSec(null); setDragOverSec(null) }}
+                      onDragOver={(e: React.DragEvent) => { e.preventDefault(); setDragOverSec(key) }}
+                      onDragLeave={() => setDragOverSec(null)}
+                      onDrop={() => {
+                        if (!dragSec || dragSec === key) return
+                        setSectionOrder((prev: SecKey[]) => {
+                          const next = prev.filter((k: SecKey) => k !== dragSec)
+                          const idx  = next.indexOf(key)
+                          next.splice(idx, 0, dragSec)
+                          return next
+                        })
+                        setDragSec(null); setDragOverSec(null)
+                      }}
+                      style={{ breakInside:'avoid', marginBottom:4, opacity: dragSec === key ? 0.4 : 1,
+                        outline: isDragOver ? `2px dashed ${colors[key] ?? C.gray}` : 'none',
+                        borderRadius: isDragOver ? 8 : 0, cursor:'grab', transition:'opacity 0.15s' }}>
                       <SecHead title={t(`sec_${key}`)} color={colors[key] ?? C.gray} open={!collapsedSecs.has(key)} onToggle={() => toggleSec(key)} />
                       {rendered}
                     </div>
