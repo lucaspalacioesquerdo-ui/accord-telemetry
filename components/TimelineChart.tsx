@@ -3,18 +3,19 @@
 import { useEffect, useRef } from 'react'
 import {
   Chart, LineElement, PointElement, LinearScale, CategoryScale,
-  Tooltip, Filler, Legend,
+  Tooltip, Filler, Legend, type Plugin,
 } from 'chart.js'
+import type { TooltipItem } from 'chart.js'
 
 Chart.register(LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Filler, Legend)
 
-interface TimelineChartProps {
+export interface TimelineChartProps {
   labels: string[]
   datasets: {
     label: string
     data: (number | null)[]
     color: string
-    alarmFn?: (v: number) => boolean  // true = show warning dot
+    alarmFn?: (v: number) => boolean
   }[]
   title: string
   unit?: string
@@ -24,30 +25,29 @@ interface TimelineChartProps {
 }
 
 export default function TimelineChart({
-  labels, datasets, title, unit, yMin, yMax, refLine
+  labels, datasets, title, unit, yMin, yMax, refLine,
 }: TimelineChartProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const chartRef  = useRef<Chart | null>(null)
 
   useEffect(() => {
     if (!canvasRef.current) return
-    if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null }
+    chartRef.current?.destroy()
 
     const ctx = canvasRef.current.getContext('2d')!
 
-    // Auto-scale: compute min/max from actual data with padding
+    // Auto-scale: always fit all data points with padding
     const allVals = datasets.flatMap(d => d.data.filter((v): v is number => v != null))
     const dataMin = allVals.length ? Math.min(...allVals) : 0
     const dataMax = allVals.length ? Math.max(...allVals) : 1
-    const range   = dataMax - dataMin || 1
-    const padding = range * 0.15
+    const range   = Math.max(dataMax - dataMin, 0.1)
+    const pad     = Math.max(range * 0.15, 0.5)
 
-    // Ensure padding is always at least 1 unit to avoid data points clipping at edge
-    const minPad = Math.max(padding, range * 0.12, 0.5)
-    const effectiveYMin = yMin != null ? Math.min(yMin, dataMin - minPad) : (dataMin - minPad)
-    const effectiveYMax = yMax != null ? Math.max(yMax, dataMax + minPad) : (dataMax + minPad)
+    // User hints are minimum bounds, data always wins
+    const scaleMin = yMin != null ? Math.min(yMin, dataMin - pad) : dataMin - pad
+    const scaleMax = yMax != null ? Math.max(yMax, dataMax + pad) : dataMax + pad
 
-    // Alarm points plugin ' draws warning triangles on alarming data points
+    // Alarm overlay plugin
     const alarmPlugin = {
       id: 'alarmPoints',
       afterDatasetsDraw(chart: Chart) {
@@ -57,42 +57,48 @@ export default function TimelineChart({
           const meta = chart.getDatasetMeta(di)
           ds.data.forEach((val, i) => {
             if (val == null || !ds.alarmFn!(val)) return
-            const pt = meta.data[i] as PointElement | undefined
-            if (!pt) return
-            const { x, y } = pt.getCenterPoint()
+            const el = meta.data[i]
+            if (!el) return
+            // PointElement has getCenterPoint -- cast safely
+            const center = (el as unknown as { getCenterPoint(): {x:number;y:number} }).getCenterPoint()
             c.save()
             c.fillStyle = '#ff3030'
-            c.font = '10px sans-serif'
+            c.font = 'bold 11px sans-serif'
             c.textAlign = 'center'
-            c.fillText('!', x, y - 10)
+            c.fillText('!', center.x, center.y - 9)
             c.restore()
           })
         })
-      }
+      },
     }
 
-    const plugins: object[] = [alarmPlugin]
+    const plugins: Plugin<'line'>[] = [alarmPlugin as Plugin<'line'>]
 
     if (refLine) {
       plugins.push({
         id: 'refLine',
         afterDraw(chart: Chart) {
-          const { ctx: c, chartArea: { left, right }, scales: { y } } = chart as Chart & {
+          const anyChart = chart as unknown as {
+            ctx: CanvasRenderingContext2D
             chartArea: { left: number; right: number }
-            scales: { y: { getPixelForValue: (v: number) => number } }
+            scales: { y: { getPixelForValue(v: number): number } }
           }
+          const { ctx: c, chartArea: { left, right }, scales: { y } } = anyChart
           const yPos = y.getPixelForValue(refLine.value)
           c.save()
           c.setLineDash([4, 4])
-          c.strokeStyle = refLine.color || 'rgba(255,255,255,0.15)'
+          c.strokeStyle = refLine.color ?? 'rgba(255,255,255,0.15)'
           c.lineWidth = 1
-          c.beginPath(); c.moveTo(left, yPos); c.lineTo(right, yPos); c.stroke()
+          c.beginPath()
+          c.moveTo(left, yPos)
+          c.lineTo(right, yPos)
+          c.stroke()
           c.setLineDash([])
-          c.fillStyle = refLine.color || 'rgba(255,255,255,0.3)'
+          c.fillStyle = refLine.color ?? 'rgba(255,255,255,0.3)'
           c.font = "9px 'IBM Plex Mono'"
           c.fillText(refLine.label, left + 4, yPos - 4)
           c.restore()
-        }
+        },
       })
     }
 
@@ -105,15 +111,12 @@ export default function TimelineChart({
           const gradient = ctx.createLinearGradient(0, 0, 0, 160)
           gradient.addColorStop(0, d.color + '28')
           gradient.addColorStop(1, d.color + '00')
-
-          // Per-point styling: alarm points get red dots
           const pointColors = d.data.map(v =>
-            v != null && d.alarmFn && d.alarmFn(v) ? '#ff3030' : d.color
+            v != null && d.alarmFn?.(v) ? '#ff3030' : d.color
           )
           const pointRadii = d.data.map(v =>
-            v != null && d.alarmFn && d.alarmFn(v) ? 6 : 4
+            v != null && d.alarmFn?.(v) ? 6 : 4
           )
-
           return {
             label: d.label,
             data: d.data,
@@ -134,14 +137,15 @@ export default function TimelineChart({
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        animation: { duration: 600, easing: 'easeInOutQuart' },
+        animation: { duration: 400, easing: 'easeInOutQuart' },
         plugins: {
           legend: {
             display: datasets.length > 1,
             labels: {
               color: '#465a6e',
               font: { family: "'IBM Plex Mono'", size: 10 },
-              boxWidth: 8, padding: 12,
+              boxWidth: 8,
+              padding: 12,
             },
           },
           tooltip: {
@@ -156,12 +160,12 @@ export default function TimelineChart({
             bodyFont:  { family: "'IBM Plex Mono'", size: 10 },
             padding: 10,
             callbacks: {
-              title: (items: import('chart.js').TooltipItem<'line'>[]) => items[0]?.label ?? '',
-              label: (item: import('chart.js').TooltipItem<'line'>) => {
+              title: (items: TooltipItem<'line'>[]) => items[0]?.label ?? '',
+              label: (item: TooltipItem<'line'>) => {
                 const v = item.parsed.y
                 if (v == null) return ''
                 const ds = datasets[item.datasetIndex]
-                const alarm = ds?.alarmFn && ds.alarmFn(v) ? ' !' : ''
+                const alarm = ds?.alarmFn?.(v) ? ' !' : ''
                 return ` ${item.dataset.label}: ${v.toFixed(2)}${unit ? ' ' + unit : ''}${alarm}`
               },
             },
@@ -183,8 +187,8 @@ export default function TimelineChart({
               font: { family: "'IBM Plex Mono'", size: 9 },
               callback: (v: number | string) => `${v}${unit ?? ''}`,
             },
-            min: effectiveYMin,
-            max: effectiveYMax,
+            min: scaleMin,
+            max: scaleMax,
           },
         },
       },
@@ -195,7 +199,9 @@ export default function TimelineChart({
 
   return (
     <div style={{ background:'#111827', border:'1px solid #1e2740', borderRadius:10, padding:'16px 18px' }}>
-      <div style={{ fontSize:11, fontWeight:700, letterSpacing:'1.5px', textTransform:'uppercase' as const, color:'#64748b', fontFamily:"'IBM Plex Mono'", marginBottom:14 }}>{title}</div>
+      <div style={{ fontSize:11, fontWeight:700, letterSpacing:'1.5px', textTransform:'uppercase' as const, color:'#64748b', fontFamily:"'IBM Plex Mono'", marginBottom:14 }}>
+        {title}
+      </div>
       <div style={{ position:'relative', height:160 }}>
         <canvas ref={canvasRef} />
       </div>
