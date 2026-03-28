@@ -44,4 +44,9 @@ export interface LogSession {
   lng_accel_max: number | null; lng_accel_min: number | null; lng_accel_mean: number | null
   // Two-state counts (% time active)
   ac_on_pct: number | null; fan_on_pct: number | null; brake_pct: number | null
+  // Performance
+  t0_60: number | null    // 0-60 km/h time in seconds
+  t0_100: number | null   // 0-100 km/h time in seconds
+  t0_140: number | null   // 0-140 km/h time in seconds
+  vmax: number | null     // max speed km/h (already have vss_max but alias for clarity)
 }
