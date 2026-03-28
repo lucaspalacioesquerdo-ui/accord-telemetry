@@ -34,7 +34,7 @@ const COL: Record<string, string[]> = {
   ac:      ['Switch - A/C (SW-AC) []', 'Interruptor - A/C (SW-AC) []'],
   brake:   ['Brake Switch (BKSW) []', 'Interruptor do freio (BKSW) []'],
   lat:     ['GPS Latitude [°]', 'Latitude GPS [°]'],
-  lon:     ['GPS Longitude [°]', ' Longitude GPS [°]'],
+  lon:     ['GPS Longitude [°]', 'Longitude GPS [°]'],
 }
 
 type Row = Record<string, number | string>
@@ -81,35 +81,33 @@ function tsToDate(ms: number): string {
 const MIN_UNIX_MS = 946684800000  // 2000-01-01
 const MAX_UNIX_MS = 4102444800000 // 2100-01-01
 
-// Calculate acceleration time from 0 to target speed in km/h
-// Uses VSS column and time column. Returns null if no valid run found.
+// Calculate acceleration time from 0 to target speed in km/h - O(n) single pass
 function calcAccelTime(vssArr: number[], timeArr: number[], targetKph: number): number | null {
-  const minLen = Math.min(vssArr.length, timeArr.length)
-  if (minLen < 2) return null
-
+  const n = Math.min(vssArr.length, timeArr.length)
+  if (n < 2) return null
   let bestTime: number | null = null
+  let runStart = -1
 
-  // Scan for runs starting near 0 km/h that reach target
-  for (let start = 0; start < minLen - 10; start++) {
-    const v0 = vssArr[start]
-    if (!isFinite(v0) || v0 > 5) continue  // must start near standstill
+  for (let i = 0; i < n; i++) {
+    const v = vssArr[i]
+    if (!isFinite(v)) { runStart = -1; continue }
 
-    // Find first time we reach target from this start
-    for (let end = start + 1; end < minLen; end++) {
-      const vEnd = vssArr[end]
-      if (!isFinite(vEnd)) break
-      if (vEnd >= targetKph) {
-        const dt = (timeArr[end] - timeArr[start]) / 1000  // ms -> seconds
-        if (dt > 1 && dt < 30) {  // sanity: 1-30 seconds
-          if (bestTime === null || dt < bestTime) bestTime = dt
-        }
-        break
+    if (runStart === -1) {
+      // Look for standstill start
+      if (v <= 5) runStart = i
+    } else {
+      // In a run - check if we reached target
+      if (v >= targetKph) {
+        const dt = (timeArr[i] - timeArr[runStart]) / 1000
+        if (dt > 1 && dt < 30 && (bestTime === null || dt < bestTime)) bestTime = dt
+        runStart = -1  // reset to find next run
+      } else if (v < vssArr[Math.max(0, i-1)] - 5) {
+        // Speed dropped significantly - abort run
+        runStart = v <= 5 ? i : -1
       }
-      // If speed drops significantly before reaching target, abort this run
-      if (end > start + 3 && vEnd < v0 - 2) break
     }
   }
-  return bestTime != null ? Math.round(bestTime * 100) / 100 : null
+  return bestTime !== null ? Math.round(bestTime * 100) / 100 : null
 }
 
 export function extractMetrics(rows: Row[], name: string): LogSession {
@@ -259,16 +257,21 @@ export function extractMetrics(rows: Row[], name: string): LogSession {
       const rawLat = getCol(rows, 'lat')
       const rawLon = getCol(rows, 'lon')
       if (!rawLat.length || !rawLon.length) return null
+      // Use raw (unfiltered) columns so row indices stay aligned
+      const rawVss = getCol(rows, 'vss')
+      const rawEct = getCol(rows, 'ect')
+      const rawRev = getCol(rows, 'rev')  // raw, before RPM sanity filter
       const step = Math.max(1, Math.floor(rows.length / 300))
       const track: [number, number, number, number, number][] = []
-      for (let i = 0; i < Math.min(rawLat.length, rawLon.length); i += step) {
+      const n = Math.min(rawLat.length, rawLon.length, rawVss.length, rawEct.length, rawRev.length)
+      for (let i = 0; i < n; i += step) {
         const la = rawLat[i], lo = rawLon[i]
-        const sp  = vss[i] ?? 0
-        const tmp = ect[i] ?? 0
-        const rpm = rev[i] ?? 0
-        if (isFinite(la) && isFinite(lo) && Math.abs(la) > 0.001 && Math.abs(lo) > 0.001) {
-          track.push([la, lo, sp, tmp, rpm])
-        }
+        if (!isFinite(la) || !isFinite(lo) || Math.abs(la) < 0.001 || Math.abs(lo) < 0.001) continue
+        const sp  = isFinite(rawVss[i]) ? rawVss[i] : 0
+        const tmp = isFinite(rawEct[i]) ? rawEct[i] : 0
+        // Clamp RPM to sane range for color display (don't use sensor noise)
+        const rpm = isFinite(rawRev[i]) && rawRev[i] <= 8500 ? rawRev[i] : 0
+        track.push([la, lo, sp, tmp, rpm])
       }
       return track.length > 5 ? track : null
     })(),
@@ -311,21 +314,3 @@ export async function parseCSVFile(
 }
 
 // Baseline historico do Accord — spread from null base for type safety
-const B: LogSession = {
-  name: '', rows: 0, duration_min: null, date_start: null, date_end: null, sort_ts: null,
-  ect_mean: null, ect_max: null, ect_above95_pct: null, ect_above100_pct: null,
-  iat_mean: null, iat_max: null, iat_above70_pct: null,
-  ltft: null, stft_above15_pct: null, lambda: null, flow_mean: null, inj_dur: null,
-  adv_mean: null, adv_neg_pct: null, adv_max: null, ign_limit_mean: null,
-  iacv_mean: null, iacv_max: null, knock_events: null, knock_max: null, vtec_pct: null,
-  map_mean: null, map_max: null, map_wot: null, clv_mean: null,
-  rev_mean: null, rev_max: null, inj_dc_mean: null, inj_fr_mean: null, egr_active_pct: null,
-  bat_mean: null, bat_min: null, bat_below12_pct: null, eld_mean: null, alt_fr_mean: null,
-  mil_on_pct: null, closed_loop_pct: null,
-  vss_max: null, vss_mean: null, stopped_pct: null,
-  fuel_flow_mean: null, fuel_flow_max: null, inst_consumption: null, km_estimated: null,
-  lng_accel_max: null, lng_accel_min: null, lng_accel_mean: null,
-  ac_on_pct: null, fan_on_pct: null, brake_pct: null,
-  t0_60: null, t0_100: null, t0_140: null, vmax: null,
-  gps_track: null,
-}
