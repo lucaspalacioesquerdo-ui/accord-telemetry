@@ -77,7 +77,7 @@ export default function TimelineChart({
     if (refLine) {
       plugins.push({
         id: 'refLine',
-        afterDraw(chart: Chart) {
+        afterDraw(chart: Chart<'line'>) {
           const anyChart = chart as unknown as {
             ctx: CanvasRenderingContext2D
             chartArea: { left: number; right: number }
