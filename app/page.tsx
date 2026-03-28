@@ -764,7 +764,7 @@ export default function Home(): React.ReactElement {
             .filter(tb => activeProfileKey || tb === 'overview')
             .map(tb => (
               <button key={tb} onClick={() => setTab(tb)} style={{ padding:'0 16px', height:52, border:'none', borderBottom: tab===tb ? '2px solid #f97316' : '2px solid transparent', background:'transparent', color: tab===tb ? '#f97316' : '#64748b', fontSize:11, letterSpacing:2, textTransform:'uppercase', cursor:'pointer', fontWeight: tab===tb ? 700 : 400, fontFamily:'IBM Plex Mono,monospace' }}>
-                {tb === 'score' ? 'Score' : false ? 'Compat' : t(tb)}
+                {tb === 'score' ? 'Score' : t(tb)}
               </button>
             ))}
           <div style={{ marginLeft:12, display:'flex', gap:6, paddingLeft:12, borderLeft:'1px solid #1e2740' }}>
