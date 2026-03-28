@@ -13,6 +13,20 @@ type SecKey  = 'elec' | 'fuel' | 'air' | 'afr' | 'ign' | 'temp' | 'idle' | 'moti
 type Profile = { key: string; name: string }
 
 // -- Palette -----------------------------------------------------------
+// Orange Wire design tokens
+const D = {
+  bg:       '#0c0c0c',   // page background
+  nav:      '#0c0c0c',   // topbar
+  sb:       '#080808',   // sidebar
+  card:     '#111111',   // kpi card
+  cardBdr:  '#1e1e1e',   // card border
+  bdr:      '#1a1a1a',   // section border
+  accent:   '#ff5500',   // primary orange-red
+  dim:      '#282828',   // section header text
+  muted:    '#444444',   // sub text / labels
+  text:     '#f0f0f0',   // primary text
+  textSub:  '#666666',   // secondary text
+}
 const C = {
   cyan:'#00cfff', teal:'#00b4a0', green:'#00e060', lime:'#80e000',
   yellow:'#ffe000', orange:'#ff9000', red:'#ff3030', pink:'#ff60a0',
@@ -266,8 +280,8 @@ function ScoreLineChart({ sessions, activeIdx, onSelect }: {
           labels: sessions.map(s => s.name),
           datasets: [{
             data: sessions.map(s => s.score),
-            borderColor: '#f97316',
-            pointBackgroundColor: sessions.map((s, i) => i === activeIdx ? s.col : '#1e2740'),
+            borderColor: D.accent,
+            pointBackgroundColor: sessions.map((s, i) => i === activeIdx ? s.col : D.bdr),
             pointBorderColor: sessions.map((s, i) => i === activeIdx ? s.col : s.col + '80'),
             pointBorderWidth: 2,
             pointRadius: sessions.map((_, i) => i === activeIdx ? 7 : 4),
@@ -289,9 +303,9 @@ function ScoreLineChart({ sessions, activeIdx, onSelect }: {
               mode: 'index' as const,
               intersect: false,
               backgroundColor: '#0c0f14', borderColor: '#1a2330', borderWidth: 1,
-              titleColor: '#f97316', bodyColor: '#94a3b8',
-              titleFont: { family: "'IBM Plex Mono'", size: 11, weight: 'bold' as const },
-              bodyFont:  { family: "'IBM Plex Mono'", size: 10 },
+              titleColor: D.accent, bodyColor: D.textSub,
+              titleFont: { family: "'Inter', monospace", size: 11, weight: 'bold' as const },
+              bodyFont:  { family: "'Inter', monospace", size: 10 },
               padding: 10,
               callbacks: {
                 title: (items: import('chart.js').TooltipItem<'line'>[]) => items[0]?.label ?? '',
@@ -305,8 +319,8 @@ function ScoreLineChart({ sessions, activeIdx, onSelect }: {
             },
           },
           scales: {
-            x: { grid: { color: '#1a2330' }, ticks: { color: '#465a6e', font: { family: "'IBM Plex Mono'", size: 9 }, maxRotation: 30 } },
-            y: { grid: { color: '#1a2330' }, ticks: { color: '#465a6e', font: { family: "'IBM Plex Mono'", size: 9 } }, min: 0, max: 100 },
+            x: { grid: { color: D.bdr }, ticks: { color: '#3a3a3a', font: { family: "'Inter', monospo'", size: 9 }, maxRotation: 30 } },
+            y: { grid: { color: D.bdr }, ticks: { color: '#3a3a3a', font: { family: "'Inter', monospo'", size: 9 } }, min: 0, max: 100 },
           },
         },
       })
@@ -340,7 +354,7 @@ function MiniGauge({ value, min, max, goodMin, goodMax, color, label }: {
   return (
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
       <svg viewBox="0 0 100 55" style={{ width:100, overflow:'visible' }}>
-        {arc(0, 1, 38, '#1e2740')}
+        {arc(0, 1, 38, D.bdr)}
         {arc(goodP0, goodP1, 38, color + '60')}
         {angle != null && (() => {
           const rad = angle * Math.PI / 180
@@ -351,10 +365,10 @@ function MiniGauge({ value, min, max, goodMin, goodMax, color, label }: {
           </>
         })()}
       </svg>
-      <div style={{ fontSize:11, fontWeight:700, color: pct != null ? needleColor : '#475569', fontFamily:'IBM Plex Mono,monospace', marginTop:-8 }}>
+      <div style={{ fontSize:11, fontWeight:700, color: pct != null ? needleColor : D.muted, fontFamily:'inherit', marginTop:-8 }}>
         {value != null ? value.toFixed(1) + '%' : '--'}
       </div>
-      <div style={{ fontSize:9, color:'#334155', fontFamily:'IBM Plex Mono,monospace' }}>{label}</div>
+      <div style={{ fontSize:9, color:D.dim, fontFamily:'inherit' }}>{label}</div>
     </div>
   )
 }
@@ -391,7 +405,7 @@ function MiniDonut({ slices, size }: {
       {/* Legend */}
       <div style={{ position:'absolute', bottom:-28, left:0, right:0, display:'flex', gap:6, justifyContent:'center', flexWrap:'wrap' }}>
         {paths.map((p, i) => (
-          <span key={i} style={{ fontSize:8, color:p.color, fontFamily:'IBM Plex Mono,monospace' }}>
+          <span key={i} style={{ fontSize:8, color:p.color, fontFamily:'inherit' }}>
             {p.label} {p.pct}%
           </span>
         ))}
@@ -562,24 +576,24 @@ function RouteMap({ track, lang }: {
         {legends[overlay].map(item => (
           <div key={item.color} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <div style={{ width: 18, height: 4, background: item.color, borderRadius: 2 }} />
-            <span style={{ fontSize: 10, color: '#475569', fontFamily: 'IBM Plex Mono,monospace' }}>{item.label}</span>
+            <span style={{ fontSize: 10, color: D.muted, fontFamily: 'inherit' }}>{item.label}</span>
           </div>
         ))}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <div style={{ width: 9, height: 9, borderRadius: '50%', background: '#00e060' }} />
-          <span style={{ fontSize: 10, color: '#475569', fontFamily: 'IBM Plex Mono,monospace' }}>{lang === 'en' ? 'Start' : 'Inicio'}</span>
+          <span style={{ fontSize: 10, color: D.muted, fontFamily: 'inherit' }}>{lang === 'en' ? 'Start' : 'Inicio'}</span>
           <div style={{ width: 9, height: 9, borderRadius: '50%', background: '#ff3030' }} />
-          <span style={{ fontSize: 10, color: '#475569', fontFamily: 'IBM Plex Mono,monospace' }}>{lang === 'en' ? 'End' : 'Fim'}</span>
+          <span style={{ fontSize: 10, color: D.muted, fontFamily: 'inherit' }}>{lang === 'en' ? 'End' : 'Fim'}</span>
         </div>
         {/* Overlay selector */}
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 10, color: '#475569', fontFamily: 'IBM Plex Mono,monospace' }}>
+          <span style={{ fontSize: 10, color: D.muted, fontFamily: 'inherit' }}>
             {lang === 'en' ? 'Color by:' : 'Cor por:'}
           </span>
           <select
             value={overlay}
             onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setOverlay(e.target.value as 'speed'|'temp'|'rpm')}
-            style={{ background: '#161c2a', border: '1px solid #1e2740', borderRadius: 5, padding: '3px 8px', color: '#e2e8f0', fontSize: 10, fontFamily: 'IBM Plex Mono,monospace', cursor: 'pointer', outline: 'none' }}
+            style={{ background: D.card, border: `1px solid ${D.bdr}`, borderRadius: 4, padding: '3px 8px', color: D.text, fontSize: 10, fontFamily: 'inherit', cursor: 'pointer', outline: 'none' }}
           >
             {(['speed','temp','rpm'] as const).map(k => (
               <option key={k} value={k}>{overlayLabels[k]}</option>
@@ -607,15 +621,15 @@ function DiagList({ alerts, AC }: { alerts: Alert[]; AC: Record<string,string> }
           <div key={idx} style={{ border:`1px solid ${col}25`, borderRadius:8, overflow:'hidden' }}>
             <button onClick={() => toggle(idx)} style={{ display:'flex', alignItems:'center', gap:10, width:'100%', padding:'9px 12px', background:`${col}08`, border:'none', cursor:'pointer', textAlign:'left' }}>
               <div style={{ width:18, height:18, borderRadius:'50%', border:`1.5px solid ${col}`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                <span style={{ fontSize:9, color:col, fontWeight:800, fontFamily:'IBM Plex Mono,monospace', lineHeight:1 }}>{icon[a.type]}</span>
+                <span style={{ fontSize:9, color:col, fontWeight:800, fontFamily:'inherit', lineHeight:1 }}>{icon[a.type]}</span>
               </div>
-              <span style={{ fontSize:9, padding:'2px 6px', borderRadius:3, background:`${col}18`, color:col, letterSpacing:1, flexShrink:0, fontFamily:'IBM Plex Mono,monospace', fontWeight:700 }}>{a.param}</span>
-              <span style={{ fontSize:11, fontWeight:600, color: a.type === 'good' ? '#64748b' : col, flex:1 }}>{a.title}</span>
-              <span style={{ fontSize:10, color:'#334155', transform: open ? 'rotate(180deg)' : 'none', display:'inline-block', transition:'transform 0.15s' }}>v</span>
+              <span style={{ fontSize:9, padding:'2px 6px', borderRadius:3, background:`${col}18`, color:col, letterSpacing:1, flexShrink:0, fontFamily:'inherit', fontWeight:700 }}>{a.param}</span>
+              <span style={{ fontSize:11, fontWeight:600, color: a.type === 'good' ? D.muted : col, flex:1 }}>{a.title}</span>
+              <span style={{ fontSize:10, color:D.dim, transform: open ? 'rotate(180deg)' : 'none', display:'inline-block', transition:'transform 0.15s' }}>v</span>
             </button>
             {open && (
               <div style={{ padding:'8px 12px 10px 40px', background:`${col}04`, borderTop:`1px solid ${col}15` }}>
-                <p style={{ fontSize:11, color:'#64748b', lineHeight:1.7, fontFamily:'IBM Plex Mono,monospace' }}>{a.detail}</p>
+                <p style={{ fontSize:11, color:D.muted, lineHeight:1.7, fontFamily:'inherit' }}>{a.detail}</p>
               </div>
             )}
           </div>
@@ -626,62 +640,71 @@ function DiagList({ alerts, AC }: { alerts: Alert[]; AC: Record<string,string> }
 }
 
 // -- Kpi card ----------------------------------------------------------
-function Kpi({ label, value, unit, sub, color, prevValue, lowerIsBetter }: {
+function Kpi({ label, value, unit, sub, color, prevValue, lowerIsBetter, icon }: {
   label: string
   value: string | number | null
   unit?: string
   sub?: string
   color?: string
-  prevValue?: number | null   // value from previous session for trend arrow
-  lowerIsBetter?: boolean     // true = lower value is better (e.g. ECT, LTFT)
+  prevValue?: number | null
+  lowerIsBetter?: boolean
+  icon?: React.ReactElement
 }): React.ReactElement {
-  const vc = color ?? '#94a3b8'
-  // Compute trend
+  const vc = color ?? '#444'
   const numVal = typeof value === 'number' ? value : (typeof value === 'string' ? parseFloat(value) : null)
-  let trend: 'up' | 'down' | null = null
-  let trendColor = '#475569'
+  let trendColor = D.muted
   let deltaTxt = ''
   if (numVal != null && prevValue != null && isFinite(numVal) && isFinite(prevValue) && prevValue !== 0) {
-    const delta = numVal - prevValue
-    const pct   = Math.abs(delta / prevValue * 100)
+    const delta   = numVal - prevValue
+    const pct     = Math.abs(delta / prevValue * 100)
     if (Math.abs(delta) > 0.001) {
-      trend = delta > 0 ? 'up' : 'down'
       const improved = lowerIsBetter ? delta < 0 : delta > 0
-      trendColor = improved ? '#00e060' : '#ff3030'
+      trendColor = improved ? '#22c55e' : '#ef4444'
       deltaTxt = (delta > 0 ? '+' : '') + (pct < 10 ? delta.toFixed(1) : Math.round(delta).toString()) + (unit ?? '')
     }
   }
   return (
-    <div style={{ background:'#1a1f2e', border:'1px solid #2a3040', borderRadius:8, padding:'12px 14px', position:'relative', overflow:'hidden' }}>
+    <div style={{ background:D.card, border:`1px solid ${D.cardBdr}`, borderRadius:6, padding:'11px 13px', position:'relative', overflow:'hidden' }}>
+      {/* color accent top bar */}
       <div style={{ position:'absolute', top:0, left:0, right:0, height:2, background:vc }} />
-      <div style={{ fontSize:11, letterSpacing:'1px', textTransform:'uppercase' as const, color:'#64748b', fontFamily:'IBM Plex Mono,monospace', fontWeight:600, marginBottom:8 }}>{label}</div>
-      <div style={{ display:'flex', alignItems:'baseline', gap:6 }}>
-        <div style={{ fontFamily:'IBM Plex Mono,monospace', fontSize:24, fontWeight:700, lineHeight:1, color:vc }}>
-          {value ?? '--'}{unit && <span style={{ fontSize:11, color:'#64748b', marginLeft:2 }}>{unit}</span>}
-        </div>
-        {trend && (
-          <div style={{ display:'flex', alignItems:'center', gap:2 }}>
-            <span style={{ fontSize:10, color:trendColor, fontFamily:'IBM Plex Mono,monospace', fontWeight:700 }}>
-              {trend === 'up' ? 'u' : 'd'} {deltaTxt}
-            </span>
-          </div>
+      {/* label row */}
+      <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:7 }}>
+        {icon && <span style={{ color:D.muted, display:'flex', flexShrink:0 }}>{icon}</span>}
+        <span style={{ fontSize:9, fontWeight:700, letterSpacing:'1.5px', textTransform:'uppercase' as const, color:D.muted, fontFamily:'inherit' }}>{label}</span>
+      </div>
+      {/* value row */}
+      <div style={{ display:'flex', alignItems:'baseline', gap:5 }}>
+        <span style={{ fontSize:22, fontWeight:800, color:vc, lineHeight:1, letterSpacing:'-0.5px', fontFamily:'inherit' }}>
+          {value ?? '--'}
+        </span>
+        {unit && <span style={{ fontSize:10, color:D.textSub, fontWeight:400 }}>{unit}</span>}
+        {deltaTxt && (
+          <span style={{ fontSize:9, fontWeight:700, color:trendColor, marginLeft:2 }}>
+            {trendColor === '#22c55e' ? '^' : 'v'} {deltaTxt}
+          </span>
         )}
       </div>
-      {sub && <div style={{ fontSize:11, color:'#475569', fontFamily:'IBM Plex Mono,monospace', marginTop:6 }}>{sub}</div>}
+      {sub && <div style={{ fontSize:10, color:D.textSub, marginTop:4, fontFamily:'inherit' }}>{sub}</div>}
     </div>
   )
 }
 
 // -- SecHead -----------------------------------------------------------
-function SecHead({ title, color, open, onToggle }: {
-  title: string; color: string; open: boolean; onToggle: () => void
+// -- SecHead -----------------------------------------------------------
+function SecHead({ title, color, open, onToggle, icon }: {
+  title: string; color: string; open: boolean; onToggle: () => void; icon?: React.ReactElement
 }): React.ReactElement {
   return (
-    <button onClick={onToggle} style={{ display:'flex', alignItems:'center', gap:10, marginTop:24, marginBottom: open ? 14 : 4, width:'100%', background:'none', border:'none', cursor:'pointer', textAlign:'left', padding:0 }}>
-      <div style={{ width:3, height:16, background:color, borderRadius:2 }} />
-      <span style={{ fontSize:13, fontWeight:700, letterSpacing:'1.5px', textTransform:'uppercase' as const, color:'#94a3b8', fontFamily:'IBM Plex Mono,monospace', flex:1 }}>{title}</span>
-      <div style={{ flex:1, height:1, background:'#1e2740', maxWidth:200 }} />
-      <span style={{ fontSize:11, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>{open ? 'v' : '>'}</span>
+    <button onClick={onToggle} style={{ display:'flex', alignItems:'center', gap:8, marginTop:22, marginBottom: open ? 12 : 4, width:'100%', background:'none', border:'none', cursor:'pointer', textAlign:'left', padding:0 }}>
+      {icon && <span style={{ color:D.muted, display:'flex', flexShrink:0 }}>{icon}</span>}
+      <div style={{ width:2, height:13, background:color, borderRadius:1, flexShrink:0 }} />
+      <span style={{ fontSize:9, fontWeight:800, letterSpacing:'3px', textTransform:'uppercase' as const, color:D.dim, fontFamily:'inherit', flex:1 }}>{title}</span>
+      <div style={{ flex:1, height:'1px', background:D.bdr }} />
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={D.dim} strokeWidth="2.5">
+        {open
+          ? <polyline points="18 15 12 9 6 15"/>
+          : <polyline points="6 9 12 15 18 9"/>}
+      </svg>
     </button>
   )
 }
@@ -842,7 +865,7 @@ export default function Home(): React.ReactElement {
     return note ? s.name : null
   }
   const hs        = active ? calcHealth(active) : null
-  const hsColor   = hs != null ? scoreCol(hs) : '#475569'
+  const hsColor   = hs != null ? scoreCol(hs) : D.muted
   const AC: Record<string,string> = { bad:C.red, warn:C.orange, good:C.green, info:C.blue }
 
   // -- File upload -------------------------------------------------------
@@ -1086,7 +1109,7 @@ export default function Home(): React.ReactElement {
         const vmax = active.vmax ?? active.vss_max
         const noData = t60 === null && t100 === null && t140 === null
         if (noData) return (
-          <div style={{ padding:'10px 0 6px', color:'#334155', fontSize:11, fontFamily:'IBM Plex Mono,monospace' }}>
+          <div style={{ padding:'10px 0 6px', color:D.dim, fontSize:11, fontFamily:'inherit' }}>
             {lang === 'en' ? 'No sprint detected. Logs must start from standstill (<5 km/h).' : 'Nenhuma arrancada detectada. Log precisa partir do 0 (< 5 km/h).'}
           </div>
         )
@@ -1105,24 +1128,24 @@ export default function Home(): React.ReactElement {
 
   // -- Render ------------------------------------------------------------
   return (
-    <div style={{ display:'flex', flexDirection:'column', height:'100vh', overflow:'hidden', background:'#0f1117', fontFamily:"'IBM Plex Sans',sans-serif", color:'#e2e8f0' }}>
+    <div style={{ display:'flex', flexDirection:'column', height:'100vh', overflow:'hidden', background:D.bg, fontFamily:"'Inter','IBM Plex Mono',monospace", color:D.text }}>
 
       {/* TOPBAR */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 16px', height:52, background:'#111827', borderBottom:'1px solid #1e2740', flexShrink:0, zIndex:50 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 18px', height:52, background:D.nav, borderBottom:`1px solid ${D.bdr}`, flexShrink:0, zIndex:50 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:14 }}>
           {/* Logo - click to go home */}
           <button onClick={() => { setTab('overview'); setActiveIdx(null) }}
-            style={{ background:'none', border:'none', cursor:'pointer', padding:0, display:'flex', alignItems:'baseline', gap:3 }}>
-            <span style={{ fontSize:15, fontWeight:800, letterSpacing:3, color:'#f97316', fontFamily:'IBM Plex Mono,monospace' }}>HNDSH</span>
-            <span style={{ fontSize:12, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>.meters</span>
+            style={{ background:'none', border:'none', cursor:'pointer', padding:0, display:'flex', alignItems:'baseline', gap:2 }}>
+            <span style={{ fontSize:14, fontWeight:900, letterSpacing:4, color:D.text, fontFamily:'inherit' }}>HNDSH</span>
+            <span style={{ fontSize:9, color:D.accent, fontFamily:'inherit', fontWeight:700, marginLeft:1, letterSpacing:1 }}>.meters</span>
           </button>
-          <div style={{ width:1, height:18, background:'#1e2740' }} />
+          <div style={{ width:1, height:16, background:D.bdr }} />
 
           {/* Car profile button */}
           <div style={{ position:'relative' }} ref={carModalRef}>
             <button
               onClick={() => { setCarModalOpen((o: boolean) => !o); setCarModalMode(savedProfiles.length > 0 ? 'list' : 'add'); setCarModalStep('model') }}
-              style={{ display:'flex', alignItems:'center', gap:8, fontSize:11, padding:'4px 12px', border:'1px solid', borderColor: carModalOpen ? '#f97316' : '#1e2740', borderRadius:6, background: carModalOpen ? '#2a1a0a' : '#161c2a', color: activeProfileKey ? '#f97316' : '#64748b', cursor:'pointer', fontFamily:'IBM Plex Mono,monospace', fontWeight:600, letterSpacing:1 }}
+              style={{ display:'flex', alignItems:'center', gap:8, fontSize:11, padding:'4px 12px', border:'1px solid', borderColor: carModalOpen ? D.accent : D.bdr, borderRadius:6, background: carModalOpen ? '#2a1a0a' : '#0e0e0e', color: activeProfileKey ? D.accent : D.muted, cursor:'pointer', fontFamily:'inherit', fontWeight:600, letterSpacing:1 }}
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
               {profileLabel}
@@ -1131,23 +1154,23 @@ export default function Home(): React.ReactElement {
 
             {/* Car modal */}
             {carModalOpen && (
-              <div style={{ position:'absolute', top:'calc(100% + 8px)', left:0, width:460, background:'#111827', border:'1px solid #1e2740', borderRadius:10, boxShadow:'0 8px 32px rgba(0,0,0,0.5)', zIndex:100, overflow:'hidden' }}>
+              <div style={{ position:'absolute', top:'calc(100% + 8px)', left:0, width:460, background:'#0e0e0e', border:`1px solid ${D.bdr}`, borderRadius:8, boxShadow:'0 8px 40px rgba(0,0,0,0.8)', zIndex:100, overflow:'hidden' }}>
                 {/* Modal header */}
-                <div style={{ padding:'12px 16px', borderBottom:'1px solid #1e2740', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                  <span style={{ fontSize:12, fontWeight:700, color:'#f97316', letterSpacing:2, textTransform:'uppercase', fontFamily:'IBM Plex Mono,monospace' }}>{t('my_cars')}</span>
+                <div style={{ padding:'12px 16px', borderBottom:`1px solid ${D.bdr}`, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                  <span style={{ fontSize:12, fontWeight:700, color:D.accent, letterSpacing:2, textTransform:'uppercase', fontFamily:'inherit' }}>{t('my_cars')}</span>
                   <div style={{ display:'flex', gap:8, alignItems:'center' }}>
                     {carModalMode === 'list' && (
                       <button onClick={() => { setCarModalMode('add'); setCarModalStep('model'); setSelModel(null); setSelYear(null); setSelTrim(null); setProfileName('') }}
-                        style={{ fontSize:10, padding:'3px 10px', border:'1px solid #f97316', borderRadius:4, background:'transparent', color:'#f97316', cursor:'pointer', fontFamily:'IBM Plex Mono,monospace', fontWeight:600 }}>
+                        style={{ fontSize:10, padding:'3px 10px', border:`1px solid ${D.accent}`, borderRadius:4, background:'transparent', color:D.accent, cursor:'pointer', fontFamily:'inherit', fontWeight:600 }}>
                         + {t('add_car')}
                       </button>
                     )}
                     {carModalMode === 'add' && savedProfiles.length > 0 && (
-                      <button onClick={() => setCarModalMode('list')} style={{ fontSize:10, padding:'3px 10px', border:'1px solid #1e2740', borderRadius:4, background:'transparent', color:'#64748b', cursor:'pointer', fontFamily:'IBM Plex Mono,monospace' }}>
+                      <button onClick={() => setCarModalMode('list')} style={{ fontSize:10, padding:'3px 10px', border:`1px solid ${D.bdr}`, borderRadius:4, background:'transparent', color:D.muted, cursor:'pointer', fontFamily:'inherit' }}>
                         {lang === 'en' ? 'Back' : 'Voltar'}
                       </button>
                     )}
-                    <button onClick={() => setCarModalOpen(false)} style={{ fontSize:16, color:'#475569', background:'none', border:'none', cursor:'pointer', lineHeight:1, padding:'0 2px' }}>x</button>
+                    <button onClick={() => setCarModalOpen(false)} style={{ fontSize:16, color:D.muted, background:'none', border:'none', cursor:'pointer', lineHeight:1, padding:'0 2px' }}>x</button>
                   </div>
                 </div>
 
@@ -1156,24 +1179,24 @@ export default function Home(): React.ReactElement {
                   <div style={{ maxHeight:320, overflowY:'auto' }}>
                     {savedProfiles.length === 0 ? (
                       <div style={{ padding:'24px 16px', textAlign:'center' }}>
-                        <p style={{ fontSize:12, color:'#475569', fontFamily:'IBM Plex Mono,monospace', marginBottom:12 }}>{lang === 'en' ? 'No saved profiles yet.' : 'Nenhum perfil salvo ainda.'}</p>
-                        <button onClick={() => { setCarModalMode('add'); setCarModalStep('model') }} style={{ fontSize:11, padding:'6px 16px', border:'1px solid #f97316', borderRadius:6, background:'transparent', color:'#f97316', cursor:'pointer', fontFamily:'IBM Plex Mono,monospace', fontWeight:600 }}>
+                        <p style={{ fontSize:12, color:D.muted, fontFamily:'inherit', marginBottom:12 }}>{lang === 'en' ? 'No saved profiles yet.' : 'Nenhum perfil salvo ainda.'}</p>
+                        <button onClick={() => { setCarModalMode('add'); setCarModalStep('model') }} style={{ fontSize:11, padding:'6px 16px', border:`1px solid ${D.accent}`, borderRadius:6, background:'transparent', color:D.accent, cursor:'pointer', fontFamily:'inherit', fontWeight:600 }}>
                           + {t('add_car')}
                         </button>
                       </div>
                     ) : savedProfiles.map((prof: Profile) => {
                       const isAct = activeProfileKey === prof.key
                       return (
-                        <div key={prof.key} style={{ padding:'12px 16px', borderBottom:'1px solid #161c2a', cursor:'pointer', background: isAct ? '#1a2035' : 'transparent', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}
+                        <div key={prof.key} style={{ padding:'12px 16px', borderBottom:`1px solid ${D.bdr}`, cursor:'pointer', background: isAct ? '#1a2035' : 'transparent', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}
                           onClick={() => activateProfile(prof.key)}>
                           <div>
-                            <div style={{ fontSize:13, fontWeight:700, color: isAct ? '#f97316' : '#e2e8f0', marginBottom:2 }}>{prof.name}</div>
-                            <div style={{ fontSize:10, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>{prof.key.split('|').join(' - ')}</div>
+                            <div style={{ fontSize:13, fontWeight:700, color: isAct ? D.accent : D.text, marginBottom:2 }}>{prof.name}</div>
+                            <div style={{ fontSize:10, color:D.muted, fontFamily:'inherit' }}>{prof.key.split('|').join(' - ')}</div>
                           </div>
                           <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-                            {isAct && <span style={{ fontSize:9, background:'#1a2a0a', color:C.green, padding:'2px 7px', borderRadius:3, fontFamily:'IBM Plex Mono,monospace', fontWeight:700 }}>ACTIVE</span>}
+                            {isAct && <span style={{ fontSize:9, background:'#1a2a0a', color:C.green, padding:'2px 7px', borderRadius:3, fontFamily:'inherit', fontWeight:700 }}>ACTIVE</span>}
                             <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); deleteProfile(prof.key) }}
-                              style={{ fontSize:9, color:'#dc2626', background:'none', border:'1px solid #7f1d1d', borderRadius:3, cursor:'pointer', fontFamily:'IBM Plex Mono,monospace', padding:'2px 6px' }}>
+                              style={{ fontSize:9, color:'#dc2626', background:'none', border:'1px solid #7f1d1d', borderRadius:3, cursor:'pointer', fontFamily:'inherit', padding:'2px 6px' }}>
                               x
                             </button>
                           </div>
@@ -1187,11 +1210,11 @@ export default function Home(): React.ReactElement {
                 {carModalMode === 'add' && (
                   <div>
                     {/* Breadcrumbs */}
-                    <div style={{ display:'flex', gap:6, padding:'8px 16px', borderBottom:'1px solid #1e2740' }}>
+                    <div style={{ display:'flex', gap:6, padding:'8px 16px', borderBottom:`1px solid ${D.bdr}` }}>
                       {(['model','year','trim'] as const).map((step, i) => (
                         <button key={step}
                           onClick={() => { if(i===0 || (i===1&&selModel) || (i===2&&selModel&&selYear)) setCarModalStep(step) }}
-                          style={{ fontSize:10, padding:'2px 8px', borderRadius:4, border:'1px solid', borderColor: carModalStep===step ? '#f97316' : '#1e2740', background: carModalStep===step ? '#2a1a0a' : 'transparent', color: carModalStep===step ? '#f97316' : '#475569', cursor:'pointer', fontFamily:'IBM Plex Mono,monospace', fontWeight:700 }}>
+                          style={{ fontSize:10, padding:'2px 8px', borderRadius:4, border:'1px solid', borderColor: carModalStep===step ? D.accent : D.bdr, background: carModalStep===step ? '#2a1a0a' : 'transparent', color: carModalStep===step ? D.accent : D.muted, cursor:'pointer', fontFamily:'inherit', fontWeight:700 }}>
                           {i===0 ? t('step_model') : i===1 ? (selYear ? `${selYear}` : t('step_year')) : (selTrim || t('step_trim'))}
                         </button>
                       ))}
@@ -1201,9 +1224,9 @@ export default function Home(): React.ReactElement {
                       <div style={{ maxHeight:260, overflowY:'auto' }}>
                         {CAR_CATALOG.map(car => (
                           <div key={car.model} onClick={() => { setSelModel(car.model); setSelYear(null); setSelTrim(null); setCarModalStep('year') }}
-                            style={{ padding:'10px 16px', borderBottom:'1px solid #161c2a', cursor:'pointer', background: selModel===car.model ? '#1a2035' : 'transparent' }}>
-                            <div style={{ fontSize:12, fontWeight:600, color: selModel===car.model ? '#f97316' : '#e2e8f0' }}>{car.model}</div>
-                            <div style={{ fontSize:10, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>{car.years[0].year} - {car.years[car.years.length-1].year}</div>
+                            style={{ padding:'10px 16px', borderBottom:`1px solid ${D.bdr}`, cursor:'pointer', background: selModel===car.model ? '#1a2035' : 'transparent' }}>
+                            <div style={{ fontSize:12, fontWeight:600, color: selModel===car.model ? D.accent : D.text }}>{car.model}</div>
+                            <div style={{ fontSize:10, color:D.muted, fontFamily:'inherit' }}>{car.years[0].year} - {car.years[car.years.length-1].year}</div>
                           </div>
                         ))}
                       </div>
@@ -1213,9 +1236,9 @@ export default function Home(): React.ReactElement {
                       <div style={{ maxHeight:260, overflowY:'auto' }}>
                         {(CAR_CATALOG.find(c => c.model === selModel)?.years ?? []).map(yd => (
                           <div key={yd.year} onClick={() => { setSelYear(yd.year); setSelTrim(null); setCarModalStep('trim') }}
-                            style={{ padding:'10px 16px', borderBottom:'1px solid #161c2a', cursor:'pointer', background: selYear===yd.year ? '#1a2035' : 'transparent', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                            <span style={{ fontSize:13, fontWeight:700, color: selYear===yd.year ? '#f97316' : '#e2e8f0', fontFamily:'IBM Plex Mono,monospace' }}>{yd.year}</span>
-                            <span style={{ fontSize:10, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>{yd.trims.length} {lang==='en'?'trims':'versoes'}</span>
+                            style={{ padding:'10px 16px', borderBottom:`1px solid ${D.bdr}`, cursor:'pointer', background: selYear===yd.year ? '#1a2035' : 'transparent', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                            <span style={{ fontSize:13, fontWeight:700, color: selYear===yd.year ? D.accent : D.text, fontFamily:'inherit' }}>{yd.year}</span>
+                            <span style={{ fontSize:10, color:D.muted, fontFamily:'inherit' }}>{yd.trims.length} {lang==='en'?'trims':'versoes'}</span>
                           </div>
                         ))}
                       </div>
@@ -1226,24 +1249,24 @@ export default function Home(): React.ReactElement {
                         <div style={{ maxHeight:180, overflowY:'auto' }}>
                           {(CAR_CATALOG.find(c => c.model === selModel)?.years.find(y => y.year === selYear)?.trims ?? []).map(td => (
                             <div key={td.trim} onClick={() => setSelTrim(td.trim)}
-                              style={{ padding:'10px 16px', borderBottom:'1px solid #161c2a', cursor:'pointer', background: selTrim===td.trim ? '#1a2035' : 'transparent' }}>
+                              style={{ padding:'10px 16px', borderBottom:`1px solid ${D.bdr}`, cursor:'pointer', background: selTrim===td.trim ? '#1a2035' : 'transparent' }}>
                               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:2 }}>
-                                <span style={{ fontSize:12, fontWeight:700, color: selTrim===td.trim ? '#f97316' : '#e2e8f0' }}>{td.trim}</span>
-                                <span style={{ fontSize:11, fontFamily:'IBM Plex Mono,monospace', color:C.cyan, fontWeight:700 }}>{td.engine} - {td.hp}hp</span>
+                                <span style={{ fontSize:12, fontWeight:700, color: selTrim===td.trim ? D.accent : D.text }}>{td.trim}</span>
+                                <span style={{ fontSize:11, fontFamily:'inherit', color:C.cyan, fontWeight:700 }}>{td.engine} - {td.hp}hp</span>
                               </div>
-                              <div style={{ fontSize:10, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>{td.notes}</div>
+                              <div style={{ fontSize:10, color:D.muted, fontFamily:'inherit' }}>{td.notes}</div>
                             </div>
                           ))}
                         </div>
                         {selTrim && (
-                          <div style={{ padding:'12px 16px', borderTop:'1px solid #1e2740', background:'#0f1117' }}>
-                            <div style={{ fontSize:10, color:'#64748b', fontFamily:'IBM Plex Mono,monospace', marginBottom:6 }}>{t('car_name_label')}</div>
+                          <div style={{ padding:'12px 16px', borderTop:`1px solid ${D.bdr}`, background:D.bg }}>
+                            <div style={{ fontSize:10, color:D.muted, fontFamily:'inherit', marginBottom:6 }}>{t('car_name_label')}</div>
                             <div style={{ display:'flex', gap:8 }}>
                               <input type="text" value={profileName} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setProfileName(e.target.value)}
                                 placeholder={t('car_name_ph')}
-                                style={{ flex:1, background:'#161c2a', border:'1px solid #1e2740', borderRadius:5, padding:'6px 10px', color:'#e2e8f0', fontSize:12, fontFamily:'IBM Plex Mono,monospace', outline:'none' }}
+                                style={{ flex:1, background:'#0e0e0e', border:`1px solid ${D.bdr}`, borderRadius:5, padding:'6px 10px', color:D.text, fontSize:12, fontFamily:'inherit', outline:'none' }}
                               />
-                              <button onClick={saveProfile} style={{ padding:'6px 14px', background:'#f97316', border:'none', borderRadius:5, color:'#000', fontSize:11, fontFamily:'IBM Plex Mono,monospace', fontWeight:700, cursor:'pointer' }}>
+                              <button onClick={saveProfile} style={{ padding:'6px 14px', background:D.accent, border:'none', borderRadius:5, color:'#000', fontSize:11, fontFamily:'inherit', fontWeight:700, cursor:'pointer' }}>
                                 {t('confirm_save')}
                               </button>
                             </div>
@@ -1254,8 +1277,8 @@ export default function Home(): React.ReactElement {
                   </div>
                 )}
 
-                <div style={{ padding:'6px 16px', borderTop:'1px solid #1e2740' }}>
-                  <p style={{ fontSize:9, color:'#334155', fontFamily:'IBM Plex Mono,monospace' }}>
+                <div style={{ padding:'6px 16px', borderTop:`1px solid ${D.bdr}` }}>
+                  <p style={{ fontSize:9, color:D.dim, fontFamily:'inherit' }}>
                     {lang==='en' ? 'Each profile has its own log history.' : 'Cada perfil tem seu proprio historico de logs.'}
                   </p>
                 </div>
@@ -1264,7 +1287,7 @@ export default function Home(): React.ReactElement {
           </div>
 
           {allSessions.length > 0 && activeProfileKey && (
-            <span style={{ fontSize:11, padding:'3px 10px', border:'1px solid #14532d', borderRadius:5, color:C.green, background:'#052e16', fontFamily:'IBM Plex Mono,monospace', fontWeight:700 }}>
+            <span style={{ fontSize:11, padding:'3px 10px', border:'1px solid #14532d', borderRadius:5, color:C.green, background:'#052e16', fontFamily:'inherit', fontWeight:700 }}>
               {allSessions.length} {lang === 'en' ? 'logs' : 'logs'}
             </span>
           )}
@@ -1274,14 +1297,22 @@ export default function Home(): React.ReactElement {
         <div style={{ display:'flex', alignItems:'center', height:52 }}>
           {(['overview','timeline','score'] as Tab[])
             .filter(tb => activeProfileKey || tb === 'overview')
-            .map(tb => (
-              <button key={tb} onClick={() => setTab(tb)} style={{ padding:'0 16px', height:52, border:'none', borderBottom: tab===tb ? '2px solid #f97316' : '2px solid transparent', background:'transparent', color: tab===tb ? '#f97316' : '#64748b', fontSize:12, letterSpacing:2, textTransform:'uppercase', cursor:'pointer', fontWeight: tab===tb ? 700 : 400, fontFamily:'IBM Plex Mono,monospace' }}>
-                {tb === 'score' ? 'Score' : t(tb)}
-              </button>
-            ))}
-          <div style={{ marginLeft:12, display:'flex', gap:6, paddingLeft:12, borderLeft:'1px solid #1e2740' }}>
+            .map(tb => {
+              const tabIcons: Record<string, React.ReactElement> = {
+                overview: <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>,
+                timeline: <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>,
+                score:    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
+              }
+              return (
+                <button key={tb} onClick={() => setTab(tb)} style={{ display:'flex', alignItems:'center', gap:6, padding:'0 16px', height:52, border:'none', borderBottom: tab===tb ? `2px solid ${D.accent}` : '2px solid transparent', background:'transparent', color: tab===tb ? D.accent : D.muted, fontSize:10, letterSpacing:2, textTransform:'uppercase' as const, cursor:'pointer', fontWeight: tab===tb ? 700 : 500, fontFamily:'inherit' }}>
+                  {tabIcons[tb]}
+                  {tb === 'score' ? 'Score' : t(tb)}
+                </button>
+              )
+            })}
+          <div style={{ marginLeft:10, display:'flex', gap:4, paddingLeft:12, borderLeft:`1px solid ${D.bdr}` }}>
             {(['en','pt'] as Lang[]).map(l => (
-              <button key={l} onClick={() => setLang(l)} style={{ background: lang===l ? '#1e3a5f' : 'transparent', border:'1px solid', borderColor: lang===l ? '#3b82f6' : '#1e2740', borderRadius:4, cursor:'pointer', color: lang===l ? '#60a5fa' : '#475569', fontSize:10, fontFamily:'IBM Plex Mono,monospace', fontWeight:700, padding:'3px 8px' }}>
+              <button key={l} onClick={() => setLang(l)} style={{ background: lang===l ? '#1a1a1a' : 'transparent', border:`1px solid ${lang===l ? D.accent : D.bdr}`, borderRadius:3, cursor:'pointer', color: lang===l ? D.accent : D.muted, fontSize:9, fontFamily:'inherit', fontWeight:700, padding:'3px 8px', letterSpacing:1 }}>
                 {l.toUpperCase()}
               </button>
             ))}
@@ -1294,7 +1325,7 @@ export default function Home(): React.ReactElement {
 
         {/* SIDEBAR - only on overview when profile active */}
         {tab === 'overview' && activeProfileKey && (
-          <div style={{ width:sidebarWidth, flexShrink:0, background:'#111827', borderRight:'1px solid #1e2740', display:'flex', flexDirection:'column', overflow:'hidden', position:'relative' }}>
+          <div style={{ width:sidebarWidth, flexShrink:0, background:D.sb, borderRight:`1px solid ${D.bdr}`, display:'flex', flexDirection:'column', overflow:'hidden', position:'relative' }}>
             {/* Resize handle */}
             <div
               onMouseDown={(e: React.MouseEvent) => {
@@ -1317,18 +1348,18 @@ export default function Home(): React.ReactElement {
             />
             {/* Health score circle */}
             {hs != null && (
-              <button onClick={() => setTab('score')} style={{ display:'flex', flexDirection:'column', alignItems:'center', width:'100%', padding:'16px 14px 12px', background:'none', border:'none', cursor:'pointer', gap:4, borderBottom:'1px solid #1e2740' }}>
-                <div style={{ width:72, height:72, borderRadius:'50%', border:`3px solid ${hsColor}`, display:'flex', alignItems:'center', justifyContent:'center', background:`${hsColor}12` }}>
-                  <span style={{ fontSize:28, fontWeight:900, color:hsColor, fontFamily:'IBM Plex Mono,monospace', lineHeight:1 }}>{hs}</span>
+              <button onClick={() => setTab('score')} style={{ display:'flex', flexDirection:'column', alignItems:'center', width:'100%', padding:'16px 14px 12px', background:'none', border:'none', cursor:'pointer', gap:4, borderBottom:`1px solid ${D.bdr}` }}>
+                <div style={{ width:60, height:60, borderRadius:'50%', border:`2px solid ${hsColor}`, display:'flex', alignItems:'center', justifyContent:'center', background:'transparent' }}>
+                  <span style={{ fontSize:22, fontWeight:900, color:hsColor, fontFamily:'inherit', lineHeight:1, letterSpacing:'-1px' }}>{hs}</span>
                 </div>
-                <span style={{ fontSize:9, color:'#475569', fontFamily:'IBM Plex Mono,monospace', letterSpacing:1.5, textTransform:'uppercase' }}>health score</span>
+                <span style={{ fontSize:8, color:D.muted, fontFamily:'inherit', letterSpacing:2, textTransform:'uppercase' as const, fontWeight:700 }}>health score</span>
               </button>
             )}
             {/* Sessions header + clear */}
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 14px', borderBottom:'1px solid #1e2740' }}>
-              <span style={{ fontSize:10, letterSpacing:'2px', textTransform:'uppercase', color:'#475569', fontFamily:'IBM Plex Mono,monospace', fontWeight:700 }}>{t('sessions')}</span>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 14px', borderBottom:`1px solid ${D.bdr}` }}>
+              <span style={{ fontSize:9, letterSpacing:'2.5px', textTransform:'uppercase' as const, color:D.muted, fontFamily:'inherit', fontWeight:700 }}>{t('sessions')}</span>
               {allSessions.length > 0 && (
-                <button onClick={clearLogs} style={{ fontSize:9, color:'#475569', background:'none', border:'1px solid #1e2740', borderRadius:3, cursor:'pointer', fontFamily:'IBM Plex Mono,monospace', padding:'2px 6px' }}>
+                <button onClick={clearLogs} style={{ fontSize:8, color:D.muted, background:'none', border:`1px solid ${D.bdr}`, borderRadius:3, cursor:'pointer', fontFamily:'inherit', padding:'2px 6px', letterSpacing:1 }}>
                   {lang === 'en' ? 'Clear' : 'Limpar'}
                 </button>
               )}
@@ -1362,16 +1393,16 @@ export default function Home(): React.ReactElement {
                       {/* Month header */}
                       <button onClick={() => setCollapsedMonths((prev: Set<string>) => {
                         const n = new Set(prev); n.has(grp.monthKey) ? n.delete(grp.monthKey) : n.add(grp.monthKey); return n
-                      })} style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'6px 14px', background: hasActive ? '#1a1f2e' : '#0f1117', border:'none', borderBottom:'1px solid #161c2a', cursor:'pointer', textAlign:'left' }}>
-                        <span style={{ fontSize:11, fontWeight:700, letterSpacing:'1px', textTransform:'uppercase', color: hasActive ? '#f97316' : '#475569', fontFamily:'IBM Plex Mono,monospace' }}>
-                          {grp.label} <span style={{ color:'#334155', fontWeight:400 }}>({grp.items.length})</span>
+                      })} style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'6px 14px', background: hasActive ? D.card : D.bg, border:'none', borderBottom:`1px solid ${D.bdr}`, cursor:'pointer', textAlign:'left' }}>
+                        <span style={{ fontSize:9, fontWeight:700, letterSpacing:'2px', textTransform:'uppercase' as const, color: hasActive ? D.accent : D.dim, fontFamily:'inherit' }}>
+                          {grp.label} <span style={{ color:D.dim, fontWeight:400 }}>({grp.items.length})</span>
                         </span>
-                        <span style={{ fontSize:9, color:'#334155', transform: collapsed ? 'none' : 'rotate(90deg)', display:'inline-block', transition:'transform 0.15s' }}>{'>'}</span>
+                        <span style={{ fontSize:9, color:D.dim, transform: collapsed ? 'none' : 'rotate(90deg)', display:'inline-block', transition:'transform 0.15s' }}>{'>'}</span>
                       </button>
                       {/* Session items */}
                       {!collapsed && grp.items.map(({ s, i }) => {
                 const isActive = s.name === active?.name
-                const dot = s.ltft != null ? (s.ltft <= 2.5 ? C.green : s.ltft <= 4 ? C.yellow : C.red) : '#334155'
+                const dot = s.ltft != null ? (s.ltft <= 2.5 ? C.green : s.ltft <= 4 ? C.yellow : C.red) : D.dim
                 const dateStr = getDate(s)
                 const sc = calcHealth(s)
                 const scCol = scoreCol(sc)
@@ -1380,27 +1411,27 @@ export default function Home(): React.ReactElement {
                       onClick={() => setActiveIdx(i)}
                       onMouseEnter={() => setHoveredSession(i)}
                       onMouseLeave={() => setHoveredSession(null)}
-                      style={{ padding:'10px 14px', borderBottom:'1px solid #161c2a', cursor:'pointer', position:'relative', background: isActive ? '#1a2035' : hoveredSession === i ? '#141928' : 'transparent', transition:'background 0.1s' }}>
-                    {isActive && <div style={{ position:'absolute', left:0, top:0, bottom:0, width:3, background:'#f97316' }} />}
+                      style={{ padding:'10px 14px', borderBottom:`1px solid ${D.bdr}`, cursor:'pointer', position:'relative', background: isActive ? '#1a2035' : hoveredSession === i ? '#141928' : 'transparent', transition:'background 0.1s' }}>
+                    {isActive && <div style={{ position:'absolute', left:0, top:0, bottom:0, width:3, background:D.accent }} />}
                     <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:3 }}>
                       <span style={{ width:7, height:7, borderRadius:'50%', background:dot, flexShrink:0 }} />
-                      <span style={{ fontSize:12, fontWeight:700, color: isActive ? '#f97316' : (dateStr ? '#e2e8f0' : '#94a3b8'), overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1, fontFamily:'IBM Plex Mono,monospace' }}>
+                      <span style={{ fontSize:11, fontWeight: isActive ? 700 : 500, color: isActive ? D.accent : (dateStr ? '#cccccc' : D.muted), overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1, fontFamily:'inherit' }}>
                         {displayName(s)}
                       </span>
                       <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); setActiveIdx(i); setTab('score') }}
                         style={{ width:22, height:22, borderRadius:'50%', border:`1.5px solid ${scCol}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, padding:0 }}>
-                        <span style={{ fontSize:8, fontFamily:'IBM Plex Mono,monospace', fontWeight:800, color:scCol }}>{sc}</span>
+                        <span style={{ fontSize:8, fontFamily:'inherit', fontWeight:800, color:scCol }}>{sc}</span>
                       </button>
                       {!isActive && (hoveredSession === i || compareIdx === i) && (
                         <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); setCompareIdx(compareIdx === i ? null : i) }}
                           title={lang === 'en' ? 'Compare with active session' : 'Comparar com sessao ativa'}
-                          style={{ width:22, height:22, borderRadius:4, border:`1px solid ${compareIdx === i ? '#f97316' : '#2a3a50'}`, background: compareIdx === i ? '#2a1a0a' : '#0f1520', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, padding:0, transition:'all 0.15s' }}>
-                          <span style={{ fontSize:7, color: compareIdx === i ? '#f97316' : '#4a6a8a', fontFamily:'IBM Plex Mono,monospace', fontWeight:800 }}>VS</span>
+                          style={{ width:22, height:22, borderRadius:4, border:`1px solid ${compareIdx === i ? D.accent : '#2a3a50'}`, background: compareIdx === i ? '#2a1a0a' : '#0f1520', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, padding:0, transition:'all 0.15s' }}>
+                          <span style={{ fontSize:7, color: compareIdx === i ? D.accent : '#4a6a8a', fontFamily:'inherit', fontWeight:800 }}>VS</span>
                         </button>
                       )}
                     </div>
-                    {origName(s) && <div style={{ fontSize:9, color:'#334155', paddingLeft:14, fontFamily:'IBM Plex Mono,monospace', fontStyle:'italic' }}>{s.name}</div>}
-                    {isNew(s) && <span style={{ fontSize:8, background:'#1e3a5f', color:'#60a5fa', padding:'1px 5px', borderRadius:3, fontWeight:700, fontFamily:'IBM Plex Mono,monospace', marginLeft:14 }}>NEW</span>}
+                    {origName(s) && <div style={{ fontSize:9, color:D.dim, paddingLeft:14, fontFamily:'inherit', fontStyle:'italic' }}>{s.name}</div>}
+                    {isNew(s) && <span style={{ fontSize:8, background:'#1e3a5f', color:'#60a5fa', padding:'1px 5px', borderRadius:3, fontWeight:700, fontFamily:'inherit', marginLeft:14 }}>NEW</span>}
                     {/* Hover actions: bottom-right aligned */}
                     {hoveredSession === i && (
                       <div style={{ position:'absolute', bottom:4, right:6, display:'flex', gap:4, alignItems:'center' }}>
@@ -1411,9 +1442,9 @@ export default function Home(): React.ReactElement {
                           setEditLogDesc((sessionDescs[activeProfileKey!] ?? {})[s.name] ?? '')
                         }}
                           title={lang === 'en' ? 'Edit log' : 'Editar log'}
-                          style={{ background:'none', border:'none', cursor:'pointer', padding:3, color:'#475569', display:'flex', alignItems:'center', borderRadius:3 }}
-                          onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => (e.currentTarget.style.color = '#f97316')}
-                          onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => (e.currentTarget.style.color = '#475569')}>
+                          style={{ background:'none', border:'none', cursor:'pointer', padding:3, color:D.muted, display:'flex', alignItems:'center', borderRadius:3 }}
+                          onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => (e.currentTarget.style.color = D.accent)}
+                          onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => (e.currentTarget.style.color = D.muted)}>
                           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
@@ -1425,9 +1456,9 @@ export default function Home(): React.ReactElement {
                           if (window.confirm(lang === 'en' ? `Delete "${displayName(s)}"?` : `Deletar "${displayName(s)}"?`)) deleteSession(s.name)
                         }}
                           title={lang === 'en' ? 'Delete log' : 'Deletar log'}
-                          style={{ background:'none', border:'none', cursor:'pointer', padding:3, color:'#475569', display:'flex', alignItems:'center', borderRadius:3 }}
+                          style={{ background:'none', border:'none', cursor:'pointer', padding:3, color:D.muted, display:'flex', alignItems:'center', borderRadius:3 }}
                           onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => (e.currentTarget.style.color = '#dc2626')}
-                          onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => (e.currentTarget.style.color = '#475569')}>
+                          onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => (e.currentTarget.style.color = D.muted)}>
                           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <polyline points="3 6 5 6 21 6"/>
                             <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
@@ -1446,32 +1477,32 @@ export default function Home(): React.ReactElement {
               })()}
             </div>
             {/* Upload zone */}
-            <div style={{ padding:10, borderTop:'1px solid #1e2740' }}>
+            <div style={{ padding:10, borderTop:`1px solid ${D.bdr}` }}>
               <div
                 onClick={() => (document.getElementById('csv-up') as HTMLInputElement|null)?.click()}
-                onDragOver={(e: React.DragEvent<HTMLDivElement>) => { e.preventDefault(); (e.currentTarget as HTMLDivElement).style.borderColor = '#f97316' }}
-                onDragLeave={(e: React.DragEvent<HTMLDivElement>) => { (e.currentTarget as HTMLDivElement).style.borderColor = '#1e2740' }}
-                onDrop={(e: React.DragEvent<HTMLDivElement>) => { e.preventDefault(); (e.currentTarget as HTMLDivElement).style.borderColor = '#1e2740'; const fs = (Array.from(e.dataTransfer.files) as File[]).filter((f: File) => f.name.endsWith('.csv')); if (fs.length) handleFiles(fs) }}
+                onDragOver={(e: React.DragEvent<HTMLDivElement>) => { e.preventDefault(); (e.currentTarget as HTMLDivElement).style.borderColor = D.accent }}
+                onDragLeave={(e: React.DragEvent<HTMLDivElement>) => { (e.currentTarget as HTMLDivElement).style.borderColor = D.bdr }}
+                onDrop={(e: React.DragEvent<HTMLDivElement>) => { e.preventDefault(); (e.currentTarget as HTMLDivElement).style.borderColor = D.bdr; const fs = (Array.from(e.dataTransfer.files) as File[]).filter((f: File) => f.name.endsWith('.csv')); if (fs.length) handleFiles(fs) }}
                 style={{ border:'1.5px dashed #1e2740', borderRadius:8, padding:'12px 8px', display:'flex', flexDirection:'column', alignItems:'center', gap:5, cursor:'pointer' }}
               >
                 <input id="csv-up" type="file" accept=".csv" multiple style={{ display:'none' }} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { const f = Array.from(e.target.files ?? []) as File[]; if (f.length) handleFiles(f); e.target.value = '' }} />
                 {uploading && uploadProgress ? (
                   <>
                     <div style={{ display:'flex', justifyContent:'space-between', width:'100%' }}>
-                      <span style={{ fontSize:9, color:'#f97316', fontFamily:'IBM Plex Mono,monospace', fontWeight:600 }}>
+                      <span style={{ fontSize:9, color:D.accent, fontFamily:'inherit', fontWeight:600 }}>
                         {uploadProgress.current}/{uploadProgress.total} logs
                       </span>
-                      <span style={{ fontSize:9, color:'#f97316', fontFamily:'IBM Plex Mono,monospace', fontWeight:700 }}>{uploadFilePct}%</span>
+                      <span style={{ fontSize:9, color:D.accent, fontFamily:'inherit', fontWeight:700 }}>{uploadFilePct}%</span>
                     </div>
-                    <div style={{ width:'100%', height:4, background:'#1e2740', borderRadius:2, overflow:'hidden' }}>
-                      <div style={{ height:'100%', width:`${uploadFilePct}%`, background:'#f97316', borderRadius:2, transition:'width 0.1s linear' }} />
+                    <div style={{ width:'100%', height:4, background:D.bdr, borderRadius:2, overflow:'hidden' }}>
+                      <div style={{ height:'100%', width:`${uploadFilePct}%`, background:D.accent, borderRadius:2, transition:'width 0.1s linear' }} />
                     </div>
                   </>
                 ) : (
                   <>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                    <span style={{ fontSize:10, fontWeight:600, color:'#64748b', fontFamily:'IBM Plex Mono,monospace', textAlign:'center' }}>{t('upload_drag')}</span>
-                    <span style={{ fontSize:9, color:'#334155', fontFamily:'IBM Plex Mono,monospace', textAlign:'center', lineHeight:1.5 }}>{t('upload_sub')}</span>
+                    <span style={{ fontSize:10, fontWeight:600, color:D.muted, fontFamily:'inherit', textAlign:'center' }}>{t('upload_drag')}</span>
+                    <span style={{ fontSize:9, color:D.dim, fontFamily:'inherit', textAlign:'center', lineHeight:1.5 }}>{t('upload_sub')}</span>
                   </>
                 )}
               </div>
@@ -1485,20 +1516,20 @@ export default function Home(): React.ReactElement {
           {/* Welcome screen */}
           {!activeProfileKey && (
             <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', gap:24, textAlign:'center' }}>
-              <div style={{ fontSize:48, color:'#f97316', fontFamily:'IBM Plex Mono,monospace', fontWeight:900, letterSpacing:4 }}>HNDSH</div>
+              <div style={{ fontSize:48, color:D.accent, fontFamily:'inherit', fontWeight:900, letterSpacing:4 }}>HNDSH</div>
               <div>
-                <h1 style={{ fontSize:24, fontWeight:800, color:'#f1f5f9', marginBottom:8 }}>{lang === 'en' ? 'Welcome to HNDSH.meters' : 'Bem-vindo ao HNDSH.meters'}</h1>
-                <p style={{ fontSize:14, color:'#64748b', maxWidth:400, lineHeight:1.7 }}>
+                <h1 style={{ fontSize:24, fontWeight:800, color:D.text, marginBottom:8 }}>{lang === 'en' ? 'Welcome to HNDSH.meters' : 'Bem-vindo ao HNDSH.meters'}</h1>
+                <p style={{ fontSize:14, color:D.muted, maxWidth:400, lineHeight:1.7 }}>
                   {lang === 'en' ? 'Select your car profile to start analyzing your OBD1 logs.' : 'Selecione o perfil do seu carro para comecar a analisar seus logs OBD1.'}
                 </p>
               </div>
               <button
                 onClick={() => { setCarModalOpen(true); setCarModalMode(savedProfiles.length > 0 ? 'list' : 'add'); setCarModalStep('model') }}
-                style={{ display:'flex', alignItems:'center', gap:10, padding:'14px 28px', background:'#f97316', border:'none', borderRadius:10, color:'#000', fontSize:14, fontFamily:'IBM Plex Mono,monospace', fontWeight:800, cursor:'pointer', letterSpacing:1 }}>
+                style={{ display:'flex', alignItems:'center', gap:10, padding:'14px 28px', background:D.accent, border:'none', borderRadius:10, color:'#000', fontSize:14, fontFamily:'inherit', fontWeight:800, cursor:'pointer', letterSpacing:1 }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
                 {t('my_cars')}
               </button>
-              <p style={{ fontSize:11, color:'#334155', fontFamily:'IBM Plex Mono,monospace' }}>Honda/Acura OBD1 1992-2001</p>
+              <p style={{ fontSize:10, color:D.muted, fontFamily:'inherit', display:'flex', alignItems:'center', gap:10, marginTop:4 }}>Honda/Acura OBD1 1992-2001</p>
             </div>
           )}
 
@@ -1523,28 +1554,28 @@ export default function Home(): React.ReactElement {
                 const activeScore = calcHealth(active)
                 const cmpScore    = calcHealth(cmp)
                 return (
-                  <div style={{ background:'#111827', border:'1px solid #1e2740', borderRadius:12, padding:'16px 20px', marginBottom:20 }}>
+                  <div style={{ background:'#111111', border:`1px solid ${D.bdr}`, borderRadius:12, padding:'16px 20px', marginBottom:20 }}>
                     <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
-                      <span style={{ fontSize:11, fontWeight:700, letterSpacing:2, color:'#f97316', fontFamily:'IBM Plex Mono,monospace', textTransform:'uppercase' }}>
+                      <span style={{ fontSize:11, fontWeight:700, letterSpacing:2, color:D.accent, fontFamily:'inherit', textTransform:'uppercase' }}>
                         {lang === 'en' ? 'Comparing Sessions' : 'Comparando Sessoes'}
                       </span>
-                      <button onClick={() => setCompareIdx(null)} style={{ fontSize:10, color:'#475569', background:'none', border:'1px solid #1e2740', borderRadius:4, cursor:'pointer', padding:'2px 8px', fontFamily:'IBM Plex Mono,monospace' }}>
+                      <button onClick={() => setCompareIdx(null)} style={{ fontSize:10, color:D.muted, background:'none', border:`1px solid ${D.bdr}`, borderRadius:4, cursor:'pointer', padding:'2px 8px', fontFamily:'inherit' }}>
                         {lang === 'en' ? 'Close' : 'Fechar'}
                       </button>
                     </div>
                     {/* Header row */}
-                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 40px', gap:8, marginBottom:10, paddingBottom:8, borderBottom:'1px solid #1e2740' }}>
-                      <span style={{ fontSize:9, color:'#475569', fontFamily:'IBM Plex Mono,monospace', fontWeight:700, letterSpacing:1 }}>PARAM</span>
-                      <span style={{ fontSize:9, color:'#f97316', fontFamily:'IBM Plex Mono,monospace', fontWeight:700, textAlign:'right' }}>{active.name}</span>
-                      <span style={{ fontSize:9, color:'#60a5fa', fontFamily:'IBM Plex Mono,monospace', fontWeight:700, textAlign:'right' }}>{cmp.name}</span>
-                      <span style={{ fontSize:9, color:'#475569', fontFamily:'IBM Plex Mono,monospace', fontWeight:700, textAlign:'center' }}>delta</span>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 40px', gap:8, marginBottom:10, paddingBottom:8, borderBottom:`1px solid ${D.bdr}` }}>
+                      <span style={{ fontSize:9, color:D.dim, fontFamily:'inherit', fontWeight:700, letterSpacing:1 }}>PARAM</span>
+                      <span style={{ fontSize:9, color:D.accent, fontFamily:'inherit', fontWeight:700, textAlign:'right' }}>{active.name}</span>
+                      <span style={{ fontSize:9, color:'#60a5fa', fontFamily:'inherit', fontWeight:700, textAlign:'right' }}>{cmp.name}</span>
+                      <span style={{ fontSize:9, color:D.dim, fontFamily:'inherit', fontWeight:700, textAlign:'center' }}>delta</span>
                     </div>
                     {/* Score row */}
-                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 40px', gap:8, padding:'5px 0', borderBottom:'1px solid #161c2a' }}>
-                      <span style={{ fontSize:10, color:'#64748b', fontFamily:'IBM Plex Mono,monospace' }}>Health Score</span>
-                      <span style={{ fontSize:10, fontFamily:'IBM Plex Mono,monospace', color:scoreCol(activeScore), fontWeight:700, textAlign:'right' }}>{activeScore}</span>
-                      <span style={{ fontSize:10, fontFamily:'IBM Plex Mono,monospace', color:scoreCol(cmpScore),    fontWeight:700, textAlign:'right' }}>{cmpScore}</span>
-                      <span style={{ fontSize:10, fontFamily:'IBM Plex Mono,monospace', color: activeScore > cmpScore ? '#00e060' : activeScore < cmpScore ? '#ff3030' : '#475569', textAlign:'center', fontWeight:700 }}>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 40px', gap:8, padding:'5px 0', borderBottom:`1px solid ${D.bdr}` }}>
+                      <span style={{ fontSize:10, color:D.muted, fontFamily:'inherit' }}>Health Score</span>
+                      <span style={{ fontSize:10, fontFamily:'inherit', color:scoreCol(activeScore), fontWeight:700, textAlign:'right' }}>{activeScore}</span>
+                      <span style={{ fontSize:10, fontFamily:'inherit', color:scoreCol(cmpScore),    fontWeight:700, textAlign:'right' }}>{cmpScore}</span>
+                      <span style={{ fontSize:10, fontFamily:'inherit', color: activeScore > cmpScore ? '#00e060' : activeScore < cmpScore ? '#ff3030' : D.muted, textAlign:'center', fontWeight:700 }}>
                         {activeScore > cmpScore ? '+' : ''}{activeScore - cmpScore}
                       </span>
                     </div>
@@ -1555,13 +1586,13 @@ export default function Home(): React.ReactElement {
                       if (av == null && cv == null) return null
                       const delta = av != null && cv != null ? av - cv : null
                       const improved = delta != null ? (f.lowerBetter ? delta < 0 : delta > 0) : null
-                      const dCol = improved === true ? '#00e060' : improved === false ? '#ff3030' : '#475569'
+                      const dCol = improved === true ? '#00e060' : improved === false ? '#ff3030' : D.muted
                       return (
-                        <div key={f.key as string} style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 40px', gap:8, padding:'5px 0', borderBottom:'1px solid #161c2a' }}>
-                          <span style={{ fontSize:10, color:'#64748b', fontFamily:'IBM Plex Mono,monospace' }}>{f.label}</span>
-                          <span style={{ fontSize:10, fontFamily:'IBM Plex Mono,monospace', color:'#f97316', fontWeight:600, textAlign:'right' }}>{av != null ? av.toFixed(2) : '--'}{f.unit}</span>
-                          <span style={{ fontSize:10, fontFamily:'IBM Plex Mono,monospace', color:'#60a5fa', fontWeight:600, textAlign:'right' }}>{cv != null ? cv.toFixed(2) : '--'}{f.unit}</span>
-                          <span style={{ fontSize:9, fontFamily:'IBM Plex Mono,monospace', color:dCol, textAlign:'center', fontWeight:700 }}>
+                        <div key={f.key as string} style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 40px', gap:8, padding:'5px 0', borderBottom:`1px solid ${D.bdr}` }}>
+                          <span style={{ fontSize:10, color:D.muted, fontFamily:'inherit' }}>{f.label}</span>
+                          <span style={{ fontSize:10, fontFamily:'inherit', color:D.accent, fontWeight:600, textAlign:'right' }}>{av != null ? av.toFixed(2) : '--'}{f.unit}</span>
+                          <span style={{ fontSize:10, fontFamily:'inherit', color:'#60a5fa', fontWeight:600, textAlign:'right' }}>{cv != null ? cv.toFixed(2) : '--'}{f.unit}</span>
+                          <span style={{ fontSize:9, fontFamily:'inherit', color:dCol, textAlign:'center', fontWeight:700 }}>
                             {delta != null ? (delta > 0 ? '+' : '') + delta.toFixed(1) : '--'}
                           </span>
                         </div>
@@ -1574,12 +1605,12 @@ export default function Home(): React.ReactElement {
               <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:12, marginBottom:16, flexWrap:'wrap' }}>
                 <div>
                   <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:2 }}>
-                    <h1 style={{ fontSize:22, fontWeight:800, color:'#f1f5f9' }}>{active ? displayName(active) : ''}</h1>
+                    <h1 style={{ fontSize:32, fontWeight:900, color:D.text, letterSpacing:'-1.5px', lineHeight:1, fontFamily:'inherit' }}>{active ? displayName(active) : ''}</h1>
                     <button onClick={() => { setEditLogSession(active.name); setEditLogDesc((sessionDescs[activeProfileKey!] ?? {})[active.name] ?? '') }}
                       title={lang === 'en' ? 'Edit log' : 'Editar log'}
-                      style={{ background:'none', border:'none', cursor:'pointer', padding:4, color:'#334155', display:'flex', alignItems:'center', flexShrink:0, borderRadius:4, transition:'color 0.15s' }}
-                      onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => (e.currentTarget.style.color = '#f97316')}
-                      onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => (e.currentTarget.style.color = '#334155')}>
+                      style={{ background:'none', border:'none', cursor:'pointer', padding:4, color:D.dim, display:'flex', alignItems:'center', flexShrink:0, borderRadius:4, transition:'color 0.15s' }}
+                      onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => (e.currentTarget.style.color = D.accent)}
+                      onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => (e.currentTarget.style.color = D.dim)}>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                         <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
@@ -1587,10 +1618,10 @@ export default function Home(): React.ReactElement {
                     </button>
                   </div>
                   {active && origName(active) && (
-                    <div style={{ fontSize:10, color:'#334155', fontFamily:'IBM Plex Mono,monospace', marginBottom:4, fontStyle:'italic' }}>{active.name}</div>
+                    <div style={{ fontSize:10, color:D.dim, fontFamily:'inherit', marginBottom:4, fontStyle:'italic' }}>{active.name}</div>
                   )}
                   {activeProfileKey && (sessionDescs[activeProfileKey] ?? {})[active.name] && (
-                    <div style={{ fontSize:12, color:'#94a3b8', lineHeight:1.6, marginBottom:8, maxWidth:600 }}>
+                    <div style={{ fontSize:11, color:D.textSub, lineHeight:1.6, marginBottom:8, maxWidth:600 }}>
                       {(sessionDescs[activeProfileKey] ?? {})[active.name]}
                     </div>
                   )}
@@ -1602,21 +1633,21 @@ export default function Home(): React.ReactElement {
                         const items2 = ((sessionChanges[activeProfileKey] ?? {})[active.name] ?? []).filter((c: {type:string;text:string}) => c.type === type && c.text.trim())
                         if (!items2.length) return null
                         return (
-                          <div key={type} style={{ background:'#0f1117', border:`1px solid ${typeColor}25`, borderRadius:8, padding:'10px 12px' }}>
-                            <div style={{ fontSize:9, fontWeight:700, color:typeColor, fontFamily:'IBM Plex Mono,monospace', letterSpacing:1.5, marginBottom:8 }}>{typeLabel}</div>
+                          <div key={type} style={{ background:D.bg, border:`1px solid ${typeColor}25`, borderRadius:8, padding:'10px 12px' }}>
+                            <div style={{ fontSize:9, fontWeight:700, color:typeColor, fontFamily:'inherit', letterSpacing:1.5, marginBottom:8 }}>{typeLabel}</div>
                             {items2.map((item: {type:string;text:string}, idx3: number) => (
-                              <div key={idx3} style={{ fontSize:11, color:'#94a3b8', padding:'3px 0', borderBottom:'1px solid #1e2740', lineHeight:1.5 }}>{item.text}</div>
+                              <div key={idx3} style={{ fontSize:11, color:D.textSub, padding:'3px 0', borderBottom:`1px solid ${D.bdr}`, lineHeight:1.5 }}>{item.text}</div>
                             ))}
                           </div>
                         )
                       })}
                     </div>
                   )}
-                  <span style={{ fontSize:11, letterSpacing:'1.5px', textTransform:'uppercase', color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>
+                  <span style={{ fontSize:11, letterSpacing:'1.5px', textTransform:'uppercase', color:D.muted, fontFamily:'inherit' }}>
                     {active.rows?.toLocaleString()} rows{active.duration_min ? ` - ${active.duration_min} min` : ''}{active.km_estimated ? ` - ${fmt(active.km_estimated,1)} km` : ''}
                   </span>
                 </div>
-                <button onClick={() => setParamFilterOpen((o: boolean) => !o)} style={{ display:'flex', alignItems:'center', gap:7, padding:'6px 12px', background: paramFilterOpen ? '#1e3a5f' : '#161c2a', border:'1px solid', borderColor: paramFilterOpen ? '#3b82f6' : '#1e2740', borderRadius:7, cursor:'pointer', color: paramFilterOpen ? '#60a5fa' : '#64748b', fontFamily:'IBM Plex Mono,monospace', fontSize:11, fontWeight:600, letterSpacing:1 }}>
+                <button onClick={() => setParamFilterOpen((o: boolean) => !o)} style={{ display:'flex', alignItems:'center', gap:7, padding:'6px 12px', background: paramFilterOpen ? '#0f1f30' : '#0e0e0e', border:'1px solid', borderColor: paramFilterOpen ? '#3b82f6' : '#1e2740', borderRadius:7, cursor:'pointer', color: paramFilterOpen ? '#60a5fa' : D.muted, fontFamily:'inherit', fontSize:11, fontWeight:600, letterSpacing:1 }}>
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
                   {t('filter')}
                 </button>
@@ -1624,19 +1655,19 @@ export default function Home(): React.ReactElement {
 
               {/* Param filter panel */}
               {paramFilterOpen && (
-                <div style={{ background:'#111827', border:'1px solid #1e2740', borderRadius:10, padding:'14px 16px', marginBottom:18 }}>
+                <div style={{ background:'#111111', border:`1px solid ${D.bdr}`, borderRadius:10, padding:'14px 16px', marginBottom:18 }}>
                   <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
-                    <span style={{ fontSize:10, fontWeight:700, color:'#94a3b8', letterSpacing:2, textTransform:'uppercase', fontFamily:'IBM Plex Mono,monospace' }}>Parameters</span>
+                    <span style={{ fontSize:10, fontWeight:700, color:D.textSub, letterSpacing:2, textTransform:'uppercase', fontFamily:'inherit' }}>Parameters</span>
                     <div style={{ display:'flex', gap:8 }}>
-                      <button onClick={() => setVisibleParams(new Set(allParamKeys))} style={{ fontSize:10, padding:'3px 10px', border:'1px solid #1e3a5f', borderRadius:4, background:'#0f1f3a', color:'#60a5fa', cursor:'pointer', fontFamily:'IBM Plex Mono,monospace', fontWeight:600 }}>{t('select_all')}</button>
-                      <button onClick={() => setVisibleParams(new Set())} style={{ fontSize:10, padding:'3px 10px', border:'1px solid #1e2740', borderRadius:4, background:'transparent', color:'#475569', cursor:'pointer', fontFamily:'IBM Plex Mono,monospace' }}>{t('clear_sel')}</button>
+                      <button onClick={() => setVisibleParams(new Set(allParamKeys))} style={{ fontSize:10, padding:'3px 10px', border:`1px solid #1e3a5f`, borderRadius:4, background:'#0f1f3a', color:'#60a5fa', cursor:'pointer', fontFamily:'inherit', fontWeight:600 }}>{t('select_all')}</button>
+                      <button onClick={() => setVisibleParams(new Set())} style={{ fontSize:10, padding:'3px 10px', border:`1px solid ${D.bdr}`, borderRadius:4, background:'transparent', color:D.muted, cursor:'pointer', fontFamily:'inherit' }}>{t('clear_sel')}</button>
                     </div>
                   </div>
                   <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(120px,1fr))', gap:'10px 16px' }}>
                     {allParamKeys.map(id => (
                       <label key={id} style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', userSelect:'none' }}>
                         <input type="checkbox" checked={visibleParams.has(id)} onChange={() => toggleParam(id)} style={{ accentColor:'#f97316', width:12, height:12 }} />
-                        <span style={{ fontSize:11, color: visibleParams.has(id) ? '#e2e8f0' : '#334155', fontFamily:'IBM Plex Mono,monospace' }}>{id.replace(/_/g,' ')}</span>
+                        <span style={{ fontSize:11, color: visibleParams.has(id) ? D.text : D.dim, fontFamily:'inherit' }}>{id.replace(/_/g,' ')}</span>
                       </label>
                     ))}
                   </div>
@@ -1717,12 +1748,12 @@ export default function Home(): React.ReactElement {
             <div>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20, gap:12 }}>
                 <div>
-                  <h1 style={{ fontSize:22, fontWeight:800, color:'#f1f5f9', marginBottom:4 }}>{t('timeline')}</h1>
-                  <span style={{ fontSize:11, letterSpacing:'1.5px', textTransform:'uppercase', color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>
+                  <h1 style={{ fontSize:32, fontWeight:900, color:D.text, letterSpacing:'-1.5px', lineHeight:1, fontFamily:'inherit', marginBottom:4 }}>{t('timeline')}</h1>
+                  <span style={{ fontSize:11, letterSpacing:'1.5px', textTransform:'uppercase', color:D.muted, fontFamily:'inherit' }}>
                     {allSessions.length} {t('sessions')} - {filteredCharts.length} {t('charts_visible')}
                   </span>
                 </div>
-                <button onClick={() => setChartFilterOpen((o: boolean) => !o)} style={{ display:'flex', alignItems:'center', gap:7, padding:'6px 12px', background: chartFilterOpen ? '#1e3a5f' : '#161c2a', border:'1px solid', borderColor: chartFilterOpen ? '#3b82f6' : '#1e2740', borderRadius:7, cursor:'pointer', color: chartFilterOpen ? '#60a5fa' : '#64748b', fontFamily:'IBM Plex Mono,monospace', fontSize:11, fontWeight:600, letterSpacing:1 }}>
+                <button onClick={() => setChartFilterOpen((o: boolean) => !o)} style={{ display:'flex', alignItems:'center', gap:7, padding:'6px 12px', background: chartFilterOpen ? '#0f1f30' : '#0e0e0e', border:'1px solid', borderColor: chartFilterOpen ? '#3b82f6' : '#1e2740', borderRadius:7, cursor:'pointer', color: chartFilterOpen ? '#60a5fa' : D.muted, fontFamily:'inherit', fontSize:11, fontWeight:600, letterSpacing:1 }}>
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
                   {t('filter')}
                 </button>
@@ -1730,23 +1761,23 @@ export default function Home(): React.ReactElement {
 
               {/* Chart filter */}
               {chartFilterOpen && (
-                <div style={{ background:'#111827', border:'1px solid #1e2740', borderRadius:10, padding:'16px 18px', marginBottom:20 }}>
+                <div style={{ background:'#111111', border:`1px solid ${D.bdr}`, borderRadius:10, padding:'16px 18px', marginBottom:20 }}>
                   <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
-                    <span style={{ fontSize:10, fontWeight:700, color:'#94a3b8', letterSpacing:2, textTransform:'uppercase', fontFamily:'IBM Plex Mono,monospace' }}>Charts</span>
+                    <span style={{ fontSize:10, fontWeight:700, color:D.textSub, letterSpacing:2, textTransform:'uppercase', fontFamily:'inherit' }}>Charts</span>
                     <div style={{ display:'flex', gap:8 }}>
-                      <button onClick={() => setVisibleCharts(new Set(CHART_DEFS.map(c => c.id)))} style={{ fontSize:10, padding:'3px 10px', border:'1px solid #1e3a5f', borderRadius:4, background:'#0f1f3a', color:'#60a5fa', cursor:'pointer', fontFamily:'IBM Plex Mono,monospace', fontWeight:600 }}>{t('select_all')}</button>
-                      <button onClick={() => setVisibleCharts(new Set())} style={{ fontSize:10, padding:'3px 10px', border:'1px solid #1e2740', borderRadius:4, background:'transparent', color:'#475569', cursor:'pointer', fontFamily:'IBM Plex Mono,monospace' }}>{t('clear_sel')}</button>
+                      <button onClick={() => setVisibleCharts(new Set(CHART_DEFS.map(c => c.id)))} style={{ fontSize:10, padding:'3px 10px', border:`1px solid #1e3a5f`, borderRadius:4, background:'#0f1f3a', color:'#60a5fa', cursor:'pointer', fontFamily:'inherit', fontWeight:600 }}>{t('select_all')}</button>
+                      <button onClick={() => setVisibleCharts(new Set())} style={{ fontSize:10, padding:'3px 10px', border:`1px solid ${D.bdr}`, borderRadius:4, background:'transparent', color:D.muted, cursor:'pointer', fontFamily:'inherit' }}>{t('clear_sel')}</button>
                     </div>
                   </div>
                   <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))', gap:'14px 20px' }}>
                     {chartGroups.map(grp => (
                       <div key={grp}>
-                        <div style={{ fontSize:9, fontWeight:700, color:'#f97316', letterSpacing:2, textTransform:'uppercase', marginBottom:7, fontFamily:'IBM Plex Mono,monospace' }}>{CHART_GROUPS[grp] ?? grp}</div>
+                        <div style={{ fontSize:9, fontWeight:700, color:D.accent, letterSpacing:2, textTransform:'uppercase', marginBottom:7, fontFamily:'inherit' }}>{CHART_GROUPS[grp] ?? grp}</div>
                         <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
                           {CHART_DEFS.filter(c => c.group === grp).map(c => (
                             <label key={c.id} style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', userSelect:'none' }}>
                               <input type="checkbox" checked={visibleCharts.has(c.id)} onChange={() => toggleChart(c.id)} style={{ accentColor:'#f97316', width:12, height:12 }} />
-                              <span style={{ fontSize:11, color: visibleCharts.has(c.id) ? '#e2e8f0' : '#334155', fontFamily:'IBM Plex Mono,monospace' }}>{c.id.replace(/_/g,' ')}</span>
+                              <span style={{ fontSize:11, color: visibleCharts.has(c.id) ? D.text : D.dim, fontFamily:'inherit' }}>{c.id.replace(/_/g,' ')}</span>
                             </label>
                           ))}
                         </div>
@@ -1759,8 +1790,8 @@ export default function Home(): React.ReactElement {
               {/* Health score line chart - always first */}
               {allSessions.length > 0 && (
                 <div style={{ marginBottom:28 }}>
-                  <div style={{ borderBottom:'1px solid #1e2740', paddingBottom:10, marginBottom:16 }}>
-                    <span style={{ fontSize:13, fontWeight:700, color:'#e2e8f0', fontFamily:'IBM Plex Mono,monospace' }}>Health Score</span>
+                  <div style={{ borderBottom:`1px solid ${D.bdr}`, paddingBottom:10, marginBottom:16 }}>
+                    <span style={{ fontSize:13, fontWeight:700, color:D.text, fontFamily:'inherit' }}>Health Score</span>
                   </div>
                   <ScoreLineChart
                     sessions={allSessions.map(s => ({ name: s.name, score: calcHealth(s), col: scoreCol(calcHealth(s)) }))}
@@ -1777,11 +1808,11 @@ export default function Home(): React.ReactElement {
                 const collapsed = collapsedGroups.has(grp)
                 return (
                   <div key={grp} style={{ marginBottom:28 }}>
-                    <button onClick={() => toggleGroup(grp)} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', width:'100%', background:'none', border:'none', borderBottom:'1px solid #1e2740', paddingBottom:10, marginBottom: collapsed ? 0 : 16, cursor:'pointer', textAlign:'left' }}>
-                      <span style={{ fontSize:13, fontWeight:700, color:'#e2e8f0', fontFamily:'IBM Plex Mono,monospace' }}>{CHART_GROUPS[grp] ?? grp}</span>
+                    <button onClick={() => toggleGroup(grp)} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', width:'100%', background:'none', border:'none', borderBottom:`1px solid ${D.bdr}`, paddingBottom:10, marginBottom: collapsed ? 0 : 16, cursor:'pointer', textAlign:'left' }}>
+                      <span style={{ fontSize:13, fontWeight:700, color:D.text, fontFamily:'inherit' }}>{CHART_GROUPS[grp] ?? grp}</span>
                       <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                        <span style={{ fontSize:10, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>{charts.length} charts</span>
-                        <span style={{ fontSize:12, color:'#475569', display:'inline-block', transform: collapsed ? 'rotate(-90deg)' : 'none' }}>v</span>
+                        <span style={{ fontSize:10, color:D.muted, fontFamily:'inherit' }}>{charts.length} charts</span>
+                        <span style={{ fontSize:12, color:D.muted, display:'inline-block', transform: collapsed ? 'rotate(-90deg)' : 'none' }}>v</span>
                       </div>
                     </button>
                     {!collapsed && (
@@ -1812,7 +1843,7 @@ export default function Home(): React.ReactElement {
                 )
               })}
               {filteredCharts.length === 0 && (
-                <div style={{ textAlign:'center', padding:'60px 0', color:'#475569', fontFamily:'IBM Plex Mono,monospace', fontSize:13 }}>{t('no_charts')}</div>
+                <div style={{ textAlign:'center', padding:'60px 0', color:D.muted, fontFamily:'inherit', fontSize:13 }}>{t('no_charts')}</div>
               )}
             </div>
           )}
@@ -1821,8 +1852,8 @@ export default function Home(): React.ReactElement {
           {activeProfileKey && tab === 'score' && active && (
             <div>
               <div style={{ marginBottom:20 }}>
-                <h1 style={{ fontSize:22, fontWeight:800, color:'#f1f5f9', marginBottom:4 }}>Engine Health Score</h1>
-                <span style={{ fontSize:11, letterSpacing:'1.5px', textTransform:'uppercase', color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>{active.name} - weighted composite</span>
+                <h1 style={{ fontSize:32, fontWeight:900, color:D.text, letterSpacing:'-1.5px', lineHeight:1, fontFamily:'inherit', marginBottom:4 }}>Engine Health Score</h1>
+                <span style={{ fontSize:11, letterSpacing:'1.5px', textTransform:'uppercase', color:D.muted, fontFamily:'inherit' }}>{active.name} - weighted composite</span>
               </div>
               {(() => {
                 const sc = calcHealth(active)
@@ -1840,11 +1871,11 @@ export default function Home(): React.ReactElement {
                 ]
                 return (
                   <>
-                    <div style={{ background:'#111827', border:`1px solid ${col}40`, borderRadius:14, padding:'28px 32px', marginBottom:20, display:'flex', alignItems:'center', gap:40, flexWrap:'wrap' }}>
+                    <div style={{ background:'#111111', border:`1px solid ${col}40`, borderRadius:14, padding:'28px 32px', marginBottom:20, display:'flex', alignItems:'center', gap:40, flexWrap:'wrap' }}>
                       <div style={{ textAlign:'center', minWidth:110 }}>
-                        <div style={{ fontSize:72, fontWeight:900, color:col, fontFamily:'IBM Plex Mono,monospace', lineHeight:1 }}>{sc}</div>
-                        <div style={{ fontSize:10, letterSpacing:3, color:col, fontFamily:'IBM Plex Mono,monospace', fontWeight:700, marginTop:6 }}>{label}</div>
-                        <div style={{ fontSize:9, color:'#475569', fontFamily:'IBM Plex Mono,monospace', marginTop:3 }}>out of 100</div>
+                        <div style={{ fontSize:72, fontWeight:900, color:col, fontFamily:'inherit', lineHeight:1 }}>{sc}</div>
+                        <div style={{ fontSize:10, letterSpacing:3, color:col, fontFamily:'inherit', fontWeight:700, marginTop:6 }}>{label}</div>
+                        <div style={{ fontSize:9, color:D.dim, fontFamily:'inherit', marginTop:3 }}>out of 100</div>
                       </div>
                       <div style={{ flex:1, minWidth:280, display:'flex', flexDirection:'column', gap:10 }}>
                         {breakdown.map(b => {
@@ -1854,19 +1885,19 @@ export default function Home(): React.ReactElement {
                           const bCol = scoreCol(bScore)
                           return (
                             <div key={b.key} style={{ display:'grid', gridTemplateColumns:'60px 1fr 42px 50px', alignItems:'center', gap:10 }}>
-                              <span style={{ fontSize:10, fontFamily:'IBM Plex Mono,monospace', color:'#94a3b8', letterSpacing:1 }}>{b.key}</span>
-                              <div style={{ height:4, background:'#1e2740', borderRadius:2, overflow:'hidden' }}>
+                              <span style={{ fontSize:10, fontFamily:'inherit', color:D.textSub, letterSpacing:1 }}>{b.key}</span>
+                              <div style={{ height:4, background:D.bdr, borderRadius:2, overflow:'hidden' }}>
                                 <div style={{ height:'100%', width:`${bScore}%`, background:bCol, borderRadius:2 }} />
                               </div>
-                              <span style={{ fontSize:10, fontFamily:'IBM Plex Mono,monospace', color:bCol, fontWeight:700, textAlign:'right' }}>{bScore}</span>
-                              <span style={{ fontSize:9, color:'#334155', fontFamily:'IBM Plex Mono,monospace', textAlign:'right' }}>w:{b.weight}%</span>
+                              <span style={{ fontSize:10, fontFamily:'inherit', color:bCol, fontWeight:700, textAlign:'right' }}>{bScore}</span>
+                              <span style={{ fontSize:9, color:D.dim, fontFamily:'inherit', textAlign:'right' }}>w:{b.weight}%</span>
                             </div>
                           )
                         })}
                       </div>
                     </div>
-                    <div style={{ background:'#111827', border:'1px solid #1e2740', borderRadius:12, padding:'16px 18px' }}>
-                      <div style={{ fontSize:9, letterSpacing:2, color:'#475569', fontFamily:'IBM Plex Mono,monospace', fontWeight:700, textTransform:'uppercase', marginBottom:12 }}>Score Evolution</div>
+                    <div style={{ background:'#111111', border:`1px solid ${D.bdr}`, borderRadius:12, padding:'16px 18px' }}>
+                      <div style={{ fontSize:9, letterSpacing:2, color:D.muted, fontFamily:'inherit', fontWeight:700, textTransform:'uppercase', marginBottom:12 }}>Score Evolution</div>
                       <ScoreLineChart
                         sessions={allSessions.map(s => ({ name: s.name, score: calcHealth(s), col: scoreCol(calcHealth(s)) }))}
                         activeIdx={activeI}
@@ -1874,17 +1905,17 @@ export default function Home(): React.ReactElement {
                       />
                     </div>
                     {/* Formula explanation - collapsible */}
-                    <div style={{ marginTop:20, background:'#0f1117', border:'1px solid #1e2740', borderRadius:10, overflow:'hidden' }}>
+                    <div style={{ marginTop:20, background:D.bg, border:`1px solid ${D.bdr}`, borderRadius:10, overflow:'hidden' }}>
                       <button onClick={() => setFormulaOpen((o: boolean) => !o)}
                         style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 20px', background:'none', border:'none', cursor:'pointer', textAlign:'left' }}>
-                        <span style={{ fontSize:11, color:'#64748b', fontFamily:'IBM Plex Mono,monospace' }}>
+                        <span style={{ fontSize:11, color:D.muted, fontFamily:'inherit' }}>
                           {lang==='en' ? 'Click to understand the score' : 'Clique para entender o score'}
                         </span>
-                        <span style={{ fontSize:11, color:'#475569', fontFamily:'IBM Plex Mono,monospace', display:'inline-block', transition:'transform 0.2s', transform: formulaOpen ? 'rotate(180deg)' : 'none' }}>v</span>
+                        <span style={{ fontSize:11, color:D.muted, fontFamily:'inherit', display:'inline-block', transition:'transform 0.2s', transform: formulaOpen ? 'rotate(180deg)' : 'none' }}>v</span>
                       </button>
                       {formulaOpen && (
                         <div style={{ padding:'0 20px 18px' }}>
-                          <div style={{ fontSize:10, fontWeight:700, letterSpacing:2, color:'#f97316', fontFamily:'IBM Plex Mono,monospace', textTransform:'uppercase', marginBottom:14 }}>
+                          <div style={{ fontSize:10, fontWeight:700, letterSpacing:2, color:D.accent, fontFamily:'inherit', textTransform:'uppercase', marginBottom:14 }}>
                             {lang==='en' ? 'Score Formula' : 'Formula do Score'}
                           </div>
                           <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
@@ -1898,16 +1929,16 @@ export default function Home(): React.ReactElement {
                               { param:'Battery',   weight:'5%',  ideal:'0%',   bad:'>5%',  desc:lang==='en'?'Time below 12V':'Tempo abaixo de 12V' },
                               { param:'MIL',       weight:'5%',  ideal:'0%',   bad:'>0%',  desc:lang==='en'?'Check engine on during session':'Check engine ativo na sessao' },
                             ].map(row => (
-                              <div key={row.param} style={{ display:'grid', gridTemplateColumns:'80px 40px 1fr 80px 80px', gap:'0 12px', alignItems:'center', padding:'6px 0', borderBottom:'1px solid #1e2740' }}>
-                                <span style={{ fontSize:10, fontFamily:'IBM Plex Mono,monospace', color:'#e2e8f0', fontWeight:700 }}>{row.param}</span>
-                                <span style={{ fontSize:10, fontFamily:'IBM Plex Mono,monospace', color:'#f97316', fontWeight:700, textAlign:'right' }}>{row.weight}</span>
-                                <span style={{ fontSize:10, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>{row.desc}</span>
-                                <span style={{ fontSize:9, color:'#00e060', fontFamily:'IBM Plex Mono,monospace', textAlign:'right' }}>ok: {row.ideal}</span>
-                                <span style={{ fontSize:9, color:'#ff3030', fontFamily:'IBM Plex Mono,monospace', textAlign:'right' }}>bad: {row.bad}</span>
+                              <div key={row.param} style={{ display:'grid', gridTemplateColumns:'80px 40px 1fr 80px 80px', gap:'0 12px', alignItems:'center', padding:'6px 0', borderBottom:`1px solid ${D.bdr}` }}>
+                                <span style={{ fontSize:10, fontFamily:'inherit', color:D.text, fontWeight:700 }}>{row.param}</span>
+                                <span style={{ fontSize:10, fontFamily:'inherit', color:D.accent, fontWeight:700, textAlign:'right' }}>{row.weight}</span>
+                                <span style={{ fontSize:10, color:D.muted, fontFamily:'inherit' }}>{row.desc}</span>
+                                <span style={{ fontSize:9, color:'#00e060', fontFamily:'inherit', textAlign:'right' }}>ok: {row.ideal}</span>
+                                <span style={{ fontSize:9, color:'#ff3030', fontFamily:'inherit', textAlign:'right' }}>bad: {row.bad}</span>
                               </div>
                             ))}
                           </div>
-                          <div style={{ marginTop:12, fontSize:10, color:'#334155', fontFamily:'IBM Plex Mono,monospace', lineHeight:1.7 }}>
+                          <div style={{ marginTop:12, fontSize:10, color:D.dim, fontFamily:'inherit', lineHeight:1.7 }}>
                             {lang==='en'
                               ? 'Score = 100 minus weighted deductions. Each parameter is scored 0-100 based on where it falls between the ideal and bad thresholds.'
                               : 'Score = 100 menos deducoes ponderadas. Cada parametro e avaliado de 0-100 com base na posicao entre o ideal e o limite critico.'}
@@ -1930,15 +1961,15 @@ export default function Home(): React.ReactElement {
       {/* ONBOARDING WIZARD */}
       {wizardOpen && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.82)', zIndex:200, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
-          <div style={{ background:'#111827', border:'1px solid #1e2740', borderRadius:16, width:'100%', maxWidth:560, overflow:'hidden', boxShadow:'0 24px 64px rgba(0,0,0,0.7)' }}>
+          <div style={{ background:'#111111', border:`1px solid ${D.bdr}`, borderRadius:16, width:'100%', maxWidth:560, overflow:'hidden', boxShadow:'0 24px 64px rgba(0,0,0,0.7)' }}>
 
             {/* Header */}
             <div style={{ padding:'18px 24px 0', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-              <span style={{ fontSize:10, fontFamily:'IBM Plex Mono,monospace', color:'#f97316', fontWeight:700, letterSpacing:2 }}>
+              <span style={{ fontSize:10, fontFamily:'inherit', color:D.accent, fontWeight:700, letterSpacing:2 }}>
                 HNDSH.meters - {lang === 'en' ? 'Setup' : 'Configuracao'} {wizardStep}/4
               </span>
               <button onClick={() => { setWizardOpen(false); localStorage.setItem('hndsh_wizard_done','1') }}
-                style={{ fontSize:11, color:'#334155', background:'none', border:'none', cursor:'pointer', fontFamily:'IBM Plex Mono,monospace' }}>
+                style={{ fontSize:11, color:D.dim, background:'none', border:'none', cursor:'pointer', fontFamily:'inherit' }}>
                 {lang === 'en' ? 'Skip' : 'Pular'}
               </button>
             </div>
@@ -1946,17 +1977,17 @@ export default function Home(): React.ReactElement {
             {/* Progress bar */}
             <div style={{ display:'flex', gap:5, padding:'12px 24px 0' }}>
               {[1,2,3,4].map(n => (
-                <div key={n} style={{ flex:1, height:3, borderRadius:2, background: wizardStep >= n ? '#f97316' : '#1e2740', transition:'background 0.3s' }} />
+                <div key={n} style={{ flex:1, height:3, borderRadius:2, background: wizardStep >= n ? D.accent : D.bdr, transition:'background 0.3s' }} />
               ))}
             </div>
 
             {/* STEP 1: Overview */}
             {wizardStep === 1 && (
               <div style={{ padding:'24px 24px 8px' }}>
-                <h2 style={{ fontSize:22, fontWeight:800, color:'#f1f5f9', marginBottom:8, textAlign:'center' }}>
+                <h2 style={{ fontSize:32, fontWeight:900, color:D.text, letterSpacing:'-1.5px', lineHeight:1, fontFamily:'inherit', marginBottom:8, textAlign:'center' }}>
                   {lang === 'en' ? 'OBD1 telemetry for your Honda' : 'Telemetria OBD1 para o seu Honda'}
                 </h2>
-                <p style={{ fontSize:13, color:'#64748b', lineHeight:1.8, marginBottom:20, textAlign:'center' }}>
+                <p style={{ fontSize:13, color:D.muted, lineHeight:1.8, marginBottom:20, textAlign:'center' }}>
                   {lang === 'en'
                     ? 'HNDSH.meters reads CSV logs from the HondaSH app and turns them into engine health reports, charts and diagnostics.'
                     : 'O HNDSH.meters le os logs CSV do app HondaSH e transforma em relatorios de saude do motor, graficos e diagnosticos.'}
@@ -1968,10 +1999,10 @@ export default function Home(): React.ReactElement {
                     { n:'3', icon:'>', title: lang==='en'?'Upload log':'Suba o log', sub: lang==='en'?'Drag CSV file':'Arraste o CSV' },
                     { n:'4', icon:'*', title: lang==='en'?'Analyze!':'Analise!', sub: lang==='en'?'Full diagnostics':'Diagnostico' },
                   ].map(item => (
-                    <div key={item.n} style={{ background:'#0f1117', border:'1px solid #1e2740', borderRadius:10, padding:'14px 10px', textAlign:'center' }}>
-                      <div style={{ width:24, height:24, borderRadius:'50%', background:'#f97316', color:'#000', fontSize:11, fontWeight:800, fontFamily:'IBM Plex Mono,monospace', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 8px' }}>{item.n}</div>
-                      <div style={{ fontSize:10, fontWeight:700, color:'#e2e8f0', fontFamily:'IBM Plex Mono,monospace', marginBottom:3 }}>{item.title}</div>
-                      <div style={{ fontSize:9, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>{item.sub}</div>
+                    <div key={item.n} style={{ background:D.bg, border:`1px solid ${D.bdr}`, borderRadius:10, padding:'14px 10px', textAlign:'center' }}>
+                      <div style={{ width:24, height:24, borderRadius:'50%', background:D.accent, color:'#000', fontSize:11, fontWeight:800, fontFamily:'inherit', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 8px' }}>{item.n}</div>
+                      <div style={{ fontSize:10, fontWeight:700, color:D.text, fontFamily:'inherit', marginBottom:3 }}>{item.title}</div>
+                      <div style={{ fontSize:9, color:D.dim, fontFamily:'inherit' }}>{item.sub}</div>
                     </div>
                   ))}
                 </div>
@@ -1981,10 +2012,10 @@ export default function Home(): React.ReactElement {
             {/* STEP 2: Export CSV tutorial */}
             {wizardStep === 2 && (
               <div style={{ padding:'24px 24px 8px' }}>
-                <h2 style={{ fontSize:18, fontWeight:800, color:'#f1f5f9', marginBottom:6, textAlign:'center' }}>
+                <h2 style={{ fontSize:18, fontWeight:800, color:D.text, marginBottom:6, textAlign:'center' }}>
                   {lang === 'en' ? 'Step 1 - Export from HondaSH' : 'Passo 1 - Exporte do HondaSH'}
                 </h2>
-                <p style={{ fontSize:12, color:'#64748b', lineHeight:1.7, marginBottom:16, textAlign:'center' }}>
+                <p style={{ fontSize:12, color:D.muted, lineHeight:1.7, marginBottom:16, textAlign:'center' }}>
                   {lang === 'en' ? 'Follow these steps in the HondaSH app to export your log:' : 'Siga esses passos no app HondaSH para exportar seu log:'}
                 </p>
                 <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:16 }}>
@@ -2001,14 +2032,14 @@ export default function Home(): React.ReactElement {
                     'Selecione seu log e toque em "Exportar" -> "Exportar como CSV"',
                     'Salve o arquivo .csv no seu dispositivo',
                   ]).map((step, i) => (
-                    <div key={i} style={{ display:'flex', gap:12, alignItems:'flex-start', background:'#0f1117', border:'1px solid #1e2740', borderRadius:8, padding:'10px 14px' }}>
-                      <span style={{ width:20, height:20, borderRadius:'50%', background:'#1e2740', color:'#f97316', fontSize:10, fontWeight:800, fontFamily:'IBM Plex Mono,monospace', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>{i+1}</span>
-                      <span style={{ fontSize:12, color:'#94a3b8', lineHeight:1.6 }}>{step}</span>
+                    <div key={i} style={{ display:'flex', gap:12, alignItems:'flex-start', background:D.bg, border:`1px solid ${D.bdr}`, borderRadius:8, padding:'10px 14px' }}>
+                      <span style={{ width:20, height:20, borderRadius:'50%', background:D.bdr, color:D.accent, fontSize:10, fontWeight:800, fontFamily:'inherit', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>{i+1}</span>
+                      <span style={{ fontSize:12, color:D.textSub, lineHeight:1.6 }}>{step}</span>
                     </div>
                   ))}
                 </div>
                 <div style={{ background:'#0a1a0a', border:'1px solid #14532d', borderRadius:8, padding:'10px 14px', marginBottom:8 }}>
-                  <span style={{ fontSize:11, color:'#00e060', fontFamily:'IBM Plex Mono,monospace' }}>
+                  <span style={{ fontSize:11, color:'#00e060', fontFamily:'inherit' }}>
                     {lang === 'en' ? 'Tip: You can upload multiple logs at once after setup.' : 'Dica: Voce pode subir multiplos logs de uma vez apos configurar.'}
                   </span>
                 </div>
@@ -2018,10 +2049,10 @@ export default function Home(): React.ReactElement {
             {/* STEP 3: Create car profile inline */}
             {wizardStep === 3 && (
               <div style={{ padding:'24px 24px 8px' }}>
-                <h2 style={{ fontSize:18, fontWeight:800, color:'#f1f5f9', marginBottom:6, textAlign:'center' }}>
+                <h2 style={{ fontSize:18, fontWeight:800, color:D.text, marginBottom:6, textAlign:'center' }}>
                   {lang === 'en' ? 'Step 2 - Create your car profile' : 'Passo 2 - Crie o perfil do seu carro'}
                 </h2>
-                <p style={{ fontSize:12, color:'#64748b', marginBottom:16, textAlign:'center' }}>
+                <p style={{ fontSize:12, color:D.muted, marginBottom:16, textAlign:'center' }}>
                   {lang === 'en' ? 'Select your model, year and trim.' : 'Selecione modelo, ano e versao.'}
                 </p>
                 {/* Breadcrumbs */}
@@ -2029,31 +2060,31 @@ export default function Home(): React.ReactElement {
                   {(['model','year','trim'] as const).map((step, i) => (
                     <button key={step}
                       onClick={() => { if(i===0 || (i===1&&selModel) || (i===2&&selModel&&selYear)) setCarModalStep(step) }}
-                      style={{ flex:1, fontSize:10, padding:'5px 8px', borderRadius:5, border:'1px solid', borderColor: carModalStep===step ? '#f97316' : '#1e2740', background: carModalStep===step ? '#2a1a0a' : 'transparent', color: carModalStep===step ? '#f97316' : '#475569', cursor:'pointer', fontFamily:'IBM Plex Mono,monospace', fontWeight:700 }}>
+                      style={{ flex:1, fontSize:10, padding:'5px 8px', borderRadius:5, border:'1px solid', borderColor: carModalStep===step ? D.accent : D.bdr, background: carModalStep===step ? '#2a1a0a' : 'transparent', color: carModalStep===step ? D.accent : D.muted, cursor:'pointer', fontFamily:'inherit', fontWeight:700 }}>
                       {i===0 ? (selModel ?? t('step_model')) : i===1 ? (selYear ? String(selYear) : t('step_year')) : (selTrim ?? t('step_trim'))}
                     </button>
                   ))}
                 </div>
                 {/* Model */}
                 {carModalStep === 'model' && (
-                  <div style={{ maxHeight:200, overflowY:'auto', border:'1px solid #1e2740', borderRadius:8, marginBottom:12 }}>
+                  <div style={{ maxHeight:200, overflowY:'auto', border:`1px solid ${D.bdr}`, borderRadius:8, marginBottom:12 }}>
                     {CAR_CATALOG.map(car => (
                       <div key={car.model} onClick={() => { setSelModel(car.model); setSelYear(null); setSelTrim(null); setCarModalStep('year') }}
-                        style={{ padding:'10px 14px', borderBottom:'1px solid #161c2a', cursor:'pointer', background: selModel===car.model ? '#1a2035' : 'transparent', display:'flex', justifyContent:'space-between' }}>
-                        <span style={{ fontSize:12, fontWeight:600, color: selModel===car.model ? '#f97316' : '#e2e8f0' }}>{car.model}</span>
-                        <span style={{ fontSize:10, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>{car.years[0].year}-{car.years[car.years.length-1].year}</span>
+                        style={{ padding:'10px 14px', borderBottom:`1px solid ${D.bdr}`, cursor:'pointer', background: selModel===car.model ? '#1a2035' : 'transparent', display:'flex', justifyContent:'space-between' }}>
+                        <span style={{ fontSize:12, fontWeight:600, color: selModel===car.model ? D.accent : D.text }}>{car.model}</span>
+                        <span style={{ fontSize:10, color:D.muted, fontFamily:'inherit' }}>{car.years[0].year}-{car.years[car.years.length-1].year}</span>
                       </div>
                     ))}
                   </div>
                 )}
                 {/* Year */}
                 {carModalStep === 'year' && selModel && (
-                  <div style={{ maxHeight:200, overflowY:'auto', border:'1px solid #1e2740', borderRadius:8, marginBottom:12 }}>
+                  <div style={{ maxHeight:200, overflowY:'auto', border:`1px solid ${D.bdr}`, borderRadius:8, marginBottom:12 }}>
                     {(CAR_CATALOG.find(c => c.model === selModel)?.years ?? []).map(yd => (
                       <div key={yd.year} onClick={() => { setSelYear(yd.year); setSelTrim(null); setCarModalStep('trim') }}
-                        style={{ padding:'10px 14px', borderBottom:'1px solid #161c2a', cursor:'pointer', background: selYear===yd.year ? '#1a2035' : 'transparent', display:'flex', justifyContent:'space-between' }}>
-                        <span style={{ fontSize:13, fontWeight:700, color: selYear===yd.year ? '#f97316' : '#e2e8f0', fontFamily:'IBM Plex Mono,monospace' }}>{yd.year}</span>
-                        <span style={{ fontSize:10, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>{yd.trims.length} {lang==='en'?'trims':'versoes'}</span>
+                        style={{ padding:'10px 14px', borderBottom:`1px solid ${D.bdr}`, cursor:'pointer', background: selYear===yd.year ? '#1a2035' : 'transparent', display:'flex', justifyContent:'space-between' }}>
+                        <span style={{ fontSize:13, fontWeight:700, color: selYear===yd.year ? D.accent : D.text, fontFamily:'inherit' }}>{yd.year}</span>
+                        <span style={{ fontSize:10, color:D.muted, fontFamily:'inherit' }}>{yd.trims.length} {lang==='en'?'trims':'versoes'}</span>
                       </div>
                     ))}
                   </div>
@@ -2061,24 +2092,24 @@ export default function Home(): React.ReactElement {
                 {/* Trim + nickname */}
                 {carModalStep === 'trim' && selModel && selYear && (
                   <div>
-                    <div style={{ maxHeight:140, overflowY:'auto', border:'1px solid #1e2740', borderRadius:8, marginBottom:10 }}>
+                    <div style={{ maxHeight:140, overflowY:'auto', border:`1px solid ${D.bdr}`, borderRadius:8, marginBottom:10 }}>
                       {(CAR_CATALOG.find(c => c.model === selModel)?.years.find(y => y.year === selYear)?.trims ?? []).map(td => (
                         <div key={td.trim} onClick={() => setSelTrim(td.trim)}
-                          style={{ padding:'10px 14px', borderBottom:'1px solid #161c2a', cursor:'pointer', background: selTrim===td.trim ? '#1a2035' : 'transparent' }}>
+                          style={{ padding:'10px 14px', borderBottom:`1px solid ${D.bdr}`, cursor:'pointer', background: selTrim===td.trim ? '#1a2035' : 'transparent' }}>
                           <div style={{ display:'flex', justifyContent:'space-between', marginBottom:2 }}>
-                            <span style={{ fontSize:12, fontWeight:700, color: selTrim===td.trim ? '#f97316' : '#e2e8f0' }}>{td.trim}</span>
-                            <span style={{ fontSize:11, fontFamily:'IBM Plex Mono,monospace', color:'#00cfff', fontWeight:700 }}>{td.engine} - {td.hp}hp</span>
+                            <span style={{ fontSize:12, fontWeight:700, color: selTrim===td.trim ? D.accent : D.text }}>{td.trim}</span>
+                            <span style={{ fontSize:11, fontFamily:'inherit', color:'#00cfff', fontWeight:700 }}>{td.engine} - {td.hp}hp</span>
                           </div>
-                          <div style={{ fontSize:10, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>{td.notes}</div>
+                          <div style={{ fontSize:10, color:D.muted, fontFamily:'inherit' }}>{td.notes}</div>
                         </div>
                       ))}
                     </div>
                     {selTrim && (
-                      <div style={{ background:'#0f1117', border:'1px solid #1e2740', borderRadius:8, padding:'12px 14px' }}>
-                        <div style={{ fontSize:10, color:'#64748b', fontFamily:'IBM Plex Mono,monospace', marginBottom:6 }}>{t('car_name_label')}</div>
+                      <div style={{ background:D.bg, border:`1px solid ${D.bdr}`, borderRadius:8, padding:'12px 14px' }}>
+                        <div style={{ fontSize:10, color:D.muted, fontFamily:'inherit', marginBottom:6 }}>{t('car_name_label')}</div>
                         <input type="text" value={profileName} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setProfileName(e.target.value)}
                           placeholder={t('car_name_ph')}
-                          style={{ width:'100%', background:'#161c2a', border:'1px solid #1e2740', borderRadius:5, padding:'7px 10px', color:'#e2e8f0', fontSize:12, fontFamily:'IBM Plex Mono,monospace', outline:'none', boxSizing:'border-box' }}
+                          style={{ width:'100%', background:'#0e0e0e', border:`1px solid ${D.bdr}`, borderRadius:5, padding:'7px 10px', color:D.text, fontSize:12, fontFamily:'inherit', outline:'none', boxSizing:'border-box' }}
                         />
                       </div>
                     )}
@@ -2090,10 +2121,10 @@ export default function Home(): React.ReactElement {
             {/* STEP 4: Upload log */}
             {wizardStep === 4 && (
               <div style={{ padding:'24px 24px 8px' }}>
-                <h2 style={{ fontSize:18, fontWeight:800, color:'#f1f5f9', marginBottom:6, textAlign:'center' }}>
+                <h2 style={{ fontSize:18, fontWeight:800, color:D.text, marginBottom:6, textAlign:'center' }}>
                   {lang === 'en' ? 'Step 3 - Upload your first log' : 'Passo 3 - Suba seu primeiro log'}
                 </h2>
-                <p style={{ fontSize:12, color:'#64748b', marginBottom:16, textAlign:'center' }}>
+                <p style={{ fontSize:12, color:D.muted, marginBottom:16, textAlign:'center' }}>
                   {lang === 'en' ? 'Drop your CSV file below or click to browse. You can skip and upload later.' : 'Solte seu CSV abaixo ou clique para escolher. Voce pode pular e subir depois.'}
                 </p>
                 {/* Drop zone */}
@@ -2110,39 +2141,39 @@ export default function Home(): React.ReactElement {
                     inp.onchange = () => { if (inp.files) handleFiles(Array.from(inp.files)) }
                     inp.click()
                   }}
-                  style={{ border:'2px dashed #1e2740', borderRadius:12, padding:'28px 20px', textAlign:'center', cursor:'pointer', marginBottom:12, transition:'border-color 0.2s', background:'#0f1117' }}
-                  onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => (e.currentTarget.style.borderColor = '#f97316')}
-                  onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => (e.currentTarget.style.borderColor = '#1e2740')}
+                  style={{ border:'2px dashed #1e2740', borderRadius:12, padding:'28px 20px', textAlign:'center', cursor:'pointer', marginBottom:12, transition:'border-color 0.2s', background:D.bg }}
+                  onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => (e.currentTarget.style.borderColor = D.accent)}
+                  onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => (e.currentTarget.style.borderColor = D.bdr)}
                 >
                   {uploading && uploadProgress ? (
                     <div style={{ width:'100%' }}>
                       <div style={{ display:'flex', justifyContent:'space-between', marginBottom:6 }}>
-                        <span style={{ fontSize:12, color:'#f97316', fontFamily:'IBM Plex Mono,monospace' }}>
+                        <span style={{ fontSize:12, color:D.accent, fontFamily:'inherit' }}>
                           {lang === 'en' ? 'Processing...' : 'Processando...'} {uploadProgress.current}/{uploadProgress.total}
                         </span>
-                        <span style={{ fontSize:12, fontWeight:700, color:'#f97316', fontFamily:'IBM Plex Mono,monospace' }}>{uploadFilePct}%</span>
+                        <span style={{ fontSize:12, fontWeight:700, color:D.accent, fontFamily:'inherit' }}>{uploadFilePct}%</span>
                       </div>
-                      <div style={{ background:'#1e2740', borderRadius:4, height:6, overflow:'hidden' }}>
-                        <div style={{ height:'100%', width:`${uploadFilePct}%`, background:'#f97316', borderRadius:4, transition:'width 0.1s linear' }} />
+                      <div style={{ background:D.bdr, borderRadius:4, height:6, overflow:'hidden' }}>
+                        <div style={{ height:'100%', width:`${uploadFilePct}%`, background:D.accent, borderRadius:4, transition:'width 0.1s linear' }} />
                       </div>
                     </div>
                   ) : allSessions.length > 0 ? (
                     <div>
                       <div style={{ fontSize:24, marginBottom:8, color:'#00e060' }}>v</div>
-                      <div style={{ fontSize:13, fontWeight:700, color:'#00e060', fontFamily:'IBM Plex Mono,monospace', marginBottom:4 }}>
+                      <div style={{ fontSize:13, fontWeight:700, color:'#00e060', fontFamily:'inherit', marginBottom:4 }}>
                         {allSessions.length} {lang === 'en' ? 'log(s) loaded!' : 'log(s) carregado(s)!'}
                       </div>
-                      <div style={{ fontSize:11, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>
+                      <div style={{ fontSize:11, color:D.muted, fontFamily:'inherit' }}>
                         {lang === 'en' ? 'Click to add more' : 'Clique para adicionar mais'}
                       </div>
                     </div>
                   ) : (
                     <div>
-                      <div style={{ fontSize:32, marginBottom:8, color:'#334155' }}>+</div>
-                      <div style={{ fontSize:13, fontWeight:700, color:'#64748b', fontFamily:'IBM Plex Mono,monospace', marginBottom:4 }}>
+                      <div style={{ fontSize:32, marginBottom:8, color:D.dim }}>+</div>
+                      <div style={{ fontSize:13, fontWeight:700, color:D.muted, fontFamily:'inherit', marginBottom:4 }}>
                         {lang === 'en' ? 'Drop CSV here or click to browse' : 'Solte o CSV aqui ou clique para escolher'}
                       </div>
-                      <div style={{ fontSize:11, color:'#334155', fontFamily:'IBM Plex Mono,monospace' }}>
+                      <div style={{ fontSize:10, color:D.muted, fontFamily:'inherit', display:'flex', alignItems:'center', gap:10, marginTop:4 }}>
                         {lang === 'en' ? 'Exported from HondaSH app (.csv)' : 'Exportado pelo app HondaSH (.csv)'}
                       </div>
                     </div>
@@ -2156,7 +2187,7 @@ export default function Home(): React.ReactElement {
               <div>
                 {wizardStep > 1 && (
                   <button onClick={() => setWizardStep((s: number) => s - 1)}
-                    style={{ padding:'8px 16px', background:'none', border:'1px solid #1e2740', borderRadius:7, color:'#64748b', fontSize:12, fontFamily:'IBM Plex Mono,monospace', cursor:'pointer' }}>
+                    style={{ padding:'8px 16px', background:'none', border:`1px solid ${D.bdr}`, borderRadius:7, color:D.muted, fontSize:12, fontFamily:'inherit', cursor:'pointer' }}>
                     {lang === 'en' ? 'Back' : 'Voltar'}
                   </button>
                 )}
@@ -2164,7 +2195,7 @@ export default function Home(): React.ReactElement {
               <div style={{ display:'flex', gap:10, alignItems:'center' }}>
                 {wizardStep === 4 && allSessions.length === 0 && (
                   <button onClick={() => { setWizardOpen(false); localStorage.setItem('hndsh_wizard_done','1') }}
-                    style={{ padding:'8px 14px', background:'none', border:'1px solid #1e2740', borderRadius:7, color:'#64748b', fontSize:11, fontFamily:'IBM Plex Mono,monospace', cursor:'pointer' }}>
+                    style={{ padding:'8px 14px', background:'none', border:`1px solid ${D.bdr}`, borderRadius:7, color:D.muted, fontSize:11, fontFamily:'inherit', cursor:'pointer' }}>
                     {lang === 'en' ? 'Skip for now' : 'Pular por agora'}
                   </button>
                 )}
@@ -2178,13 +2209,13 @@ export default function Home(): React.ReactElement {
                       }
                       setWizardStep((s: number) => s + 1)
                     }}
-                    style={{ padding:'8px 22px', background: (wizardStep === 3 && (!selTrim || !profileName.trim())) ? '#2a2a2a' : '#f97316', border:'none', borderRadius:7, color: (wizardStep === 3 && (!selTrim || !profileName.trim())) ? '#475569' : '#000', fontSize:12, fontFamily:'IBM Plex Mono,monospace', fontWeight:800, cursor: (wizardStep === 3 && (!selTrim || !profileName.trim())) ? 'not-allowed' : 'pointer' }}>
+                    style={{ padding:'8px 22px', background: (wizardStep === 3 && (!selTrim || !profileName.trim())) ? '#2a2a2a' : D.accent, border:'none', borderRadius:7, color: (wizardStep === 3 && (!selTrim || !profileName.trim())) ? '#475569' : '#000', fontSize:12, fontFamily:'inherit', fontWeight:800, cursor: (wizardStep === 3 && (!selTrim || !profileName.trim())) ? 'not-allowed' : 'pointer' }}>
                     {wizardStep === 3 ? (lang === 'en' ? 'Save & Continue' : 'Salvar e Continuar') : (lang === 'en' ? 'Next' : 'Proximo')}
                   </button>
                 ) : (
                   <button
                     onClick={() => { setWizardOpen(false); localStorage.setItem('hndsh_wizard_done','1') }}
-                    style={{ padding:'8px 22px', background: allSessions.length > 0 ? '#f97316' : '#2a2a2a', border:'none', borderRadius:7, color: allSessions.length > 0 ? '#000' : '#475569', fontSize:12, fontFamily:'IBM Plex Mono,monospace', fontWeight:800, cursor: allSessions.length > 0 ? 'pointer' : 'not-allowed' }}>
+                    style={{ padding:'8px 22px', background: allSessions.length > 0 ? D.accent : '#2a2a2a', border:'none', borderRadius:7, color: allSessions.length > 0 ? '#000' : D.muted, fontSize:12, fontFamily:'inherit', fontWeight:800, cursor: allSessions.length > 0 ? 'pointer' : 'not-allowed' }}>
                     {lang === 'en' ? 'Finish' : 'Finalizar'}
                   </button>
                 )}
@@ -2204,17 +2235,17 @@ export default function Home(): React.ReactElement {
         return (
           <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.75)', zIndex:150, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}
             onClick={(e: React.MouseEvent) => { if (e.target === e.currentTarget) setEditLogSession(null) }}>
-            <div style={{ background:'#111827', border:'1px solid #1e2740', borderRadius:14, width:'100%', maxWidth:480, overflow:'hidden' }}>
-              <div style={{ padding:'18px 22px', borderBottom:'1px solid #1e2740', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                <span style={{ fontSize:12, fontWeight:700, color:'#f97316', fontFamily:'IBM Plex Mono,monospace', letterSpacing:2 }}>
+            <div style={{ background:'#111111', border:`1px solid ${D.bdr}`, borderRadius:14, width:'100%', maxWidth:480, overflow:'hidden' }}>
+              <div style={{ padding:'18px 22px', borderBottom:`1px solid ${D.bdr}`, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                <span style={{ fontSize:12, fontWeight:700, color:D.accent, fontFamily:'inherit', letterSpacing:2 }}>
                   {lang === 'en' ? 'EDIT LOG' : 'EDITAR LOG'}
                 </span>
-                <button onClick={() => setEditLogSession(null)} style={{ fontSize:14, color:'#475569', background:'none', border:'none', cursor:'pointer', lineHeight:1 }}>x</button>
+                <button onClick={() => setEditLogSession(null)} style={{ fontSize:14, color:D.muted, background:'none', border:'none', cursor:'pointer', lineHeight:1 }}>x</button>
               </div>
               <div style={{ padding:'20px 22px', display:'flex', flexDirection:'column', gap:16 }}>
                 {/* Name / Note */}
                 <div>
-                  <label style={{ fontSize:10, color:'#64748b', fontFamily:'IBM Plex Mono,monospace', display:'block', marginBottom:6, letterSpacing:1 }}>
+                  <label style={{ fontSize:10, color:D.muted, fontFamily:'inherit', display:'block', marginBottom:6, letterSpacing:1 }}>
                     {lang === 'en' ? 'LOG NAME (replaces filename)' : 'NOME DO LOG (substitui o nome do arquivo)'}
                   </label>
                   <input
@@ -2222,15 +2253,15 @@ export default function Home(): React.ReactElement {
                     defaultValue={currentNote}
                     id="editLogNote"
                     placeholder={sName}
-                    style={{ width:'100%', background:'#161c2a', border:'1px solid #1e2740', borderRadius:6, padding:'8px 12px', color:'#e2e8f0', fontSize:13, fontFamily:'IBM Plex Mono,monospace', outline:'none', boxSizing:'border-box' }}
+                    style={{ width:'100%', background:'#0e0e0e', border:`1px solid ${D.bdr}`, borderRadius:6, padding:'8px 12px', color:D.text, fontSize:13, fontFamily:'inherit', outline:'none', boxSizing:'border-box' }}
                   />
-                  <div style={{ fontSize:9, color:'#334155', fontFamily:'IBM Plex Mono,monospace', marginTop:4 }}>
+                  <div style={{ fontSize:9, color:D.dim, fontFamily:'inherit', marginTop:4 }}>
                     {lang === 'en' ? 'Original filename: ' : 'Nome original: '}{sName}
                   </div>
                 </div>
                 {/* Description */}
                 <div>
-                  <label style={{ fontSize:10, color:'#64748b', fontFamily:'IBM Plex Mono,monospace', display:'block', marginBottom:6, letterSpacing:1 }}>
+                  <label style={{ fontSize:10, color:D.muted, fontFamily:'inherit', display:'block', marginBottom:6, letterSpacing:1 }}>
                     {lang === 'en' ? 'DESCRIPTION' : 'DESCRICAO'}
                   </label>
                   <textarea
@@ -2238,12 +2269,12 @@ export default function Home(): React.ReactElement {
                     id="editLogDesc"
                     rows={2}
                     placeholder={lang === 'en' ? 'Brief description of the session...' : 'Descricao breve da sessao...'}
-                    style={{ width:'100%', background:'#161c2a', border:'1px solid #1e2740', borderRadius:6, padding:'8px 12px', color:'#e2e8f0', fontSize:12, fontFamily:'IBM Plex Mono,monospace', outline:'none', resize:'none', boxSizing:'border-box', lineHeight:1.6 }}
+                    style={{ width:'100%', background:'#0e0e0e', border:`1px solid ${D.bdr}`, borderRadius:6, padding:'8px 12px', color:D.text, fontSize:12, fontFamily:'inherit', outline:'none', resize:'none', boxSizing:'border-box', lineHeight:1.6 }}
                   />
                 </div>
                 {/* Maintenance changes */}
                 <div>
-                  <label style={{ fontSize:10, color:'#64748b', fontFamily:'IBM Plex Mono,monospace', display:'block', marginBottom:6, letterSpacing:1 }}>
+                  <label style={{ fontSize:10, color:D.muted, fontFamily:'inherit', display:'block', marginBottom:6, letterSpacing:1 }}>
                     {lang === 'en' ? 'MAINTENANCE / UPGRADES' : 'MANUTENCAO / UPGRADES'}
                   </label>
                   {(() => {
@@ -2260,7 +2291,7 @@ export default function Home(): React.ReactElement {
                                   ...prev, [activeProfileKey ?? '']: { ...(prev[activeProfileKey ?? ''] ?? {}), [sName]: newItems }
                                 }))
                               }}
-                              style={{ background:'#161c2a', border:'1px solid #1e2740', borderRadius:4, padding:'4px 6px', color:'#f97316', fontSize:9, fontFamily:'IBM Plex Mono,monospace', fontWeight:700, outline:'none', cursor:'pointer', flexShrink:0 }}>
+                              style={{ background:'#0e0e0e', border:`1px solid ${D.bdr}`, borderRadius:4, padding:'4px 6px', color:D.accent, fontSize:9, fontFamily:'inherit', fontWeight:700, outline:'none', cursor:'pointer', flexShrink:0 }}>
                               <option value="upgrade">UPGRADE</option>
                               <option value="swap">{lang === 'en' ? 'SWAP' : 'TROCA'}</option>
                               <option value="fix">{lang === 'en' ? 'FIX' : 'CONSERTO'}</option>
@@ -2274,7 +2305,7 @@ export default function Home(): React.ReactElement {
                                 }))
                               }}
                               placeholder={lang === 'en' ? 'e.g. ProCooler radiator' : 'ex: Radiador ProCooler'}
-                              style={{ flex:1, background:'#161c2a', border:'1px solid #1e2740', borderRadius:4, padding:'4px 8px', color:'#e2e8f0', fontSize:11, fontFamily:'IBM Plex Mono,monospace', outline:'none' }}
+                              style={{ flex:1, background:'#0e0e0e', border:`1px solid ${D.bdr}`, borderRadius:4, padding:'4px 8px', color:D.text, fontSize:11, fontFamily:'inherit', outline:'none' }}
                             />
                             <button onClick={() => {
                               const newItems = items.filter((_item: {type:string;text:string}, i2: number) => i2 !== idx2)
@@ -2290,7 +2321,7 @@ export default function Home(): React.ReactElement {
                             ...prev, [activeProfileKey ?? '']: { ...(prev[activeProfileKey ?? ''] ?? {}), [sName]: newItems }
                           }))
                         }}
-                          style={{ fontSize:10, color:'#64748b', background:'#0f1117', border:'1px dashed #1e2740', borderRadius:4, cursor:'pointer', padding:'4px 12px', fontFamily:'IBM Plex Mono,monospace', width:'100%', marginTop:2 }}>
+                          style={{ fontSize:10, color:D.muted, background:D.bg, border:'1px dashed #1e2740', borderRadius:4, cursor:'pointer', padding:'4px 12px', fontFamily:'inherit', width:'100%', marginTop:2 }}>
                           + {lang === 'en' ? 'Add item' : 'Adicionar item'}
                         </button>
                       </div>
@@ -2305,12 +2336,12 @@ export default function Home(): React.ReactElement {
                       setEditLogSession(null)
                     }
                   }}
-                    style={{ fontSize:11, color:'#dc2626', background:'#2d0a0a', border:'1px solid #7f1d1d', borderRadius:6, cursor:'pointer', padding:'7px 14px', fontFamily:'IBM Plex Mono,monospace', fontWeight:600 }}>
+                    style={{ fontSize:11, color:'#dc2626', background:'#2d0a0a', border:'1px solid #7f1d1d', borderRadius:6, cursor:'pointer', padding:'7px 14px', fontFamily:'inherit', fontWeight:600 }}>
                     {lang === 'en' ? 'Delete log' : 'Deletar log'}
                   </button>
                   <div style={{ display:'flex', gap:10 }}>
                     <button onClick={() => setEditLogSession(null)}
-                      style={{ padding:'7px 16px', background:'none', border:'1px solid #1e2740', borderRadius:6, color:'#64748b', fontSize:12, fontFamily:'IBM Plex Mono,monospace', cursor:'pointer' }}>
+                      style={{ padding:'7px 16px', background:'none', border:`1px solid ${D.bdr}`, borderRadius:6, color:D.muted, fontSize:12, fontFamily:'inherit', cursor:'pointer' }}>
                       {lang === 'en' ? 'Cancel' : 'Cancelar'}
                     </button>
                     <button onClick={() => {
@@ -2328,7 +2359,7 @@ export default function Home(): React.ReactElement {
                       }
                       setEditLogSession(null)
                     }}
-                      style={{ padding:'7px 20px', background:'#f97316', border:'none', borderRadius:6, color:'#000', fontSize:12, fontFamily:'IBM Plex Mono,monospace', fontWeight:800, cursor:'pointer' }}>
+                      style={{ padding:'7px 20px', background:D.accent, border:'none', borderRadius:6, color:'#000', fontSize:12, fontFamily:'inherit', fontWeight:800, cursor:'pointer' }}>
                       {lang === 'en' ? 'Save' : 'Salvar'}
                     </button>
                   </div>
