@@ -466,20 +466,21 @@ function RouteMap({ track, lang }: {
       // Normalize 0-1 within log's own range
       const normalize = (v: number, mn: number, mx: number): number =>
         Math.max(0, Math.min(1, (v - mn) / (mx - mn)))
-      // Interpolate red->orange->blue (slow=red, fast=blue)
+      // Gradient: green(0) -> yellow(0.5) -> red(1)
+      // t=0 => green (#00c040), t=0.5 => yellow (#ffe000), t=1 => red (#ff2020)
       const gradientColor = (t: number): string => {
-        // t=0 => red (#ff3030), t=0.5 => orange (#f97316), t=1 => blue (#2060ff)
+        const clamp = (v: number) => Math.max(0, Math.min(255, Math.round(v)))
         if (t < 0.5) {
           const f = t * 2
-          const r = Math.round(0xff + (0xf9 - 0xff) * f)
-          const g = Math.round(0x30 + (0x73 - 0x30) * f)
-          const b = Math.round(0x30 + (0x16 - 0x30) * f)
+          const r = clamp(0x00 + (0xff - 0x00) * f)
+          const g = clamp(0xc0 + (0xe0 - 0xc0) * f)
+          const b = clamp(0x40 + (0x00 - 0x40) * f)
           return '#' + [r,g,b].map(x => x.toString(16).padStart(2,'0')).join('')
         } else {
           const f = (t - 0.5) * 2
-          const r = Math.round(0xf9 + (0x20 - 0xf9) * f)
-          const g = Math.round(0x73 + (0x60 - 0x73) * f)
-          const b = Math.round(0x16 + (0xff - 0x16) * f)
+          const r = clamp(0xff + (0xff - 0xff) * f)
+          const g = clamp(0xe0 + (0x20 - 0xe0) * f)
+          const b = clamp(0x00 + (0x20 - 0x00) * f)
           return '#' + [r,g,b].map(x => x.toString(16).padStart(2,'0')).join('')
         }
       }
@@ -488,8 +489,11 @@ function RouteMap({ track, lang }: {
       const [rMin,  rMax]  = minMax(4)
 
       const getColor = (pt: [number, number, number, number, number]): string => {
+        // speed: slow=green, fast=red
         if (overlay === 'speed') return gradientColor(normalize(pt[2], spMin, spMax))
+        // temp: cool=green, hot=red (higher = worse = red)
         if (overlay === 'temp')  return gradientColor(normalize(pt[3], tMin,  tMax))
+        // rpm: low=green, high=red (higher = more stress = red)
         return gradientColor(normalize(pt[4], rMin, rMax))
       }
 
@@ -527,19 +531,19 @@ function RouteMap({ track, lang }: {
   const mid = (a: number, b: number) => Math.round((a + b) / 2)
   const legends: Record<string, { color: string; label: string }[]> = {
     speed: [
-      { color: '#ff3030', label: `${sMin} km/h` },
-      { color: '#f97316', label: `${mid(sMin,sMax)} km/h` },
-      { color: '#2060ff', label: `${sMax} km/h` },
+      { color: '#00c040', label: `${sMin} km/h` },
+      { color: '#ffe000', label: `${mid(sMin,sMax)} km/h` },
+      { color: '#ff2020', label: `${sMax} km/h` },
     ],
     temp: [
-      { color: '#ff3030', label: `${tMin2}C` },
-      { color: '#f97316', label: `${mid(tMin2,tMax2)}C` },
-      { color: '#2060ff', label: `${tMax2}C` },
+      { color: '#00c040', label: `${tMin2}C` },
+      { color: '#ffe000', label: `${mid(tMin2,tMax2)}C` },
+      { color: '#ff2020', label: `${tMax2}C` },
     ],
     rpm: [
-      { color: '#ff3030', label: `${rMin2} rpm` },
-      { color: '#f97316', label: `${mid(rMin2,rMax2)} rpm` },
-      { color: '#2060ff', label: `${rMax2} rpm` },
+      { color: '#00c040', label: `${rMin2} rpm` },
+      { color: '#ffe000', label: `${mid(rMin2,rMax2)} rpm` },
+      { color: '#ff2020', label: `${rMax2} rpm` },
     ],
   }
 
