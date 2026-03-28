@@ -57,7 +57,7 @@ export default function TimelineChart({
           const meta = chart.getDatasetMeta(di)
           ds.data.forEach((val, i) => {
             if (val == null || !ds.alarmFn!(val)) return
-            const pt = meta.data[i]
+            const pt = meta.data[i] as PointElement | undefined
             if (!pt) return
             const { x, y } = pt.getCenterPoint()
             c.save()
