@@ -28,7 +28,7 @@ export default function TimelineChart({
   labels, datasets, title, unit, yMin, yMax, refLine,
 }: TimelineChartProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const chartRef  = useRef<Chart | null>(null)
+  const chartRef  = useRef<Chart<'line'> | null>(null)
 
   useEffect(() => {
     if (!canvasRef.current) return
@@ -103,7 +103,7 @@ export default function TimelineChart({
       })
     }
 
-    chartRef.current = new Chart(ctx, {
+    const newChart = new Chart(ctx, {
       type: 'line',
       plugins,
       data: {
@@ -195,6 +195,7 @@ export default function TimelineChart({
       },
     })
 
+    chartRef.current = newChart as unknown as Chart<'line'>
     return () => { chartRef.current?.destroy() }
   }, [labels, datasets, yMin, yMax, refLine, unit])
 
