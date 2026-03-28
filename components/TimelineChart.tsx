@@ -2,12 +2,12 @@
 
 import { useEffect, useRef } from 'react'
 import {
-  Chart, LineElement, PointElement, LinearScale, CategoryScale,
+  Chart, LineController, LineElement, PointElement, LinearScale, CategoryScale,
   Tooltip, Filler, Legend, type Plugin,
 } from 'chart.js'
 import type { TooltipItem } from 'chart.js'
 
-Chart.register(LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Filler, Legend)
+Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Filler, Legend)
 
 export interface TimelineChartProps {
   labels: string[]
