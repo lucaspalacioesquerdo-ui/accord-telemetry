@@ -416,6 +416,7 @@ export default function Home(): React.ReactElement {
   const DEFAULT_SECTION_ORDER: SecKey[] = ['diag','elec','fuel','air','afr','ign','temp','idle','motion','act','perf']
   const [sectionOrder, setSectionOrder]         = useState<SecKey[]>(DEFAULT_SECTION_ORDER)
   const [dragSec, setDragSec]                   = useState<SecKey|null>(null)
+  const [formulaOpen, setFormulaOpen]           = useState(false)
   const [dragOverSec, setDragOverSec]           = useState<SecKey|null>(null)
   // Session notes: { [profileKey]: { [sessionName]: string } }
   const [sessionNotes, setSessionNotes]         = useState<Record<string,Record<string,string>>>({})
@@ -1453,50 +1454,47 @@ export default function Home(): React.ReactElement {
                       />
                     </div>
                     {/* Formula explanation - collapsible */}
-                    {(() => {
-                      const [formulaOpen, setFormulaOpen] = React.useState(false)
-                      return (
-                      <div style={{ marginTop:20, background:'#0f1117', border:'1px solid #1e2740', borderRadius:10, overflow:'hidden' }}>
-                        <button onClick={() => setFormulaOpen((o: boolean) => !o)}
-                          style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 20px', background:'none', border:'none', cursor:'pointer', textAlign:'left' }}>
-                          <span style={{ fontSize:11, color:'#64748b', fontFamily:'IBM Plex Mono,monospace' }}>
-                            {lang==='en' ? 'Click to understand the score' : 'Clique para entender o score'}
-                          </span>
-                          <span style={{ fontSize:11, color:'#475569', fontFamily:'IBM Plex Mono,monospace', transform: formulaOpen ? 'rotate(180deg)' : 'none', display:'inline-block', transition:'transform 0.2s' }}>v</span>
-                        </button>
-                        {formulaOpen && (
+                    <div style={{ marginTop:20, background:'#0f1117', border:'1px solid #1e2740', borderRadius:10, overflow:'hidden' }}>
+                      <button onClick={() => setFormulaOpen((o: boolean) => !o)}
+                        style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 20px', background:'none', border:'none', cursor:'pointer', textAlign:'left' }}>
+                        <span style={{ fontSize:11, color:'#64748b', fontFamily:'IBM Plex Mono,monospace' }}>
+                          {lang==='en' ? 'Click to understand the score' : 'Clique para entender o score'}
+                        </span>
+                        <span style={{ fontSize:11, color:'#475569', fontFamily:'IBM Plex Mono,monospace', display:'inline-block', transition:'transform 0.2s', transform: formulaOpen ? 'rotate(180deg)' : 'none' }}>v</span>
+                      </button>
+                      {formulaOpen && (
                         <div style={{ padding:'0 20px 18px' }}>
-                        <div style={{ fontSize:10, fontWeight:700, letterSpacing:2, color:'#f97316', fontFamily:'IBM Plex Mono,monospace', textTransform:'uppercase', marginBottom:14 }}>
-                          {lang==='en' ? 'Score Formula' : 'Formula do Score'}
-                        </div>
-                      <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-                        {[
-                          { param:'STFT >15%', weight:'20%', ideal:'<2%',  bad:'>15%', desc:lang==='en'?'Short-term correction frequency':'Frequencia de correcao de curto prazo' },
-                          { param:'LTFT',      weight:'15%', ideal:'<2.5%',bad:'>6%',  desc:lang==='en'?'Long-term fuel trim':'Trim de combustivel longo prazo' },
-                          { param:'Lambda',    weight:'15%', ideal:'<0.05',bad:'>0.25',desc:lang==='en'?'Deviation from stoichiometric (1.0)':'Desvio do estequiometrico (1.0)' },
-                          { param:'ECT',       weight:'15%', ideal:'<15%', bad:'>35%', desc:lang==='en'?'Time above 95C':'Tempo acima de 95C' },
-                          { param:'IACV',      weight:'10%', ideal:'<42%', bad:'>65%', desc:lang==='en'?'Idle air control (vacuum leak indicator)':'Valvula de ar de marcha lenta (vacuum leak)' },
-                          { param:'Knock',     weight:'15%', ideal:'0',    bad:'>10',  desc:lang==='en'?'Detonation events':'Eventos de detonacao' },
-                          { param:'Battery',   weight:'5%',  ideal:'0%',   bad:'>5%',  desc:lang==='en'?'Time below 12V':'Tempo abaixo de 12V' },
-                          { param:'MIL',       weight:'5%',  ideal:'0%',   bad:'>0%',  desc:lang==='en'?'Check engine on during session':'Check engine ativo na sessao' },
-                        ].map(row => (
-                          <div key={row.param} style={{ display:'grid', gridTemplateColumns:'80px 40px 1fr 80px 80px', gap:'0 12px', alignItems:'center', padding:'6px 0', borderBottom:'1px solid #1e2740' }}>
-                            <span style={{ fontSize:10, fontFamily:'IBM Plex Mono,monospace', color:'#e2e8f0', fontWeight:700 }}>{row.param}</span>
-                            <span style={{ fontSize:10, fontFamily:'IBM Plex Mono,monospace', color:'#f97316', fontWeight:700, textAlign:'right' }}>{row.weight}</span>
-                            <span style={{ fontSize:10, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>{row.desc}</span>
-                            <span style={{ fontSize:9, color:'#00e060', fontFamily:'IBM Plex Mono,monospace', textAlign:'right' }}>ok: {row.ideal}</span>
-                            <span style={{ fontSize:9, color:'#ff3030', fontFamily:'IBM Plex Mono,monospace', textAlign:'right' }}>bad: {row.bad}</span>
+                          <div style={{ fontSize:10, fontWeight:700, letterSpacing:2, color:'#f97316', fontFamily:'IBM Plex Mono,monospace', textTransform:'uppercase', marginBottom:14 }}>
+                            {lang==='en' ? 'Score Formula' : 'Formula do Score'}
                           </div>
-                        ))}
-                      </div>
-                      <div style={{ marginTop:12, fontSize:10, color:'#334155', fontFamily:'IBM Plex Mono,monospace', lineHeight:1.7 }}>
-                        {lang==='en'
-                          ? 'Score = 100 minus weighted deductions. Each parameter is scored 0-100 based on where it falls between the ideal and bad thresholds.'
-                          : 'Score = 100 menos deducoes ponderadas. Cada parametro e avaliado de 0-100 com base na posicao entre o ideal e o limite critico.'}
-                      </div>
-                        </div>)}
-                      </div>)
-                    })()}
+                          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                            {[
+                              { param:'STFT >15%', weight:'20%', ideal:'<2%',  bad:'>15%', desc:lang==='en'?'Short-term correction frequency':'Frequencia de correcao de curto prazo' },
+                              { param:'LTFT',      weight:'15%', ideal:'<2.5%',bad:'>6%',  desc:lang==='en'?'Long-term fuel trim':'Trim de combustivel longo prazo' },
+                              { param:'Lambda',    weight:'15%', ideal:'<0.05',bad:'>0.25',desc:lang==='en'?'Deviation from stoichiometric (1.0)':'Desvio do estequiometrico (1.0)' },
+                              { param:'ECT',       weight:'15%', ideal:'<15%', bad:'>35%', desc:lang==='en'?'Time above 95C':'Tempo acima de 95C' },
+                              { param:'IACV',      weight:'10%', ideal:'<42%', bad:'>65%', desc:lang==='en'?'Idle air control (vacuum leak indicator)':'Valvula de ar de marcha lenta (vacuum leak)' },
+                              { param:'Knock',     weight:'15%', ideal:'0',    bad:'>10',  desc:lang==='en'?'Detonation events':'Eventos de detonacao' },
+                              { param:'Battery',   weight:'5%',  ideal:'0%',   bad:'>5%',  desc:lang==='en'?'Time below 12V':'Tempo abaixo de 12V' },
+                              { param:'MIL',       weight:'5%',  ideal:'0%',   bad:'>0%',  desc:lang==='en'?'Check engine on during session':'Check engine ativo na sessao' },
+                            ].map(row => (
+                              <div key={row.param} style={{ display:'grid', gridTemplateColumns:'80px 40px 1fr 80px 80px', gap:'0 12px', alignItems:'center', padding:'6px 0', borderBottom:'1px solid #1e2740' }}>
+                                <span style={{ fontSize:10, fontFamily:'IBM Plex Mono,monospace', color:'#e2e8f0', fontWeight:700 }}>{row.param}</span>
+                                <span style={{ fontSize:10, fontFamily:'IBM Plex Mono,monospace', color:'#f97316', fontWeight:700, textAlign:'right' }}>{row.weight}</span>
+                                <span style={{ fontSize:10, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>{row.desc}</span>
+                                <span style={{ fontSize:9, color:'#00e060', fontFamily:'IBM Plex Mono,monospace', textAlign:'right' }}>ok: {row.ideal}</span>
+                                <span style={{ fontSize:9, color:'#ff3030', fontFamily:'IBM Plex Mono,monospace', textAlign:'right' }}>bad: {row.bad}</span>
+                              </div>
+                            ))}
+                          </div>
+                          <div style={{ marginTop:12, fontSize:10, color:'#334155', fontFamily:'IBM Plex Mono,monospace', lineHeight:1.7 }}>
+                            {lang==='en'
+                              ? 'Score = 100 minus weighted deductions. Each parameter is scored 0-100 based on where it falls between the ideal and bad thresholds.'
+                              : 'Score = 100 menos deducoes ponderadas. Cada parametro e avaliado de 0-100 com base na posicao entre o ideal e o limite critico.'}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </>
                 )
               })()}
