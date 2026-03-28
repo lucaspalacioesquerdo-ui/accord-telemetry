@@ -861,7 +861,7 @@ export default function Home(): React.ReactElement {
         <div style={{ flex:1, overflowY:'auto', padding:'20px 24px' }}>
 
           {/* Welcome screen */}
-          {!activeProfileKey && tab !== 'compat' && (
+          {!activeProfileKey && (
             <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', gap:24, textAlign:'center' }}>
               <div style={{ fontSize:48, color:'#f97316', fontFamily:'IBM Plex Mono,monospace', fontWeight:900, letterSpacing:4 }}>HNDSH</div>
               <div>
