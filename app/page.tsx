@@ -455,19 +455,42 @@ function RouteMap({ track, lang }: {
         attribution: '(c) OpenStreetMap', maxZoom: 19,
       }).addTo(m)
 
-      // Color by selected overlay
+      // Compute min/max for each metric from this log's data
+      const vals = (idx: number) => track.map(pt => pt[idx]).filter(v => isFinite(v) && v > 0)
+      const minMax = (idx: number): [number, number] => {
+        const vs = vals(idx)
+        if (!vs.length) return [0, 1]
+        const mn = Math.min(...vs), mx = Math.max(...vs)
+        return mn === mx ? [mn - 1, mn + 1] : [mn, mx]
+      }
+      // Normalize 0-1 within log's own range
+      const normalize = (v: number, mn: number, mx: number): number =>
+        Math.max(0, Math.min(1, (v - mn) / (mx - mn)))
+      // Interpolate red->orange->blue (slow=red, fast=blue)
+      const gradientColor = (t: number): string => {
+        // t=0 => red (#ff3030), t=0.5 => orange (#f97316), t=1 => blue (#2060ff)
+        if (t < 0.5) {
+          const f = t * 2
+          const r = Math.round(0xff + (0xf9 - 0xff) * f)
+          const g = Math.round(0x30 + (0x73 - 0x30) * f)
+          const b = Math.round(0x30 + (0x16 - 0x30) * f)
+          return '#' + [r,g,b].map(x => x.toString(16).padStart(2,'0')).join('')
+        } else {
+          const f = (t - 0.5) * 2
+          const r = Math.round(0xf9 + (0x20 - 0xf9) * f)
+          const g = Math.round(0x73 + (0x60 - 0x73) * f)
+          const b = Math.round(0x16 + (0xff - 0x16) * f)
+          return '#' + [r,g,b].map(x => x.toString(16).padStart(2,'0')).join('')
+        }
+      }
+      const [spMin, spMax] = minMax(2)
+      const [tMin,  tMax]  = minMax(3)
+      const [rMin,  rMax]  = minMax(4)
+
       const getColor = (pt: [number, number, number, number, number]): string => {
-        if (overlay === 'speed') {
-          const sp = pt[2]
-          return sp < 30 ? '#ff3030' : sp < 60 ? '#f97316' : '#2060ff'
-        }
-        if (overlay === 'temp') {
-          const t = pt[3]
-          return t < 70 ? '#2060ff' : t < 90 ? '#f97316' : '#ff3030'
-        }
-        // rpm
-        const r = pt[4]
-        return r < 2000 ? '#2060ff' : r < 4000 ? '#f97316' : '#ff3030'
+        if (overlay === 'speed') return gradientColor(normalize(pt[2], spMin, spMax))
+        if (overlay === 'temp')  return gradientColor(normalize(pt[3], tMin,  tMax))
+        return gradientColor(normalize(pt[4], rMin, rMax))
       }
 
       for (let i = 0; i < track.length - 1; i++) {
@@ -492,22 +515,31 @@ function RouteMap({ track, lang }: {
     return () => { if (instRef.current) { instRef.current.remove(); instRef.current = null } }
   }, [track, overlay])
 
-  // Legend config per overlay
+  // Dynamic legend: compute min/max from track for each overlay
+  const getMinMax = (idx: number): [number, number] => {
+    const vs = track.map(pt => pt[idx]).filter(v => isFinite(v) && v > 0)
+    if (!vs.length) return [0, 0]
+    return [Math.round(Math.min(...vs)), Math.round(Math.max(...vs))]
+  }
+  const [sMin, sMax] = getMinMax(2)
+  const [tMin2, tMax2] = getMinMax(3)
+  const [rMin2, rMax2] = getMinMax(4)
+  const mid = (a: number, b: number) => Math.round((a + b) / 2)
   const legends: Record<string, { color: string; label: string }[]> = {
     speed: [
-      { color: '#ff3030', label: '<30 km/h' },
-      { color: '#f97316', label: '30-60 km/h' },
-      { color: '#2060ff', label: '>60 km/h' },
+      { color: '#ff3030', label: `${sMin} km/h` },
+      { color: '#f97316', label: `${mid(sMin,sMax)} km/h` },
+      { color: '#2060ff', label: `${sMax} km/h` },
     ],
     temp: [
-      { color: '#2060ff', label: lang === 'en' ? '<70C' : '<70C' },
-      { color: '#f97316', label: '70-90C' },
-      { color: '#ff3030', label: '>90C' },
+      { color: '#ff3030', label: `${tMin2}C` },
+      { color: '#f97316', label: `${mid(tMin2,tMax2)}C` },
+      { color: '#2060ff', label: `${tMax2}C` },
     ],
     rpm: [
-      { color: '#2060ff', label: '<2000 rpm' },
-      { color: '#f97316', label: '2-4k rpm' },
-      { color: '#ff3030', label: '>4000 rpm' },
+      { color: '#ff3030', label: `${rMin2} rpm` },
+      { color: '#f97316', label: `${mid(rMin2,rMax2)} rpm` },
+      { color: '#2060ff', label: `${rMax2} rpm` },
     ],
   }
 
