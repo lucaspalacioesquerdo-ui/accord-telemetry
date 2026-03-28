@@ -79,6 +79,37 @@ function tsToDate(ms: number): string {
 const MIN_UNIX_MS = 946684800000  // 2000-01-01
 const MAX_UNIX_MS = 4102444800000 // 2100-01-01
 
+// Calculate acceleration time from 0 to target speed in km/h
+// Uses VSS column and time column. Returns null if no valid run found.
+function calcAccelTime(vssArr: number[], timeArr: number[], targetKph: number): number | null {
+  const minLen = Math.min(vssArr.length, timeArr.length)
+  if (minLen < 2) return null
+
+  let bestTime: number | null = null
+
+  // Scan for runs starting near 0 km/h that reach target
+  for (let start = 0; start < minLen - 10; start++) {
+    const v0 = vssArr[start]
+    if (!isFinite(v0) || v0 > 5) continue  // must start near standstill
+
+    // Find first time we reach target from this start
+    for (let end = start + 1; end < minLen; end++) {
+      const vEnd = vssArr[end]
+      if (!isFinite(vEnd)) break
+      if (vEnd >= targetKph) {
+        const dt = (timeArr[end] - timeArr[start]) / 1000  // ms -> seconds
+        if (dt > 1 && dt < 30) {  // sanity: 1-30 seconds
+          if (bestTime === null || dt < bestTime) bestTime = dt
+        }
+        break
+      }
+      // If speed drops significantly before reaching target, abort this run
+      if (end > start + 3 && vEnd < v0 - 2) break
+    }
+  }
+  return bestTime != null ? Math.round(bestTime * 100) / 100 : null
+}
+
 export function extractMetrics(rows: Row[], name: string): LogSession {
   const ect    = getCol(rows, 'ect')
   const iat    = getCol(rows, 'iat')
@@ -217,6 +248,11 @@ export function extractMetrics(rows: Row[], name: string): LogSession {
     ac_on_pct:        r2(pct(ac, v => v === 1)),
     fan_on_pct:       r2(pct(fan, v => v === 1)),
     brake_pct:        r2(pct(brake, v => v === 1)),
+    // Performance — calculated from raw VSS data
+    t0_60:            calcAccelTime(vss, time, 60),
+    t0_100:           calcAccelTime(vss, time, 100),
+    t0_140:           calcAccelTime(vss, time, 140),
+    vmax:             r2(max(vss)),
   }
 }
 
@@ -254,6 +290,7 @@ const B: LogSession = {
   fuel_flow_mean: null, fuel_flow_max: null, inst_consumption: null, km_estimated: null,
   lng_accel_max: null, lng_accel_min: null, lng_accel_mean: null,
   ac_on_pct: null, fan_on_pct: null, brake_pct: null,
+  t0_60: null, t0_100: null, t0_140: null, vmax: null,
 }
 
 export const BASELINE: LogSession[] = [
