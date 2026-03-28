@@ -36,4 +36,5 @@ export interface LogSession {
   lng_accel_max: number | null; lng_accel_min: number | null; lng_accel_mean: number | null
   ac_on_pct: number | null; fan_on_pct: number | null; brake_pct: number | null
   t0_60: number | null; t0_100: number | null; t0_140: number | null; vmax: number | null
+  gps_track: [number, number, number][] | null  // [lat, lon, speed_kmh][]
 }
