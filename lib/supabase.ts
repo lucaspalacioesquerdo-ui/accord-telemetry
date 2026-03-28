@@ -10,6 +10,10 @@ export interface LogSession {
   name: string
   rows: number
   duration_min: number | null
+  // Date range from timestamps
+  date_start: string | null   // ISO date string "2026-03-22"
+  date_end: string | null     // ISO date string - same as start if single day
+  sort_ts: number | null      // Unix ms of first row, for sorting
   // Temperatures
   ect_mean: number | null; ect_max: number | null; ect_above95_pct: number | null; ect_above100_pct: number | null
   iat_mean: number | null; iat_max: number | null; iat_above70_pct: number | null
