@@ -172,11 +172,11 @@ type ChartDef = {
   id: string; group: string; titleKey: string; unit?: string
   yMin?: number; yMax?: number
   refLine?: { value: number; label: string; color: string }
-  datasets: { label: string; field: keyof LogSession; color: string }[]
+  datasets: { label: string; field: keyof LogSession; color: string; alarmThreshold?: number; alarmAbove?: boolean }[]
 }
 
 const CHART_DEFS: ChartDef[] = [
-  {id:'bat',group:'elec',titleKey:'ch_bat',unit:'V',yMin:9,yMax:15,refLine:{value:12,label:'12V',color:'rgba(255,48,48,0.5)'},datasets:[{label:'BAT',field:'bat_min',color:C.green}]},
+  {id:'bat',group:'elec',titleKey:'ch_bat',unit:'V',yMin:9,yMax:15,refLine:{value:12,label:'12V',color:'rgba(255,48,48,0.5)'},datasets:[{label:'BAT',field:'bat_min',color:C.green,alarmThreshold:12,alarmAbove:false}]},
   {id:'eld',group:'elec',titleKey:'ch_eld',unit:'A',datasets:[{label:'ELD',field:'eld_mean',color:C.yellow}]},
   {id:'flow',group:'fuel',titleKey:'ch_flow',unit:'l/h',yMin:0,datasets:[{label:'Flow',field:'fuel_flow_mean',color:C.orange}]},
   {id:'consump',group:'fuel',titleKey:'ch_consump',unit:'km/l',yMin:0,datasets:[{label:'Consump',field:'inst_consumption',color:C.lime}]},
@@ -184,13 +184,13 @@ const CHART_DEFS: ChartDef[] = [
   {id:'inj_dc',group:'fuel',titleKey:'ch_inj_dc',unit:'%',datasets:[{label:'Inj DC',field:'inj_dc_mean',color:C.purple}]},
   {id:'map',group:'air',titleKey:'ch_map',unit:'PSI',datasets:[{label:'MAP',field:'map_mean',color:C.cyan}]},
   {id:'clv',group:'air',titleKey:'ch_clv',unit:'%',datasets:[{label:'CLV',field:'clv_mean',color:C.gray}]},
-  {id:'ltft',group:'afr',titleKey:'ch_ltft',unit:'%',yMin:0,refLine:{value:1.5,label:'ideal',color:'rgba(0,224,96,0.5)'},datasets:[{label:'LTFT',field:'ltft',color:C.orange}]},
+  {id:'ltft',group:'afr',titleKey:'ch_ltft',unit:'%',yMin:0,refLine:{value:1.5,label:'ideal',color:'rgba(0,224,96,0.5)'},datasets:[{label:'LTFT',field:'ltft',color:C.orange,alarmThreshold:5,alarmAbove:true}]},
   {id:'stft',group:'afr',titleKey:'ch_stft',unit:'%',yMin:0,datasets:[{label:'STFT',field:'stft_above15_pct',color:C.red}]},
   {id:'lambda',group:'afr',titleKey:'ch_lambda',yMin:0.9,yMax:1.4,refLine:{value:1.0,label:'stoich',color:'rgba(0,224,96,0.5)'},datasets:[{label:'Lambda',field:'lambda',color:C.green}]},
   {id:'iacv',group:'afr',titleKey:'ch_iacv',unit:'%',yMin:0,yMax:90,refLine:{value:38,label:'max ok',color:'rgba(0,207,255,0.45)'},datasets:[{label:'IACV',field:'iacv_mean',color:C.cyan}]},
   {id:'adv',group:'ign',titleKey:'ch_adv',unit:'deg',datasets:[{label:'Adv',field:'adv_mean',color:C.purple}]},
-  {id:'knock',group:'ign',titleKey:'ch_knock',datasets:[{label:'Knock',field:'knock_events',color:C.red}]},
-  {id:'ect',group:'temp',titleKey:'ch_ect',unit:'C',yMin:60,refLine:{value:100,label:'100C',color:'rgba(255,48,48,0.5)'},datasets:[{label:'ECT max',field:'ect_max',color:C.red},{label:'ECT avg',field:'ect_mean',color:C.orange}]},
+  {id:'knock',group:'ign',titleKey:'ch_knock',datasets:[{label:'Knock',field:'knock_events',color:C.red,alarmThreshold:1,alarmAbove:true}]},
+  {id:'ect',group:'temp',titleKey:'ch_ect',unit:'C',yMin:60,refLine:{value:100,label:'100C',color:'rgba(255,48,48,0.5)'},datasets:[{label:'ECT max',field:'ect_max',color:C.red,alarmThreshold:100,alarmAbove:true},{label:'ECT avg',field:'ect_mean',color:C.orange}]},
   {id:'iat',group:'temp',titleKey:'ch_iat',unit:'C',yMin:20,datasets:[{label:'IAT',field:'iat_mean',color:C.yellow}]},
   {id:'rev',group:'motion',titleKey:'ch_rev',unit:'rpm',datasets:[{label:'RPM',field:'rev_max',color:C.pink}]},
   {id:'vmax',group:'motion',titleKey:'ch_vmax',unit:'km/h',yMin:0,datasets:[{label:'Speed',field:'vss_max',color:C.blue}]},
@@ -365,7 +365,12 @@ export default function Home(): React.ReactElement {
       .filter((s: LogSession) => !activeProfileKey || (s as LogSession & {profile?: string}).profile === activeProfileKey)
       .forEach((s: LogSession) => map.set(s.name, s))
     profileLocal.forEach((s: LogSession) => map.set(s.name, s))
-    return Array.from(map.values())
+    // Sort by sort_ts (date of log) ascending, null timestamps go last
+    return Array.from(map.values()).sort((a, b) => {
+      const ta = a.sort_ts ?? Infinity
+      const tb = b.sort_ts ?? Infinity
+      return ta - tb
+    })
   })()
 
   const active    = allSessions[activeIdx ?? allSessions.length - 1] ?? null
@@ -433,12 +438,28 @@ export default function Home(): React.ReactElement {
   const chartGroups    = Array.from(new Set(CHART_DEFS.map(c => c.group)))
 
   const getDate = (s: LogSession): string|null => {
+    // Prefer date_start from parsed timestamps
+    if (s.date_start) {
+      const fmtD = (iso: string): string => {
+        const d = new Date(iso + 'T12:00:00Z')
+        return lang === 'pt'
+          ? d.toLocaleDateString('pt-BR', {day:'2-digit', month:'short'})
+          : d.toLocaleDateString('en-US', {month:'short', day:'numeric'})
+      }
+      const start = fmtD(s.date_start)
+      if (s.date_end) {
+        const end = fmtD(s.date_end)
+        return `${start} - ${end}`
+      }
+      return start
+    }
+    // Fallback: created_at from DB
     const ca = (s as LogSession & {created_at?: string}).created_at
     if (!ca) return null
     const d = new Date(ca)
     return lang === 'pt'
-      ? d.toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit',year:'2-digit'})
-      : d.toLocaleDateString('en-US', {month:'2-digit',day:'2-digit',year:'2-digit'})
+      ? d.toLocaleDateString('pt-BR', {day:'2-digit', month:'short'})
+      : d.toLocaleDateString('en-US', {month:'short', day:'numeric'})
   }
 
   // -- Profile helpers ---------------------------------------------------
@@ -498,69 +519,69 @@ export default function Home(): React.ReactElement {
     switch(key) {
       case 'elec': return (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))', gap:8, marginBottom:8 }}>
-          {show('bat')     && <Kpi label={t('bat')}      value={fmt(v.bat_mean,2)}      unit="V"   sub={`min ${fmt(v.bat_min,2)}V`}      color={C.green}  />}
-          {show('alt_fr')  && <Kpi label={t('alt_fr')}   value={fmt(v.alt_fr_mean)}     unit="%"                                          color={C.yellow} />}
-          {show('eld_curr')&& <Kpi label={t('eld_curr')} value={fmt(v.eld_mean,0)}      unit="A"   sub="electrical load"                  color={C.cyan}   />}
+          {show('bat')     && <Kpi label={t('bat')}      value={fmt(v.bat_mean,2)}  unit="V"  sub={`min ${fmt(v.bat_min,2)}V`}  color="#00e060" />}
+          {show('alt_fr')  && <Kpi label={t('alt_fr')}   value={fmt(v.alt_fr_mean)} unit="%"                                    color="#00a848" />}
+          {show('eld_curr')&& <Kpi label={t('eld_curr')} value={fmt(v.eld_mean,0)}  unit="A"  sub="electrical load"             color="#00cc58" />}
         </div>
       )
       case 'fuel': return (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))', gap:8, marginBottom:8 }}>
-          {show('fuel_flow') && <Kpi label={t('fuel_flow')} value={fmt(v.fuel_flow_mean,2)} unit="l/h"    color={C.orange} />}
-          {show('fuel_inst') && <Kpi label={t('fuel_inst')} value={fmt(v.inst_consumption,1)} unit="km/l" color={C.lime}   />}
-          {show('inj_dur')   && <Kpi label={t('inj_dur')}   value={fmt(v.inj_dur,2)}       unit="ms"  sub={`DC: ${fmt(v.inj_dc_mean)}%`} color={C.pink}   />}
-          {show('inj_dc')    && <Kpi label={t('inj_dc')}    value={fmt(v.inj_dc_mean)}     unit="%"                                       color={C.purple} />}
-          {show('inj_fr')    && <Kpi label={t('inj_fr')}    value={fmt(v.inj_fr_mean,0)}   unit="cc/min"                                  color={C.pink}   />}
+          {show('fuel_flow') && <Kpi label={t('fuel_flow')} value={fmt(v.fuel_flow_mean,2)}    unit="l/h"    color="#ff9000" />}
+          {show('fuel_inst') && <Kpi label={t('fuel_inst')} value={fmt(v.inst_consumption,1)}  unit="km/l"   color="#ffb040" />}
+          {show('inj_dur')   && <Kpi label={t('inj_dur')}   value={fmt(v.inj_dur,2)}           unit="ms"     sub={`DC: ${fmt(v.inj_dc_mean)}%`} color="#ffd080" />}
+          {show('inj_dc')    && <Kpi label={t('inj_dc')}    value={fmt(v.inj_dc_mean)}         unit="%"      color="#ff9000" />}
+          {show('inj_fr')    && <Kpi label={t('inj_fr')}    value={fmt(v.inj_fr_mean,0)}       unit="cc/min" color="#ffa830" />}
         </div>
       )
       case 'air': return (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))', gap:8, marginBottom:8 }}>
-          {show('map_psi') && <Kpi label={t('map_psi')} value={fmt(v.map_mean)} unit="PSI" sub={`WOT: ${fmt(v.map_wot)} PSI`} color={C.cyan}   />}
-          {show('map_wot') && <Kpi label={t('map_wot')} value={fmt(v.map_wot)} unit="PSI"                                     color={C.teal}   />}
-          {show('iat')     && <Kpi label={t('iat')}     value={fmt(v.iat_mean)} unit="C"  sub={`max ${fmt(v.iat_max)}C`}       color={C.yellow} />}
-          {show('clv')     && <Kpi label={t('clv')}     value={fmt(v.clv_mean)} unit="%"  sub="engine load"                   color={C.gray}   />}
+          {show('map_psi') && <Kpi label={t('map_psi')} value={fmt(v.map_mean)} unit="PSI" sub={`WOT: ${fmt(v.map_wot)} PSI`} color="#00cfff" />}
+          {show('map_wot') && <Kpi label={t('map_wot')} value={fmt(v.map_wot)} unit="PSI"                                     color="#00b4e0" />}
+          {show('iat')     && <Kpi label={t('iat')}     value={fmt(v.iat_mean)} unit="C"   sub={`max ${fmt(v.iat_max)}C`}     color="#80dfff" />}
+          {show('clv')     && <Kpi label={t('clv')}     value={fmt(v.clv_mean)} unit="%"   sub="engine load"                  color="#60c8e8" />}
         </div>
       )
       case 'afr': return (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))', gap:8, marginBottom:8 }}>
-          {show('ltft')    && <Kpi label={t('ltft')}    value={(v.ltft != null && v.ltft > 0 ? '+' : '') + fmt(v.ltft)} unit="%" sub="ideal: +-1.5%" color={C.orange} />}
-          {show('stft')    && <Kpi label={t('stft')}    value={fmt(v.stft_above15_pct)} unit="%"                                                    color={C.red}    />}
-          {show('lambda')  && <Kpi label={t('lambda')}  value={fmt(v.lambda,3)}         sub="ideal: ~1.000"                                         color={C.green}  />}
-          {show('fls')     && <Kpi label={t('fls')}     value={fmt(v.closed_loop_pct)} unit="%" sub="closed loop"                                    color={C.blue}   />}
-          {show('iacv_dc') && <Kpi label={t('iacv_dc')} value={fmt(v.iacv_mean)} unit="%" sub="expected: 30-38%"                                     color={C.cyan}   />}
+          {show('ltft')    && <Kpi label={t('ltft')}    value={(v.ltft != null && v.ltft > 0 ? '+' : '') + fmt(v.ltft)} unit="%" sub="ideal: +-1.5%" color="#80e000" />}
+          {show('stft')    && <Kpi label={t('stft')}    value={fmt(v.stft_above15_pct)} unit="%"                                                    color="#a0f020"  />}
+          {show('lambda')  && <Kpi label={t('lambda')}  value={fmt(v.lambda,3)}         sub="ideal: ~1.000"                                         color="#c0ff60"  />}
+          {show('fls')     && <Kpi label={t('fls')}     value={fmt(v.closed_loop_pct)} unit="%" sub="closed loop"                                    color="#60b800"  />}
+          {show('iacv_dc') && <Kpi label={t('iacv_dc')} value={fmt(v.iacv_mean)} unit="%" sub="expected: 30-38%"                                     color="#50a000"  />}
         </div>
       )
       case 'ign': return (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))', gap:8, marginBottom:8 }}>
-          {show('ign_adv') && <Kpi label={t('ign_adv')} value={fmt(v.adv_mean)}       unit="deg" sub={`max ${fmt(v.adv_max)}deg`} color={C.purple} />}
-          {show('ign_lim') && <Kpi label={t('ign_lim')} value={fmt(v.ign_limit_mean)} unit="deg"                                  color={C.indigo} />}
-          {show('knock')   && <Kpi label={t('knock')}   value={v.knock_events ?? '--'} sub={`max ${fmt(v.knock_max,3)}V`}          color={v.knock_events === 0 ? C.green : C.red} />}
+          {show('ign_adv') && <Kpi label={t('ign_adv')} value={fmt(v.adv_mean)}       unit="deg" sub={`max ${fmt(v.adv_max)}deg`} color="#c060ff" />}
+          {show('ign_lim') && <Kpi label={t('ign_lim')} value={fmt(v.ign_limit_mean)} unit="deg"                                  color="#9040dd" />}
+          {show('knock')   && <Kpi label={t('knock')}   value={v.knock_events ?? '--'} sub={`max ${fmt(v.knock_max,3)}V`}          color={v.knock_events === 0 ? '#c060ff' : C.red} />}
         </div>
       )
       case 'temp': return (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))', gap:8, marginBottom:8 }}>
-          {show('ect')     && <Kpi label={t('ect')}     value={fmt(v.ect_mean)} unit="C" sub={`max ${fmt(v.ect_max)}C`}  color={C.red}    />}
-          {show('ect_hot') && <Kpi label={t('ect_hot')} value={fmt(v.ect_above95_pct)} unit="%"                           color={C.orange} />}
-          {show('fan')     && <Kpi label={t('fan')}     value={fmt(v.fan_on_pct)} unit="%"                                color={C.cyan}   />}
+          {show('ect')     && <Kpi label={t('ect')}     value={fmt(v.ect_mean)} unit="C" sub={`max ${fmt(v.ect_max)}C`}  color="#ff3030" />}
+          {show('ect_hot') && <Kpi label={t('ect_hot')} value={fmt(v.ect_above95_pct)} unit="%"                           color="#ff6060" />}
+          {show('fan')     && <Kpi label={t('fan')}     value={fmt(v.fan_on_pct)} unit="%"                                color="#ff9090" />}
         </div>
       )
       case 'idle': return (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))', gap:8, marginBottom:8 }}>
-          {show('iacv_dc2') && <Kpi label={t('iacv_dc2')} value={fmt(v.iacv_mean)} unit="%" sub="expected: 30-38%" color={C.teal} />}
-          {show('rev')      && <Kpi label={t('rev')}       value={fmt(v.rev_mean,0)} unit="rpm" sub={`max ${fmt(v.rev_max,0)} rpm`} color={C.pink} />}
+          {show('iacv_dc2') && <Kpi label={t('iacv_dc2')} value={fmt(v.iacv_mean)}   unit="%" sub="expected: 30-38%"         color="#00b4a0" />}
+          {show('rev')      && <Kpi label={t('rev')}       value={fmt(v.rev_mean,0)} unit="rpm" sub={`max ${fmt(v.rev_max,0)} rpm`} color="#00d4bc" />}
         </div>
       )
       case 'motion': return (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))', gap:8, marginBottom:8 }}>
-          {show('vss')       && <Kpi label={t('vss')}       value={fmt(v.vss_mean)} unit="km/h" sub={`max ${fmt(v.vss_max,0)} km/h`} color={C.blue}   />}
-          {show('lng_accel') && <Kpi label={t('lng_accel')} value={fmt(v.lng_accel_max,3)} unit="G" sub={`brake ${fmt(v.lng_accel_min,3)}G`} color={C.cyan} />}
-          {show('km_est')    && <Kpi label={t('km_est')}    value={fmt(v.km_estimated,1)} unit="km"                                    color={C.teal}   />}
-          {show('vtec')      && <Kpi label={t('vtec')}      value={fmt(v.vtec_pct)} unit="%"                                           color={C.purple} />}
+          {show('vss')       && <Kpi label={t('vss')}       value={fmt(v.vss_mean)} unit="km/h" sub={`max ${fmt(v.vss_max,0)} km/h`} color="#4080ff" />}
+          {show('lng_accel') && <Kpi label={t('lng_accel')} value={fmt(v.lng_accel_max,3)} unit="G" sub={`brake ${fmt(v.lng_accel_min,3)}G`} color="#80a8ff" />}
+          {show('km_est')    && <Kpi label={t('km_est')}    value={fmt(v.km_estimated,1)} unit="km"                                    color="#2060e0" />}
+          {show('vtec')      && <Kpi label={t('vtec')}      value={fmt(v.vtec_pct)} unit="%"                                           color="#60a0ff" />}
         </div>
       )
       case 'act': return (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))', gap:8, marginBottom:8 }}>
-          {show('egr') && <Kpi label={t('egr')} value={fmt(v.egr_active_pct)} unit="%" color={C.gray} />}
-          {show('mil') && <Kpi label={t('mil')} value={v.mil_on_pct ? t('active_str') : 'OFF'} sub={v.mil_on_pct ? `${fmt(v.mil_on_pct)}%` : t('noFaults')} color={v.mil_on_pct ? C.red : C.green} />}
+          {show('egr') && <Kpi label={t('egr')} value={fmt(v.egr_active_pct)} unit="%" color="#8090a0" />}
+          {show('mil') && <Kpi label={t('mil')} value={v.mil_on_pct ? t('active_str') : 'OFF'} sub={v.mil_on_pct ? `${fmt(v.mil_on_pct)}%` : t('noFaults')} color={v.mil_on_pct ? '#ff3030' : '#a0b8a0'} />}
         </div>
       )
       default: return null
@@ -1007,14 +1028,20 @@ export default function Home(): React.ReactElement {
                             title: t(c.titleKey),
                             unit: c.unit,
                             labels: tlLabels,
-                            datasets: c.datasets.map(d => ({ label:d.label, data:allSessions.map((s:LogSession) => s[d.field] as number|null), color:d.color })),
+                            datasets: c.datasets.map(d => ({
+                              label: d.label,
+                              data: allSessions.map((s: LogSession) => s[d.field] as number|null),
+                              color: d.color,
+                              alarmFn: d.alarmThreshold != null
+                                ? (v: number) => d.alarmAbove === true ? v >= d.alarmThreshold! : v <= d.alarmThreshold!
+                                : undefined,
+                            })),
                             yMin: c.yMin,
                             yMax: c.yMax,
                             refLine: c.refLine as {value:number;label:string;color?:string}|undefined,
                           }
-                          return (
-                            <TimelineChart key={c.id} {...chartProps} />
-                          )
+                          // key is handled by React runtime, not part of TimelineChartProps
+                          return React.createElement(TimelineChart, Object.assign({ key: c.id }, chartProps))
                         })}
                       </div>
                     )}
