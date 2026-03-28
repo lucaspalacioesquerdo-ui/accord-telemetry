@@ -48,7 +48,7 @@ const T: Record<Lang, Record<string,string>> = {
     ch_ltft:'LTFT Long Term Fuel Trim', ch_stft:'STFT Extreme Correction',
     ch_lambda:'Lambda (O2)', ch_iacv:'IACV Idle Air Control',
     ch_ect:'ECT Coolant Temp', ch_iat:'IAT Intake Air Temp',
-    ch_bat:'Battery Min', ch_vtec:'VTEC Active Time',
+    ch_bat:'Battery', ch_vtec:'VTEC Active Time',
     ch_adv:'Ignition Advance', ch_knock:'Knock Events',
     ch_map:'MAP Manifold Pressure', ch_clv:'Calculated Load Value',
     ch_rev:'Engine RPM max', ch_inj:'Injection Duration',
@@ -91,7 +91,7 @@ const T: Record<Lang, Record<string,string>> = {
     ch_ltft:'LTFT Trim Longo Prazo', ch_stft:'STFT Correcao Extrema',
     ch_lambda:'Lambda (Sonda O2)', ch_iacv:'IACV Marcha Lenta',
     ch_ect:'ECT Temperatura Motor', ch_iat:'IAT Temperatura Admissao',
-    ch_bat:'Bateria Minima', ch_vtec:'VTEC Ativo',
+    ch_bat:'Bateria', ch_vtec:'VTEC Ativo',
     ch_adv:'Avanco Ignicao', ch_knock:'Eventos Knock',
     ch_map:'MAP Pressao Coletor', ch_clv:'Valor Calculado Carga',
     ch_rev:'Rotacao Maxima', ch_inj:'Duracao Injecao',
@@ -180,7 +180,7 @@ type ChartDef = {
 }
 
 const CHART_DEFS: ChartDef[] = [
-  {id:'bat',group:'elec',titleKey:'ch_bat',unit:'V',yMin:9,yMax:15,refLine:{value:12,label:'12V',color:'rgba(255,48,48,0.5)'},datasets:[{label:'BAT',field:'bat_min',color:C.green,alarmThreshold:12,alarmAbove:false}]},
+  {id:'bat',group:'elec',titleKey:'ch_bat',unit:'V',yMin:9,yMax:15,refLine:{value:12,label:'12V',color:'rgba(255,48,48,0.5)'},datasets:[{label:'BAT min',field:'bat_min',color:C.green,alarmThreshold:12,alarmAbove:false},{label:'BAT avg',field:'bat_mean',color:'#80ffb0'}]},
   {id:'eld',group:'elec',titleKey:'ch_eld',unit:'A',datasets:[{label:'ELD',field:'eld_mean',color:C.yellow}]},
   {id:'flow',group:'fuel',titleKey:'ch_flow',unit:'l/h',yMin:0,datasets:[{label:'Flow',field:'fuel_flow_mean',color:C.orange}]},
   {id:'consump',group:'fuel',titleKey:'ch_consump',unit:'km/l',yMin:0,datasets:[{label:'Consump',field:'inst_consumption',color:C.lime}]},
@@ -1897,12 +1897,15 @@ export default function Home(): React.ReactElement {
                   onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => (e.currentTarget.style.borderColor = '#1e2740')}
                 >
                   {uploading && uploadProgress ? (
-                    <div>
-                      <div style={{ fontSize:12, color:'#f97316', fontFamily:'IBM Plex Mono,monospace', marginBottom:8 }}>
-                        {lang === 'en' ? 'Processing...' : 'Processando...'} {uploadProgress.current}/{uploadProgress.total}
+                    <div style={{ width:'100%' }}>
+                      <div style={{ display:'flex', justifyContent:'space-between', marginBottom:6 }}>
+                        <span style={{ fontSize:12, color:'#f97316', fontFamily:'IBM Plex Mono,monospace' }}>
+                          {lang === 'en' ? 'Processing...' : 'Processando...'} {uploadProgress.current}/{uploadProgress.total}
+                        </span>
+                        <span style={{ fontSize:12, fontWeight:700, color:'#f97316', fontFamily:'IBM Plex Mono,monospace' }}>{uploadFilePct}%</span>
                       </div>
                       <div style={{ background:'#1e2740', borderRadius:4, height:6, overflow:'hidden' }}>
-                        <div style={{ height:'100%', width:`${Math.round(uploadProgress.current/uploadProgress.total*100)}%`, background:'#f97316', borderRadius:4, transition:'width 0.3s' }} />
+                        <div style={{ height:'100%', width:`${uploadFilePct}%`, background:'#f97316', borderRadius:4, transition:'width 0.1s linear' }} />
                       </div>
                     </div>
                   ) : allSessions.length > 0 ? (
