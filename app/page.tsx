@@ -242,6 +242,71 @@ function scoreCol(s: number): string {
   return s >= 80 ? C.green : s >= 55 ? C.yellow : C.red
 }
 
+// -- ScoreLineChart -------------------------------------------------------
+function ScoreLineChart({ sessions, activeIdx, onSelect }: {
+  sessions: { name: string; score: number; col: string }[]
+  activeIdx: number
+  onSelect: (i: number) => void
+}): React.ReactElement {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const chartRef  = useRef<{destroy:()=>void}|null>(null)
+
+  useEffect(() => {
+    if (!canvasRef.current || !sessions.length) return
+    import('chart.js').then(({ Chart, LineController, LineElement, PointElement, LinearScale, CategoryScale, Tooltip }) => {
+      Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryScale, Tooltip)
+      if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null }
+      const ctx = canvasRef.current!.getContext('2d')!
+      const gradient = ctx.createLinearGradient(0, 0, 0, 120)
+      gradient.addColorStop(0, 'rgba(249,115,22,0.18)')
+      gradient.addColorStop(1, 'rgba(249,115,22,0.0)')
+      const chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: sessions.map(s => s.name),
+          datasets: [{
+            data: sessions.map(s => s.score),
+            borderColor: '#f97316',
+            pointBackgroundColor: sessions.map((s, i) => i === activeIdx ? s.col : '#1e2740'),
+            pointBorderColor: sessions.map((s, i) => i === activeIdx ? s.col : s.col + '80'),
+            pointBorderWidth: 2,
+            pointRadius: sessions.map((_, i) => i === activeIdx ? 7 : 4),
+            pointHoverRadius: 8,
+            borderWidth: 2,
+            tension: 0.35,
+            fill: true,
+            backgroundColor: gradient,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: { duration: 400 },
+          onClick: (_e: unknown, elements: {index: number}[]) => { if (elements[0]) onSelect(elements[0].index) },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#0c0f14', borderColor: '#1a2330', borderWidth: 1,
+              titleColor: '#f97316', bodyColor: '#94a3b8',
+              titleFont: { family: "'IBM Plex Mono'", size: 11, weight: 'bold' as const },
+              bodyFont: { family: "'IBM Plex Mono'", size: 10 },
+              callbacks: { label: (item: import('chart.js').TooltipItem<'line'>) => ` Score: ${item.parsed.y} - ${sessions[item.dataIndex]?.col === '#00e060' ? 'Healthy' : sessions[item.dataIndex]?.col === '#ffe000' ? 'Attention' : 'Critical'}` },
+            },
+          },
+          scales: {
+            x: { grid: { color: '#1a2330' }, ticks: { color: '#465a6e', font: { family: "'IBM Plex Mono'", size: 9 }, maxRotation: 30 } },
+            y: { grid: { color: '#1a2330' }, ticks: { color: '#465a6e', font: { family: "'IBM Plex Mono'", size: 9 } }, min: 0, max: 100 },
+          },
+        },
+      })
+      chartRef.current = chart
+    })
+    return () => { chartRef.current?.destroy() }
+  }, [sessions, activeIdx])
+
+  return <div style={{ position:'relative', height:140 }}><canvas ref={canvasRef} /></div>
+}
+
 // -- DiagList component ------------------------------------------------
 function DiagList({ alerts, AC }: { alerts: Alert[]; AC: Record<string,string> }): React.ReactElement {
   const [expanded, setExpanded] = React.useState<Set<number>>(new Set())
@@ -277,20 +342,46 @@ function DiagList({ alerts, AC }: { alerts: Alert[]; AC: Record<string,string> }
 }
 
 // -- Kpi card ----------------------------------------------------------
-function Kpi({ label, value, unit, sub, color }: {
+function Kpi({ label, value, unit, sub, color, prevValue, lowerIsBetter }: {
   label: string
   value: string | number | null
   unit?: string
   sub?: string
   color?: string
+  prevValue?: number | null   // value from previous session for trend arrow
+  lowerIsBetter?: boolean     // true = lower value is better (e.g. ECT, LTFT)
 }): React.ReactElement {
   const vc = color ?? '#94a3b8'
+  // Compute trend
+  const numVal = typeof value === 'number' ? value : (typeof value === 'string' ? parseFloat(value) : null)
+  let trend: 'up' | 'down' | null = null
+  let trendColor = '#475569'
+  let deltaTxt = ''
+  if (numVal != null && prevValue != null && isFinite(numVal) && isFinite(prevValue) && prevValue !== 0) {
+    const delta = numVal - prevValue
+    const pct   = Math.abs(delta / prevValue * 100)
+    if (Math.abs(delta) > 0.001) {
+      trend = delta > 0 ? 'up' : 'down'
+      const improved = lowerIsBetter ? delta < 0 : delta > 0
+      trendColor = improved ? '#00e060' : '#ff3030'
+      deltaTxt = (delta > 0 ? '+' : '') + (pct < 10 ? delta.toFixed(1) : Math.round(delta).toString()) + (unit ?? '')
+    }
+  }
   return (
     <div style={{ background:'#1a1f2e', border:'1px solid #2a3040', borderRadius:8, padding:'12px 14px', position:'relative', overflow:'hidden' }}>
       <div style={{ position:'absolute', top:0, left:0, right:0, height:2, background:vc }} />
       <div style={{ fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase' as const, color:'#64748b', fontFamily:'IBM Plex Mono,monospace', fontWeight:600, marginBottom:8 }}>{label}</div>
-      <div style={{ fontFamily:'IBM Plex Mono,monospace', fontSize:22, fontWeight:700, lineHeight:1, color:vc }}>
-        {value ?? '--'}{unit && <span style={{ fontSize:11, color:'#64748b', marginLeft:2 }}>{unit}</span>}
+      <div style={{ display:'flex', alignItems:'baseline', gap:6 }}>
+        <div style={{ fontFamily:'IBM Plex Mono,monospace', fontSize:22, fontWeight:700, lineHeight:1, color:vc }}>
+          {value ?? '--'}{unit && <span style={{ fontSize:11, color:'#64748b', marginLeft:2 }}>{unit}</span>}
+        </div>
+        {trend && (
+          <div style={{ display:'flex', alignItems:'center', gap:2 }}>
+            <span style={{ fontSize:10, color:trendColor, fontFamily:'IBM Plex Mono,monospace', fontWeight:700 }}>
+              {trend === 'up' ? 'u' : 'd'} {deltaTxt}
+            </span>
+          </div>
+        )}
       </div>
       {sub && <div style={{ fontSize:10, color:'#475569', fontFamily:'IBM Plex Mono,monospace', marginTop:6 }}>{sub}</div>}
     </div>
@@ -326,6 +417,10 @@ export default function Home(): React.ReactElement {
   const [sectionOrder, setSectionOrder]         = useState<SecKey[]>(DEFAULT_SECTION_ORDER)
   const [dragSec, setDragSec]                   = useState<SecKey|null>(null)
   const [dragOverSec, setDragOverSec]           = useState<SecKey|null>(null)
+  // Session notes: { [profileKey]: { [sessionName]: string } }
+  const [sessionNotes, setSessionNotes]         = useState<Record<string,Record<string,string>>>({})
+  const [editingNote, setEditingNote]           = useState<string|null>(null)  // session name being edited
+  const [compareIdx, setCompareIdx]             = useState<number|null>(null)   // index of session to compare with
   const allParamKeys                            = ['bat','alt_fr','eld_curr','fuel_flow','fuel_inst','inj_dur','inj_dc','inj_fr','map_psi','map_wot','iat','clv','ltft','stft','lambda','fls','iacv_dc','ign_adv','ign_lim','knock','ect','ect_hot','fan','iacv_dc2','rev','vss','lng_accel','km_est','vtec','egr','mil']
   const [visibleParams, setVisibleParams]       = useState<Set<string>>(new Set(allParamKeys))
   const [paramFilterOpen, setParamFilterOpen]   = useState(false)
@@ -358,6 +453,8 @@ export default function Home(): React.ReactElement {
       if (profiles.length) setSavedProfiles(profiles)
       if (activeKey) setActiveProfileKey(activeKey)
       if (Object.keys(sessions).length) setProfileSessions(sessions)
+      const notes = JSON.parse(localStorage.getItem('hndsh_notes') || '{}')
+      if (Object.keys(notes).length) setSessionNotes(notes)
     } catch {}
     setHydrated(true)
   }, [])
@@ -376,6 +473,10 @@ export default function Home(): React.ReactElement {
     if (!hydrated) return
     try { localStorage.setItem('hndsh_sessions', JSON.stringify(profileSessions)) } catch {}
   }, [profileSessions, hydrated])
+  useEffect(() => {
+    if (!hydrated) return
+    try { localStorage.setItem('hndsh_notes', JSON.stringify(sessionNotes)) } catch {}
+  }, [sessionNotes, hydrated])
 
   useEffect(() => {
     fetch('/api/sessions').then(r => r.json()).then((d: {sessions?: LogSession[]}) => {
@@ -411,6 +512,8 @@ export default function Home(): React.ReactElement {
   })()
 
   const active    = allSessions[activeIdx ?? allSessions.length - 1] ?? null
+  const activeI   = activeIdx ?? allSessions.length - 1
+  const prevSession = activeI > 0 ? allSessions[activeI - 1] : null
   const alerts    = active ? generateAlerts(active, lang) : []
   const tlLabels  = allSessions.map(s => s.name)
   const isNew     = (s: LogSession) =>
@@ -553,12 +656,13 @@ export default function Home(): React.ReactElement {
     if (collapsedSecs.has(key) || !active) return null
     const show = (id: string) => visibleParams.has(id)
     const v = active
+    const pv = prevSession  // previous session for trend
     switch(key) {
       case 'elec': return (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))', gap:8, marginBottom:8 }}>
-          {show('bat')     && <Kpi label={t('bat')}      value={fmt(v.bat_mean,2)}  unit="V"  sub={`min ${fmt(v.bat_min,2)}V`}  color="#00e060" />}
+          {show('bat')     && <Kpi label={t('bat')}      value={fmt(v.bat_mean,2)}  unit="V"  sub={`min ${fmt(v.bat_min,2)}V`}  color="#00e060" prevValue={pv?.bat_mean ?? null} lowerIsBetter={false} />}
           {show('alt_fr')  && <Kpi label={t('alt_fr')}   value={fmt(v.alt_fr_mean)} unit="%"                                    color="#00a848" />}
-          {show('eld_curr')&& <Kpi label={t('eld_curr')} value={fmt(v.eld_mean,0)}  unit="A"  sub="electrical load"             color="#00cc58" />}
+          {show('eld_curr')&& <Kpi label={t('eld_curr')} value={fmt(v.eld_mean,0)}  unit="A"  sub="electrical load"             color="#00cc58" prevValue={pv?.eld_mean ?? null} lowerIsBetter={true} />}
         </div>
       )
       case 'fuel': return (
@@ -580,23 +684,23 @@ export default function Home(): React.ReactElement {
       )
       case 'afr': return (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))', gap:8, marginBottom:8 }}>
-          {show('ltft')    && <Kpi label={t('ltft')}    value={(v.ltft != null && v.ltft > 0 ? '+' : '') + fmt(v.ltft)} unit="%" sub="ideal: +-1.5%" color="#80e000" />}
-          {show('stft')    && <Kpi label={t('stft')}    value={fmt(v.stft_above15_pct)} unit="%"                                                    color="#a0f020"  />}
-          {show('lambda')  && <Kpi label={t('lambda')}  value={fmt(v.lambda,3)}         sub="ideal: ~1.000"                                         color="#c0ff60"  />}
+          {show('ltft')    && <Kpi label={t('ltft')}    value={(v.ltft != null && v.ltft > 0 ? '+' : '') + fmt(v.ltft)} unit="%" sub="ideal: +-1.5%" color="#80e000" prevValue={pv?.ltft ?? null} lowerIsBetter={true} />}
+          {show('stft')    && <Kpi label={t('stft')}    value={fmt(v.stft_above15_pct)} unit="%"                                                    color="#a0f020"  prevValue={pv?.stft_above15_pct ?? null} lowerIsBetter={true} />}
+          {show('lambda')  && <Kpi label={t('lambda')}  value={fmt(v.lambda,3)}         sub="ideal: ~1.000"                                         color="#c0ff60"  prevValue={pv?.lambda ?? null} lowerIsBetter={true} />}
           {show('fls')     && <Kpi label={t('fls')}     value={fmt(v.closed_loop_pct)} unit="%" sub="closed loop"                                    color="#60b800"  />}
-          {show('iacv_dc') && <Kpi label={t('iacv_dc')} value={fmt(v.iacv_mean)} unit="%" sub="expected: 30-38%"                                     color="#50a000"  />}
+          {show('iacv_dc') && <Kpi label={t('iacv_dc')} value={fmt(v.iacv_mean)} unit="%" sub="expected: 30-38%"                                     color="#50a000"  prevValue={pv?.iacv_mean ?? null} lowerIsBetter={true} />}
         </div>
       )
       case 'ign': return (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))', gap:8, marginBottom:8 }}>
           {show('ign_adv') && <Kpi label={t('ign_adv')} value={fmt(v.adv_mean)}       unit="deg" sub={`max ${fmt(v.adv_max)}deg`} color="#c060ff" />}
           {show('ign_lim') && <Kpi label={t('ign_lim')} value={fmt(v.ign_limit_mean)} unit="deg"                                  color="#9040dd" />}
-          {show('knock')   && <Kpi label={t('knock')}   value={v.knock_events ?? '--'} sub={`max ${fmt(v.knock_max,3)}V`}          color={v.knock_events === 0 ? '#c060ff' : C.red} />}
+          {show('knock')   && <Kpi label={t('knock')}   value={v.knock_events ?? '--'} sub={`max ${fmt(v.knock_max,3)}V`}          color={v.knock_events === 0 ? '#c060ff' : C.red} prevValue={pv?.knock_events ?? null} lowerIsBetter={true} />}
         </div>
       )
       case 'temp': return (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))', gap:8, marginBottom:8 }}>
-          {show('ect')     && <Kpi label={t('ect')}     value={fmt(v.ect_mean)} unit="C" sub={`max ${fmt(v.ect_max)}C`}  color="#ff3030" />}
+          {show('ect')     && <Kpi label={t('ect')}     value={fmt(v.ect_mean)} unit="C" sub={`max ${fmt(v.ect_max)}C`}  color="#ff3030" prevValue={pv?.ect_mean ?? null} lowerIsBetter={true} />}
           {show('ect_hot') && <Kpi label={t('ect_hot')} value={fmt(v.ect_above95_pct)} unit="%"                           color="#ff6060" />}
           {show('fan')     && <Kpi label={t('fan')}     value={fmt(v.fan_on_pct)} unit="%"                                color="#ff9090" />}
         </div>
@@ -879,9 +983,47 @@ export default function Home(): React.ReactElement {
                         style={{ width:22, height:22, borderRadius:'50%', border:`1.5px solid ${scCol}`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, padding:0 }}>
                         <span style={{ fontSize:8, fontFamily:'IBM Plex Mono,monospace', fontWeight:800, color:scCol }}>{sc}</span>
                       </button>
+                      {!isActive && (
+                        <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); setCompareIdx(compareIdx === i ? null : i) }}
+                          title={lang === 'en' ? 'Compare with active' : 'Comparar com ativo'}
+                          style={{ width:18, height:18, borderRadius:3, border:`1px solid ${compareIdx === i ? '#f97316' : '#1e2740'}`, background: compareIdx === i ? '#2a1a0a' : 'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, padding:0 }}>
+                          <span style={{ fontSize:7, color: compareIdx === i ? '#f97316' : '#334155', fontFamily:'IBM Plex Mono,monospace', fontWeight:800 }}>VS</span>
+                        </button>
+                      )}
                     </div>
                     {dateStr && <div style={{ fontSize:10, color:'#475569', paddingLeft:14, fontFamily:'IBM Plex Mono,monospace' }}>{s.name}</div>}
                     {isNew(s) && <span style={{ fontSize:8, background:'#1e3a5f', color:'#60a5fa', padding:'1px 5px', borderRadius:3, fontWeight:700, fontFamily:'IBM Plex Mono,monospace', marginLeft:14 }}>NEW</span>}
+                    {/* Note display/edit */}
+                    {editingNote === s.name ? (
+                      <input
+                        autoFocus
+                        defaultValue={(sessionNotes[activeProfileKey!] ?? {})[s.name] ?? ''}
+                        onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
+                          const note = e.target.value.trim()
+                          setSessionNotes((prev: Record<string,Record<string,string>>) => ({
+                            ...prev,
+                            [activeProfileKey!]: { ...(prev[activeProfileKey!] ?? {}), [s.name]: note }
+                          }))
+                          setEditingNote(null)
+                        }}
+                        onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                        onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                        placeholder={lang === 'en' ? 'Add note...' : 'Adicionar nota...'}
+                        style={{ width:'100%', marginTop:4, marginLeft:14, background:'#1e2740', border:'1px solid #f97316', borderRadius:3, padding:'2px 6px', color:'#e2e8f0', fontSize:9, fontFamily:'IBM Plex Mono,monospace', outline:'none' }}
+                      />
+                    ) : (
+                      <div style={{ display:'flex', alignItems:'center', gap:4, marginLeft:14, marginTop:2 }}>
+                        {(sessionNotes[activeProfileKey!] ?? {})[s.name] ? (
+                          <span style={{ fontSize:9, color:'#475569', fontFamily:'IBM Plex Mono,monospace', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                            {(sessionNotes[activeProfileKey!] ?? {})[s.name]}
+                          </span>
+                        ) : null}
+                        <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); setEditingNote(s.name) }}
+                          style={{ fontSize:8, color:'#334155', background:'none', border:'none', cursor:'pointer', padding:0, flexShrink:0 }}>
+                          {(sessionNotes[activeProfileKey!] ?? {})[s.name] ? 'edit' : '+note'}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )
               })}
@@ -941,6 +1083,71 @@ export default function Home(): React.ReactElement {
           {/* OVERVIEW */}
           {activeProfileKey && tab === 'overview' && active && (
             <div>
+              {/* Compare banner */}
+              {compareIdx !== null && allSessions[compareIdx] && (() => {
+                const cmp = allSessions[compareIdx]
+                const fields: {key: keyof typeof active; label: string; unit: string; lowerBetter: boolean}[] = [
+                  {key:'ltft',             label:'LTFT',          unit:'%',    lowerBetter:true},
+                  {key:'stft_above15_pct', label:'STFT >15%',     unit:'%',    lowerBetter:true},
+                  {key:'lambda',           label:'Lambda',        unit:'',     lowerBetter:true},
+                  {key:'iacv_mean',        label:'IACV',          unit:'%',    lowerBetter:true},
+                  {key:'ect_mean',         label:'ECT avg',       unit:'C',    lowerBetter:true},
+                  {key:'bat_mean',         label:'BAT avg',       unit:'V',    lowerBetter:false},
+                  {key:'knock_events',     label:'Knock',         unit:'',     lowerBetter:true},
+                  {key:'vtec_pct',         label:'VTEC',          unit:'%',    lowerBetter:false},
+                  {key:'inst_consumption', label:'km/l',          unit:'km/l', lowerBetter:false},
+                  {key:'vss_max',          label:'Top Speed',     unit:'km/h', lowerBetter:false},
+                ]
+                const activeScore = calcHealth(active)
+                const cmpScore    = calcHealth(cmp)
+                return (
+                  <div style={{ background:'#111827', border:'1px solid #1e2740', borderRadius:12, padding:'16px 20px', marginBottom:20 }}>
+                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
+                      <span style={{ fontSize:11, fontWeight:700, letterSpacing:2, color:'#f97316', fontFamily:'IBM Plex Mono,monospace', textTransform:'uppercase' }}>
+                        {lang === 'en' ? 'Comparing Sessions' : 'Comparando Sessoes'}
+                      </span>
+                      <button onClick={() => setCompareIdx(null)} style={{ fontSize:10, color:'#475569', background:'none', border:'1px solid #1e2740', borderRadius:4, cursor:'pointer', padding:'2px 8px', fontFamily:'IBM Plex Mono,monospace' }}>
+                        {lang === 'en' ? 'Close' : 'Fechar'}
+                      </button>
+                    </div>
+                    {/* Header row */}
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 40px', gap:8, marginBottom:10, paddingBottom:8, borderBottom:'1px solid #1e2740' }}>
+                      <span style={{ fontSize:9, color:'#475569', fontFamily:'IBM Plex Mono,monospace', fontWeight:700, letterSpacing:1 }}>PARAM</span>
+                      <span style={{ fontSize:9, color:'#f97316', fontFamily:'IBM Plex Mono,monospace', fontWeight:700, textAlign:'right' }}>{active.name}</span>
+                      <span style={{ fontSize:9, color:'#60a5fa', fontFamily:'IBM Plex Mono,monospace', fontWeight:700, textAlign:'right' }}>{cmp.name}</span>
+                      <span style={{ fontSize:9, color:'#475569', fontFamily:'IBM Plex Mono,monospace', fontWeight:700, textAlign:'center' }}>delta</span>
+                    </div>
+                    {/* Score row */}
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 40px', gap:8, padding:'5px 0', borderBottom:'1px solid #161c2a' }}>
+                      <span style={{ fontSize:10, color:'#64748b', fontFamily:'IBM Plex Mono,monospace' }}>Health Score</span>
+                      <span style={{ fontSize:10, fontFamily:'IBM Plex Mono,monospace', color:scoreCol(activeScore), fontWeight:700, textAlign:'right' }}>{activeScore}</span>
+                      <span style={{ fontSize:10, fontFamily:'IBM Plex Mono,monospace', color:scoreCol(cmpScore),    fontWeight:700, textAlign:'right' }}>{cmpScore}</span>
+                      <span style={{ fontSize:10, fontFamily:'IBM Plex Mono,monospace', color: activeScore > cmpScore ? '#00e060' : activeScore < cmpScore ? '#ff3030' : '#475569', textAlign:'center', fontWeight:700 }}>
+                        {activeScore > cmpScore ? '+' : ''}{activeScore - cmpScore}
+                      </span>
+                    </div>
+                    {/* Data rows */}
+                    {fields.map(f => {
+                      const av = active[f.key] as number | null
+                      const cv = cmp[f.key]    as number | null
+                      if (av == null && cv == null) return null
+                      const delta = av != null && cv != null ? av - cv : null
+                      const improved = delta != null ? (f.lowerBetter ? delta < 0 : delta > 0) : null
+                      const dCol = improved === true ? '#00e060' : improved === false ? '#ff3030' : '#475569'
+                      return (
+                        <div key={f.key as string} style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 40px', gap:8, padding:'5px 0', borderBottom:'1px solid #161c2a' }}>
+                          <span style={{ fontSize:10, color:'#64748b', fontFamily:'IBM Plex Mono,monospace' }}>{f.label}</span>
+                          <span style={{ fontSize:10, fontFamily:'IBM Plex Mono,monospace', color:'#f97316', fontWeight:600, textAlign:'right' }}>{av != null ? av.toFixed(2) : '--'}{f.unit}</span>
+                          <span style={{ fontSize:10, fontFamily:'IBM Plex Mono,monospace', color:'#60a5fa', fontWeight:600, textAlign:'right' }}>{cv != null ? cv.toFixed(2) : '--'}{f.unit}</span>
+                          <span style={{ fontSize:9, fontFamily:'IBM Plex Mono,monospace', color:dCol, textAlign:'center', fontWeight:700 }}>
+                            {delta != null ? (delta > 0 ? '+' : '') + delta.toFixed(1) : '--'}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )
+              })()}
               {/* Header */}
               <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:12, marginBottom:16, flexWrap:'wrap' }}>
                 <div>
@@ -1248,19 +1455,11 @@ export default function Home(): React.ReactElement {
                     </div>
                     <div style={{ background:'#111827', border:'1px solid #1e2740', borderRadius:12, padding:'16px 18px' }}>
                       <div style={{ fontSize:9, letterSpacing:2, color:'#475569', fontFamily:'IBM Plex Mono,monospace', fontWeight:700, textTransform:'uppercase', marginBottom:12 }}>Score Evolution</div>
-                      <div style={{ display:'flex', gap:6, alignItems:'flex-end', height:90 }}>
-                        {allSessions.map((s, idx) => {
-                          const sScore = calcHealth(s); const sCol = scoreCol(sScore)
-                          const isAct = s.name === active.name
-                          return (
-                            <div key={s.name} onClick={() => setActiveIdx(idx)} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:3, cursor:'pointer' }}>
-                              <div style={{ fontSize:9, fontFamily:'IBM Plex Mono,monospace', color:sCol, fontWeight:700 }}>{sScore}</div>
-                              <div style={{ width:'100%', height:`${sScore}%`, minHeight:3, background:sCol, borderRadius:'2px 2px 0 0', opacity: isAct ? 1 : 0.45, outline: isAct ? `1px solid ${sCol}` : 'none' }} />
-                              <div style={{ fontSize:7, color:'#334155', fontFamily:'IBM Plex Mono,monospace', textAlign:'center', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', width:'100%' }}>{s.name.split(' ')[0]}</div>
-                            </div>
-                          )
-                        })}
-                      </div>
+                      <ScoreLineChart
+                        sessions={allSessions.map(s => ({ name: s.name, score: calcHealth(s), col: scoreCol(calcHealth(s)) }))}
+                        activeIdx={activeI}
+                        onSelect={(i) => setActiveIdx(i)}
+                      />
                     </div>
                     {/* Formula explanation */}
                     <div style={{ marginTop:20, background:'#0f1117', border:'1px solid #1e2740', borderRadius:10, padding:'18px 20px' }}>
