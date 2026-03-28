@@ -8,8 +8,8 @@ import type { LogSession } from '@/lib/supabase'
 
 // -- Types -------------------------------------------------------------
 type Lang    = 'en' | 'pt'
-type Tab     = 'overview' | 'timeline' | 'table' | 'score' | 'performance'
-type SecKey  = 'elec' | 'fuel' | 'air' | 'afr' | 'ign' | 'temp' | 'idle' | 'motion' | 'act' | 'diag'
+type Tab     = 'overview' | 'timeline' | 'table' | 'score'
+type SecKey  = 'elec' | 'fuel' | 'air' | 'afr' | 'ign' | 'temp' | 'idle' | 'motion' | 'act' | 'diag' | 'perf'
 type Profile = { key: string; name: string }
 
 // -- Palette -----------------------------------------------------------
@@ -34,7 +34,7 @@ const T: Record<Lang, Record<string,string>> = {
     sec_air:'Air / Intake / Load', sec_afr:'Mixture & Correction (AFR)',
     sec_ign:'Ignition', sec_temp:'Temperature & Cooling',
     sec_idle:'Idle Control', sec_motion:'Motion & Dynamics',
-    sec_act:'Actuators & Emissions', sec_diag:'Diagnosis',
+    sec_act:'Actuators & Emissions', sec_diag:'Diagnosis', sec_perf:'Performance',
     bat:'Battery', alt_fr:'Alternator FR', eld_curr:'ELD Current',
     fuel_flow:'Fuel Flow', fuel_inst:'Consumption',
     inj_dur:'Inj. Duration', inj_dc:'Inj. Duty Cycle', inj_fr:'Inj. Flow Rate',
@@ -77,7 +77,7 @@ const T: Record<Lang, Record<string,string>> = {
     sec_air:'Ar / Admissao / Carga', sec_afr:'Mistura e Correcao (AFR)',
     sec_ign:'Ignicao', sec_temp:'Temperatura e Arrefecimento',
     sec_idle:'Marcha Lenta', sec_motion:'Movimento / Dinamica',
-    sec_act:'Atuadores e Emissoes', sec_diag:'Diagnostico',
+    sec_act:'Atuadores e Emissoes', sec_diag:'Diagnostico', sec_perf:'Performance',
     bat:'Bateria', alt_fr:'Alternador FR', eld_curr:'ELD Corrente',
     fuel_flow:'Fluxo Comb.', fuel_inst:'Consumo',
     inj_dur:'Dur. Injecao', inj_dc:'DC Injecao', inj_fr:'Fluxo Injetor',
@@ -336,14 +336,32 @@ export default function Home(): React.ReactElement {
   const [selYear, setSelYear]                   = useState<number|null>(null)
   const [selTrim, setSelTrim]                   = useState<string|null>(null)
   const [profileName, setProfileName]           = useState('')
-  const [savedProfiles, setSavedProfiles]       = useState<Profile[]>([])
-  const [activeProfileKey, setActiveProfileKey] = useState<string|null>(null)
-  const [profileSessions, setProfileSessions]   = useState<Record<string,LogSession[]>>({})
+  const [savedProfiles, setSavedProfiles]       = useState<Profile[]>(() => {
+    try { return JSON.parse(typeof window !== 'undefined' ? localStorage.getItem('hndsh_profiles') || '[]' : '[]') } catch { return [] }
+  })
+  const [activeProfileKey, setActiveProfileKey] = useState<string|null>(() => {
+    try { return typeof window !== 'undefined' ? localStorage.getItem('hndsh_active_profile') : null } catch { return null }
+  })
+  const [profileSessions, setProfileSessions]   = useState<Record<string,LogSession[]>>(() => {
+    try { return JSON.parse(typeof window !== 'undefined' ? localStorage.getItem('hndsh_sessions') || '{}' : '{}') } catch { return {} }
+  })
   const carModalRef                             = useRef<HTMLDivElement>(null)
 
   const t = (k: string): string => (T[lang as Lang] ?? T.en)[k as string] ?? k
 
   // -- Effects -----------------------------------------------------------
+  // Persist profiles/sessions to localStorage
+  useEffect(() => {
+    try { localStorage.setItem('hndsh_profiles', JSON.stringify(savedProfiles)) } catch {}
+  }, [savedProfiles])
+  useEffect(() => {
+    try { if (activeProfileKey) localStorage.setItem('hndsh_active_profile', activeProfileKey)
+          else localStorage.removeItem('hndsh_active_profile') } catch {}
+  }, [activeProfileKey])
+  useEffect(() => {
+    try { localStorage.setItem('hndsh_sessions', JSON.stringify(profileSessions)) } catch {}
+  }, [profileSessions])
+
   useEffect(() => {
     fetch('/api/sessions').then(r => r.json()).then((d: {sessions?: LogSession[]}) => {
       if (d.sessions) setDbSessions(d.sessions)
@@ -588,6 +606,31 @@ export default function Home(): React.ReactElement {
           {show('mil') && <Kpi label={t('mil')} value={v.mil_on_pct ? t('active_str') : 'OFF'} sub={v.mil_on_pct ? `${fmt(v.mil_on_pct)}%` : t('noFaults')} color={v.mil_on_pct ? '#ff3030' : '#a0b8a0'} />}
         </div>
       )
+      case 'perf': {
+        // Best values across ALL sessions (not just active)
+        const bestT60  = allSessions.map(s => s.t0_60).filter((v): v is number => v != null).reduce((a,b) => Math.min(a,b), Infinity)
+        const bestT100 = allSessions.map(s => s.t0_100).filter((v): v is number => v != null).reduce((a,b) => Math.min(a,b), Infinity)
+        const bestT140 = allSessions.map(s => s.t0_140).filter((v): v is number => v != null).reduce((a,b) => Math.min(a,b), Infinity)
+        const bestVmax = allSessions.map(s => s.vmax ?? s.vss_max).filter((v): v is number => v != null).reduce((a,b) => Math.max(a,b), 0)
+        const t60  = isFinite(bestT60)  ? bestT60  : null
+        const t100 = isFinite(bestT100) ? bestT100 : null
+        const t140 = isFinite(bestT140) ? bestT140 : null
+        const vmax = bestVmax > 0 ? bestVmax : null
+        const noData = t60 === null && t100 === null && t140 === null
+        if (noData) return (
+          <div style={{ padding:'10px 0 6px', color:'#334155', fontSize:11, fontFamily:'IBM Plex Mono,monospace' }}>
+            {lang === 'en' ? 'No sprint detected. Logs must start from standstill (<5 km/h).' : 'Nenhuma arrancada detectada. Log precisa partir do 0 (< 5 km/h).'}
+          </div>
+        )
+        return (
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(130px,1fr))', gap:8, marginBottom:8 }}>
+            {t60  != null && <Kpi label={t('t0_60')}  value={t60.toFixed(2)}  unit="s"    color="#00e060" />}
+            {t100 != null && <Kpi label={t('t0_100')} value={t100.toFixed(2)} unit="s"    color="#f97316" />}
+            {t140 != null && <Kpi label={t('t0_140')} value={t140.toFixed(2)} unit="s"    color="#ff3030" />}
+            {vmax != null && <Kpi label={lang==='en'?'Top Speed':'V. Max.'} value={vmax.toFixed(0)} unit="km/h" color="#c060ff" />}
+          </div>
+        )
+      }
       default: return null
     }
   }
@@ -760,7 +803,7 @@ export default function Home(): React.ReactElement {
 
         {/* Tabs */}
         <div style={{ display:'flex', alignItems:'center', height:52 }}>
-          {(['overview','timeline','table','score','performance'] as Tab[])
+          {(['overview','timeline','table','score'] as Tab[])
             .filter(tb => activeProfileKey || tb === 'overview')
             .map(tb => (
               <button key={tb} onClick={() => setTab(tb)} style={{ padding:'0 16px', height:52, border:'none', borderBottom: tab===tb ? '2px solid #f97316' : '2px solid transparent', background:'transparent', color: tab===tb ? '#f97316' : '#64748b', fontSize:11, letterSpacing:2, textTransform:'uppercase', cursor:'pointer', fontWeight: tab===tb ? 700 : 400, fontFamily:'IBM Plex Mono,monospace' }}>
@@ -924,7 +967,7 @@ export default function Home(): React.ReactElement {
 
               {/* KPI sections - 2 column when wide */}
               <div style={{ columns:'2 400px', columnGap:20 }}>
-                {(['elec','fuel','air','afr','ign','temp','idle','motion','act'] as SecKey[]).map(key => {
+                {(['elec','fuel','air','afr','ign','temp','idle','motion','act','perf'] as SecKey[]).map(key => {
                   const rendered = renderSection(key)
                   if (!rendered && collapsedSecs.has(key)) return (
                     <div key={key} style={{ breakInside:'avoid', marginBottom:4 }}>
@@ -932,7 +975,7 @@ export default function Home(): React.ReactElement {
                     </div>
                   )
                   if (!rendered) return null
-                  const colors: Record<string,string> = { elec:C.green, fuel:C.orange, air:C.cyan, afr:C.green, ign:C.purple, temp:C.red, idle:C.teal, motion:C.blue, act:C.gray }
+                  const colors: Record<string,string> = { elec:C.green, fuel:C.orange, air:C.cyan, afr:C.green, ign:C.purple, temp:C.red, idle:C.teal, motion:C.blue, act:C.gray, perf:'#c060ff' }
                   return (
                     <div key={key} style={{ breakInside:'avoid', marginBottom:4 }}>
                       <SecHead title={t(`sec_${key}`)} color={colors[key] ?? C.gray} open={!collapsedSecs.has(key)} onToggle={() => toggleSec(key)} />
@@ -1036,9 +1079,9 @@ export default function Home(): React.ReactElement {
                               label: d.label,
                               data: allSessions.map((s: LogSession) => s[d.field] as number|null),
                               color: d.color,
-                              alarmFn: d.alarmThreshold != null
-                                ? (v: number) => d.alarmAbove === true ? v >= d.alarmThreshold! : v <= d.alarmThreshold!
-                                : undefined,
+                              ...(d.alarmThreshold != null ? {
+                                alarmFn: (v: number) => d.alarmAbove === true ? v >= (d.alarmThreshold as number) : v <= (d.alarmThreshold as number)
+                              } : {}),
                             })),
                             yMin: c.yMin,
                             yMax: c.yMax,
@@ -1206,86 +1249,7 @@ export default function Home(): React.ReactElement {
             </div>
           )}
 
-          {/* PERFORMANCE */}
-          {activeProfileKey && tab === 'performance' && active && (
-            <div>
-              <div style={{ marginBottom:20 }}>
-                <h1 style={{ fontSize:20, fontWeight:800, color:'#f1f5f9', marginBottom:4 }}>{t('performance')}</h1>
-                <span style={{ fontSize:11, letterSpacing:'1.5px', textTransform:'uppercase', color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>
-                  {active.name} -- {lang === 'en' ? 'Sprint times detected from log data' : 'Tempos de arrancada detectados no log'}
-                </span>
-              </div>
 
-              {/* Sprint time cards */}
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))', gap:16, marginBottom:28 }}>
-                {([
-                  { key:'t0_60',  label:t('t0_60'),  val:active.t0_60,  color:'#00e060', suffix:'s' },
-                  { key:'t0_100', label:t('t0_100'), val:active.t0_100, color:'#f97316', suffix:'s' },
-                  { key:'t0_140', label:t('t0_140'), val:active.t0_140, color:'#ff3030', suffix:'s' },
-                  { key:'vmax',   label:lang==='en'?'Top Speed':'Veloc. Max.', val:active.vmax ?? active.vss_max, color:'#c060ff', suffix:' km/h' },
-                ] as const).map(item => (
-                  <div key={item.key} style={{ background:'#111827', border:`1px solid ${item.color}30`, borderRadius:12, padding:'20px 18px', position:'relative', overflow:'hidden' }}>
-                    <div style={{ position:'absolute', top:0, left:0, right:0, height:3, background:item.color }} />
-                    <div style={{ fontSize:10, letterSpacing:'2px', textTransform:'uppercase', color:'#64748b', fontFamily:'IBM Plex Mono,monospace', fontWeight:600, marginBottom:10 }}>{item.label}</div>
-                    {item.val != null ? (
-                      <>
-                        <div style={{ fontSize:40, fontWeight:900, color:item.color, fontFamily:'IBM Plex Mono,monospace', lineHeight:1 }}>
-                          {typeof item.val === 'number' ? item.val.toFixed(2) : item.val}
-                        </div>
-                        <div style={{ fontSize:14, color:item.color, fontFamily:'IBM Plex Mono,monospace', marginTop:4, opacity:0.7 }}>{item.suffix}</div>
-                        <div style={{ fontSize:10, color:'#334155', fontFamily:'IBM Plex Mono,monospace', marginTop:8 }}>{t('perf_sub')}</div>
-                      </>
-                    ) : (
-                      <div style={{ fontSize:12, color:'#334155', fontFamily:'IBM Plex Mono,monospace', marginTop:8, lineHeight:1.7 }}>{t('perf_none')}</div>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {/* Sprint evolution across sessions */}
-              {allSessions.some(s => s.t0_100 != null) && (
-                <div style={{ background:'#111827', border:'1px solid #1e2740', borderRadius:12, padding:'20px 18px', marginBottom:20 }}>
-                  <div style={{ fontSize:11, fontWeight:700, letterSpacing:'2px', textTransform:'uppercase', color:'#64748b', fontFamily:'IBM Plex Mono,monospace', marginBottom:16 }}>
-                    {lang==='en' ? '0-100 km/h Evolution' : 'Evolucao 0-100 km/h'}
-                  </div>
-                  <div style={{ display:'flex', gap:6, alignItems:'flex-end', height:80 }}>
-                    {allSessions.map((s, idx) => {
-                      const t100 = s.t0_100
-                      if (t100 == null) return (
-                        <div key={s.name} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
-                          <div style={{ fontSize:8, color:'#1e2740', fontFamily:'IBM Plex Mono,monospace' }}>--</div>
-                          <div style={{ width:'100%', height:3, background:'#1e2740', borderRadius:2 }} />
-                          <div style={{ fontSize:7, color:'#334155', fontFamily:'IBM Plex Mono,monospace', textAlign:'center', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', width:'100%' }}>{s.name.split(' ')[0]}</div>
-                        </div>
-                      )
-                      // Lower time = better. Normalize against worst (highest t100)
-                      const times = allSessions.map(x => x.t0_100).filter((v): v is number => v != null)
-                      const worst = Math.max(...times)
-                      const barH = Math.round((1 - (t100 / (worst * 1.2))) * 100)
-                      const col = t100 < 10 ? '#00e060' : t100 < 13 ? '#f97316' : '#ff3030'
-                      const isAct = s.name === active?.name
-                      return (
-                        <div key={s.name} onClick={() => setActiveIdx(idx)} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:3, cursor:'pointer' }}>
-                          <div style={{ fontSize:9, fontFamily:'IBM Plex Mono,monospace', color:col, fontWeight:700 }}>{t100.toFixed(1)}s</div>
-                          <div style={{ width:'100%', height:`${Math.max(barH, 5)}%`, background:col, borderRadius:'2px 2px 0 0', opacity: isAct ? 1 : 0.5, outline: isAct ? `1px solid ${col}` : 'none' }} />
-                          <div style={{ fontSize:7, color:'#334155', fontFamily:'IBM Plex Mono,monospace', textAlign:'center', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', width:'100%' }}>{s.name.split(' ')[0]}</div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Explanation */}
-              <div style={{ background:'#0f1117', border:'1px solid #1e2740', borderRadius:8, padding:'14px 16px' }}>
-                <p style={{ fontSize:11, color:'#475569', lineHeight:1.8, fontFamily:'IBM Plex Mono,monospace' }}>
-                  {lang==='en'
-                    ? 'Sprint times are calculated from VSS (vehicle speed sensor) data. The algorithm scans for runs starting below 5 km/h and records the time to reach the target speed. The best (lowest) time from each log is shown. GPS-corrected speed is used when available.'
-                    : 'Os tempos de arrancada sao calculados a partir do VSS (sensor de velocidade). O algoritmo busca arrancadas que partem abaixo de 5 km/h e mede o tempo ate atingir a velocidade alvo. O melhor tempo do log e exibido. Velocidade calibrada GPS e usada quando disponivel.'}
-                </p>
-              </div>
-            </div>
-          )}
 
         </div>
       </div>
