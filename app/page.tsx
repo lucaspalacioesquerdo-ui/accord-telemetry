@@ -217,6 +217,136 @@ const CHART_GROUPS: Record<string,string> = {
   motion:'Motion & Dynamics', act:'Actuators',
 }
 
+
+// ---- Car catalog (year / trim / engine) ------------------------------------
+type TrimDef = { trim: string; engine: string; hp: number; notes: string }
+type YearDef = { year: number; trims: TrimDef[] }
+type CarDef  = { model: string; years: YearDef[] }
+
+const CAR_CATALOG: CarDef[] = [
+  { model: 'Honda Accord', years: [
+    { year: 1992, trims: [
+      { trim: 'DX', engine: 'F22A1', hp: 125, notes: 'SOHC non-VTEC' },
+      { trim: 'LX', engine: 'F22A1', hp: 125, notes: 'SOHC non-VTEC' },
+      { trim: 'EX', engine: 'F22A6', hp: 140, notes: 'SOHC non-VTEC, IAB' },
+      { trim: 'SE', engine: 'F22A6', hp: 140, notes: 'SOHC non-VTEC, IAB' },
+    ]},
+    { year: 1993, trims: [
+      { trim: 'DX', engine: 'F22A1', hp: 125, notes: 'SOHC non-VTEC' },
+      { trim: 'LX', engine: 'F22A1', hp: 125, notes: 'SOHC non-VTEC' },
+      { trim: 'EX', engine: 'F22A6', hp: 140, notes: 'SOHC non-VTEC, IAB' },
+      { trim: 'SE', engine: 'F22A6', hp: 140, notes: 'SOHC non-VTEC, IAB' },
+    ]},
+    { year: 1994, trims: [
+      { trim: 'DX', engine: 'F22B2', hp: 130, notes: 'SOHC non-VTEC' },
+      { trim: 'LX', engine: 'F22B2', hp: 130, notes: 'SOHC non-VTEC' },
+      { trim: 'EX', engine: 'F22B1', hp: 145, notes: 'SOHC VTEC - your engine' },
+      { trim: 'EX-L', engine: 'F22B1', hp: 145, notes: 'SOHC VTEC, leather' },
+    ]},
+    { year: 1995, trims: [
+      { trim: 'DX', engine: 'F22B2', hp: 130, notes: 'SOHC non-VTEC' },
+      { trim: 'LX', engine: 'F22B2', hp: 130, notes: 'SOHC non-VTEC' },
+      { trim: 'EX', engine: 'F22B1', hp: 145, notes: 'SOHC VTEC - your engine' },
+      { trim: 'EX-L', engine: 'F22B1', hp: 145, notes: 'SOHC VTEC, leather' },
+    ]},
+    { year: 1996, trims: [
+      { trim: 'DX', engine: 'F22B2', hp: 130, notes: 'SOHC non-VTEC' },
+      { trim: 'LX', engine: 'F22B2', hp: 130, notes: 'SOHC non-VTEC' },
+      { trim: 'EX', engine: 'F22B1', hp: 145, notes: 'SOHC VTEC' },
+      { trim: 'EX-L', engine: 'F22B1', hp: 145, notes: 'SOHC VTEC, leather' },
+    ]},
+    { year: 1997, trims: [
+      { trim: 'DX', engine: 'F22B2', hp: 130, notes: 'SOHC non-VTEC' },
+      { trim: 'LX', engine: 'F22B2', hp: 130, notes: 'SOHC non-VTEC' },
+      { trim: 'EX', engine: 'F22B1', hp: 145, notes: 'SOHC VTEC' },
+      { trim: 'V6 LX', engine: 'C27A4', hp: 170, notes: '2.7L V6 SOHC' },
+      { trim: 'V6 EX', engine: 'C27A4', hp: 170, notes: '2.7L V6 SOHC' },
+    ]},
+    { year: 1998, trims: [
+      { trim: 'DX', engine: 'F23A5', hp: 135, notes: 'SOHC non-VTEC' },
+      { trim: 'LX', engine: 'F23A1', hp: 150, notes: 'SOHC VTEC LEV' },
+      { trim: 'EX', engine: 'F23A1', hp: 150, notes: 'SOHC VTEC LEV' },
+      { trim: 'EX (ULEV)', engine: 'F23A4', hp: 148, notes: 'SOHC VTEC ULEV' },
+      { trim: 'V6 LX', engine: 'J30A1', hp: 200, notes: '3.0L V6 VTEC' },
+      { trim: 'V6 EX', engine: 'J30A1', hp: 200, notes: '3.0L V6 VTEC' },
+    ]},
+    { year: 1999, trims: [
+      { trim: 'DX', engine: 'F23A5', hp: 135, notes: 'SOHC non-VTEC' },
+      { trim: 'LX', engine: 'F23A1', hp: 150, notes: 'SOHC VTEC LEV' },
+      { trim: 'EX', engine: 'F23A1', hp: 150, notes: 'SOHC VTEC LEV' },
+      { trim: 'EX (ULEV)', engine: 'F23A4', hp: 148, notes: 'SOHC VTEC ULEV' },
+      { trim: 'V6 LX', engine: 'J30A1', hp: 200, notes: '3.0L V6 VTEC' },
+      { trim: 'V6 EX', engine: 'J30A1', hp: 200, notes: '3.0L V6 VTEC' },
+    ]},
+    { year: 2000, trims: [
+      { trim: 'DX', engine: 'F23A5', hp: 135, notes: 'SOHC non-VTEC' },
+      { trim: 'LX', engine: 'F23A1', hp: 150, notes: 'SOHC VTEC LEV' },
+      { trim: 'EX', engine: 'F23A1', hp: 150, notes: 'SOHC VTEC LEV' },
+      { trim: 'EX (ULEV)', engine: 'F23A4', hp: 148, notes: 'SOHC VTEC ULEV' },
+      { trim: 'SE', engine: 'F23A1', hp: 150, notes: 'SOHC VTEC LEV' },
+      { trim: 'V6 LX', engine: 'J30A1', hp: 200, notes: '3.0L V6 VTEC' },
+      { trim: 'V6 EX', engine: 'J30A1', hp: 200, notes: '3.0L V6 VTEC' },
+    ]},
+    { year: 2001, trims: [
+      { trim: 'LX', engine: 'F23A1', hp: 150, notes: 'SOHC VTEC LEV' },
+      { trim: 'EX', engine: 'F23A1', hp: 150, notes: 'SOHC VTEC LEV' },
+      { trim: 'EX (ULEV)', engine: 'F23A4', hp: 148, notes: 'SOHC VTEC ULEV' },
+      { trim: 'SE', engine: 'F23A1', hp: 150, notes: 'SOHC VTEC LEV' },
+      { trim: 'V6 EX', engine: 'J30A1', hp: 200, notes: '3.0L V6 VTEC' },
+    ]},
+  ]},
+  { model: 'Honda Civic', years: [
+    { year: 1992, trims: [{ trim: 'CX', engine: 'D15B8', hp: 70, notes: 'SOHC non-VTEC' }, { trim: 'DX', engine: 'D15B7', hp: 102, notes: 'SOHC non-VTEC' }, { trim: 'EX', engine: 'D16Z6', hp: 125, notes: 'SOHC VTEC' }, { trim: 'Si', engine: 'D16Z6', hp: 125, notes: 'SOHC VTEC' }, { trim: 'VX', engine: 'D15Z1', hp: 92, notes: 'SOHC VTEC-E' }]},
+    { year: 1993, trims: [{ trim: 'CX', engine: 'D15B8', hp: 70, notes: 'SOHC non-VTEC' }, { trim: 'DX', engine: 'D15B7', hp: 102, notes: 'SOHC non-VTEC' }, { trim: 'EX', engine: 'D16Z6', hp: 125, notes: 'SOHC VTEC' }, { trim: 'Si', engine: 'D16Z6', hp: 125, notes: 'SOHC VTEC' }, { trim: 'VX', engine: 'D15Z1', hp: 92, notes: 'SOHC VTEC-E' }]},
+    { year: 1994, trims: [{ trim: 'CX', engine: 'D15B8', hp: 70, notes: 'SOHC non-VTEC' }, { trim: 'DX', engine: 'D15B7', hp: 102, notes: 'SOHC non-VTEC' }, { trim: 'EX', engine: 'D16Z6', hp: 125, notes: 'SOHC VTEC' }, { trim: 'Si', engine: 'D16Z6', hp: 125, notes: 'SOHC VTEC' }, { trim: 'VX', engine: 'D15Z1', hp: 92, notes: 'SOHC VTEC-E' }]},
+    { year: 1995, trims: [{ trim: 'CX', engine: 'D15B8', hp: 70, notes: 'SOHC non-VTEC' }, { trim: 'DX', engine: 'D15B7', hp: 102, notes: 'SOHC non-VTEC' }, { trim: 'EX', engine: 'D16Z6', hp: 125, notes: 'SOHC VTEC' }, { trim: 'Si', engine: 'D16Z6', hp: 125, notes: 'SOHC VTEC' }, { trim: 'VX', engine: 'D15Z1', hp: 92, notes: 'SOHC VTEC-E' }]},
+    { year: 1996, trims: [{ trim: 'CX', engine: 'D16Y7', hp: 106, notes: 'SOHC non-VTEC' }, { trim: 'DX', engine: 'D16Y7', hp: 106, notes: 'SOHC non-VTEC' }, { trim: 'EX', engine: 'D16Y8', hp: 127, notes: 'SOHC VTEC' }, { trim: 'HX', engine: 'D16Y5', hp: 115, notes: 'SOHC VTEC-E' }, { trim: 'LX', engine: 'D16Y7', hp: 106, notes: 'SOHC non-VTEC' }]},
+    { year: 1997, trims: [{ trim: 'CX', engine: 'D16Y7', hp: 106, notes: 'SOHC non-VTEC' }, { trim: 'DX', engine: 'D16Y7', hp: 106, notes: 'SOHC non-VTEC' }, { trim: 'EX', engine: 'D16Y8', hp: 127, notes: 'SOHC VTEC' }, { trim: 'HX', engine: 'D16Y5', hp: 115, notes: 'SOHC VTEC-E' }, { trim: 'LX', engine: 'D16Y7', hp: 106, notes: 'SOHC non-VTEC' }]},
+    { year: 1998, trims: [{ trim: 'CX', engine: 'D16Y7', hp: 106, notes: 'SOHC non-VTEC' }, { trim: 'DX', engine: 'D16Y7', hp: 106, notes: 'SOHC non-VTEC' }, { trim: 'EX', engine: 'D16Y8', hp: 127, notes: 'SOHC VTEC' }, { trim: 'HX', engine: 'D16Y5', hp: 115, notes: 'SOHC VTEC-E' }, { trim: 'LX', engine: 'D16Y7', hp: 106, notes: 'SOHC non-VTEC' }]},
+    { year: 1999, trims: [{ trim: 'CX', engine: 'D16Y7', hp: 106, notes: 'SOHC non-VTEC' }, { trim: 'DX', engine: 'D16Y7', hp: 106, notes: 'SOHC non-VTEC' }, { trim: 'EX', engine: 'D16Y8', hp: 127, notes: 'SOHC VTEC' }, { trim: 'Si', engine: 'B16A2', hp: 160, notes: 'DOHC VTEC' }, { trim: 'LX', engine: 'D16Y7', hp: 106, notes: 'SOHC non-VTEC' }]},
+    { year: 2000, trims: [{ trim: 'CX', engine: 'D16Y7', hp: 106, notes: 'SOHC non-VTEC' }, { trim: 'DX', engine: 'D16Y7', hp: 106, notes: 'SOHC non-VTEC' }, { trim: 'EX', engine: 'D16Y8', hp: 127, notes: 'SOHC VTEC' }, { trim: 'Si', engine: 'B16A2', hp: 160, notes: 'DOHC VTEC' }, { trim: 'LX', engine: 'D16Y7', hp: 106, notes: 'SOHC non-VTEC' }]},
+  ]},
+  { model: 'Honda Prelude', years: [
+    { year: 1992, trims: [{ trim: 'S', engine: 'F22A1', hp: 135, notes: 'SOHC non-VTEC' }, { trim: 'Si', engine: 'F22A1', hp: 135, notes: 'SOHC non-VTEC' }, { trim: 'Si VTEC', engine: 'H22A', hp: 190, notes: 'DOHC VTEC JDM' }]},
+    { year: 1993, trims: [{ trim: 'S', engine: 'F22A1', hp: 135, notes: 'SOHC non-VTEC' }, { trim: 'Si', engine: 'F22A1', hp: 135, notes: 'SOHC non-VTEC' }, { trim: 'VTEC', engine: 'H22A1', hp: 190, notes: 'DOHC VTEC' }]},
+    { year: 1994, trims: [{ trim: 'S', engine: 'F22A1', hp: 135, notes: 'SOHC non-VTEC' }, { trim: 'Si', engine: 'F22A1', hp: 135, notes: 'SOHC non-VTEC' }, { trim: 'VTEC', engine: 'H22A1', hp: 190, notes: 'DOHC VTEC' }]},
+    { year: 1995, trims: [{ trim: 'S', engine: 'F22A1', hp: 135, notes: 'SOHC non-VTEC' }, { trim: 'Si', engine: 'H23A1', hp: 160, notes: 'DOHC non-VTEC' }, { trim: 'VTEC', engine: 'H22A1', hp: 190, notes: 'DOHC VTEC' }]},
+    { year: 1996, trims: [{ trim: 'S', engine: 'F22A1', hp: 135, notes: 'SOHC non-VTEC' }, { trim: 'Si', engine: 'H23A1', hp: 160, notes: 'DOHC non-VTEC' }, { trim: 'VTEC', engine: 'H22A1', hp: 190, notes: 'DOHC VTEC' }]},
+    { year: 1997, trims: [{ trim: 'Base', engine: 'F22A2', hp: 135, notes: 'SOHC non-VTEC' }, { trim: 'Type SH', engine: 'H22A4', hp: 195, notes: 'DOHC VTEC ATTS' }]},
+    { year: 1998, trims: [{ trim: 'Base', engine: 'F22A2', hp: 135, notes: 'SOHC non-VTEC' }, { trim: 'Type SH', engine: 'H22A4', hp: 195, notes: 'DOHC VTEC ATTS' }]},
+    { year: 1999, trims: [{ trim: 'Base', engine: 'F22A2', hp: 135, notes: 'SOHC non-VTEC' }, { trim: 'Type SH', engine: 'H22A4', hp: 195, notes: 'DOHC VTEC ATTS' }]},
+    { year: 2000, trims: [{ trim: 'Base', engine: 'F22A2', hp: 135, notes: 'SOHC non-VTEC' }, { trim: 'Type SH', engine: 'H22A4', hp: 195, notes: 'DOHC VTEC ATTS' }]},
+    { year: 2001, trims: [{ trim: 'Base', engine: 'F22A2', hp: 135, notes: 'SOHC non-VTEC' }, { trim: 'Type SH', engine: 'H22A4', hp: 195, notes: 'DOHC VTEC ATTS' }]},
+  ]},
+  { model: 'Honda Integra / Acura Integra', years: [
+    { year: 1992, trims: [{ trim: 'RS', engine: 'B18A1', hp: 140, notes: 'DOHC non-VTEC' }, { trim: 'LS', engine: 'B18A1', hp: 140, notes: 'DOHC non-VTEC' }, { trim: 'GS', engine: 'B18A1', hp: 140, notes: 'DOHC non-VTEC' }, { trim: 'GS-R', engine: 'B17A1', hp: 160, notes: 'DOHC VTEC' }]},
+    { year: 1993, trims: [{ trim: 'RS', engine: 'B18A1', hp: 140, notes: 'DOHC non-VTEC' }, { trim: 'LS', engine: 'B18A1', hp: 140, notes: 'DOHC non-VTEC' }, { trim: 'GS', engine: 'B18A1', hp: 140, notes: 'DOHC non-VTEC' }, { trim: 'GS-R', engine: 'B17A1', hp: 160, notes: 'DOHC VTEC' }]},
+    { year: 1994, trims: [{ trim: 'RS', engine: 'B18B1', hp: 142, notes: 'DOHC non-VTEC' }, { trim: 'LS', engine: 'B18B1', hp: 142, notes: 'DOHC non-VTEC' }, { trim: 'GS', engine: 'B18B1', hp: 142, notes: 'DOHC non-VTEC' }, { trim: 'GS-R', engine: 'B18C1', hp: 170, notes: 'DOHC VTEC' }]},
+    { year: 1995, trims: [{ trim: 'RS', engine: 'B18B1', hp: 142, notes: 'DOHC non-VTEC' }, { trim: 'LS', engine: 'B18B1', hp: 142, notes: 'DOHC non-VTEC' }, { trim: 'GS', engine: 'B18B1', hp: 142, notes: 'DOHC non-VTEC' }, { trim: 'GS-R', engine: 'B18C1', hp: 170, notes: 'DOHC VTEC' }]},
+    { year: 1996, trims: [{ trim: 'RS', engine: 'B18B1', hp: 142, notes: 'DOHC non-VTEC' }, { trim: 'LS', engine: 'B18B1', hp: 142, notes: 'DOHC non-VTEC' }, { trim: 'GS', engine: 'B18B1', hp: 142, notes: 'DOHC non-VTEC' }, { trim: 'GS-R', engine: 'B18C1', hp: 170, notes: 'DOHC VTEC' }]},
+    { year: 1997, trims: [{ trim: 'RS', engine: 'B18B1', hp: 142, notes: 'DOHC non-VTEC' }, { trim: 'LS', engine: 'B18B1', hp: 142, notes: 'DOHC non-VTEC' }, { trim: 'GS', engine: 'B18B1', hp: 142, notes: 'DOHC non-VTEC' }, { trim: 'GS-R', engine: 'B18C1', hp: 170, notes: 'DOHC VTEC' }, { trim: 'Type R', engine: 'B18C5', hp: 195, notes: 'DOHC VTEC High-comp' }]},
+    { year: 1998, trims: [{ trim: 'RS', engine: 'B18B1', hp: 142, notes: 'DOHC non-VTEC' }, { trim: 'LS', engine: 'B18B1', hp: 142, notes: 'DOHC non-VTEC' }, { trim: 'GS', engine: 'B18B1', hp: 142, notes: 'DOHC non-VTEC' }, { trim: 'GS-R', engine: 'B18C1', hp: 170, notes: 'DOHC VTEC' }, { trim: 'Type R', engine: 'B18C5', hp: 195, notes: 'DOHC VTEC High-comp' }]},
+    { year: 1999, trims: [{ trim: 'RS', engine: 'B18B1', hp: 142, notes: 'DOHC non-VTEC' }, { trim: 'LS', engine: 'B18B1', hp: 142, notes: 'DOHC non-VTEC' }, { trim: 'GS', engine: 'B18B1', hp: 142, notes: 'DOHC non-VTEC' }, { trim: 'GS-R', engine: 'B18C1', hp: 170, notes: 'DOHC VTEC' }, { trim: 'Type R', engine: 'B18C5', hp: 195, notes: 'DOHC VTEC High-comp' }]},
+    { year: 2000, trims: [{ trim: 'RS', engine: 'B18B1', hp: 142, notes: 'DOHC non-VTEC' }, { trim: 'LS', engine: 'B18B1', hp: 142, notes: 'DOHC non-VTEC' }, { trim: 'GS', engine: 'B18B1', hp: 142, notes: 'DOHC non-VTEC' }, { trim: 'GS-R', engine: 'B18C1', hp: 170, notes: 'DOHC VTEC' }, { trim: 'Type R', engine: 'B18C5', hp: 195, notes: 'DOHC VTEC High-comp' }]},
+    { year: 2001, trims: [{ trim: 'RS', engine: 'B18B1', hp: 142, notes: 'DOHC non-VTEC' }, { trim: 'LS', engine: 'B18B1', hp: 142, notes: 'DOHC non-VTEC' }, { trim: 'GS', engine: 'B18B1', hp: 142, notes: 'DOHC non-VTEC' }, { trim: 'GS-R', engine: 'B18C1', hp: 170, notes: 'DOHC VTEC' }, { trim: 'Type R', engine: 'B18C5', hp: 195, notes: 'DOHC VTEC High-comp' }]},
+  ]},
+  { model: 'Honda CR-V', years: [
+    { year: 1997, trims: [{ trim: 'Base', engine: 'B20B', hp: 126, notes: 'DOHC non-VTEC' }]},
+    { year: 1998, trims: [{ trim: 'LX', engine: 'B20B', hp: 126, notes: 'DOHC non-VTEC' }, { trim: 'EX', engine: 'B20Z2', hp: 146, notes: 'DOHC non-VTEC higher comp' }]},
+    { year: 1999, trims: [{ trim: 'LX', engine: 'B20B', hp: 126, notes: 'DOHC non-VTEC' }, { trim: 'EX', engine: 'B20Z2', hp: 146, notes: 'DOHC non-VTEC higher comp' }]},
+    { year: 2000, trims: [{ trim: 'LX', engine: 'B20B', hp: 126, notes: 'DOHC non-VTEC' }, { trim: 'EX', engine: 'B20Z2', hp: 146, notes: 'DOHC non-VTEC higher comp' }]},
+    { year: 2001, trims: [{ trim: 'LX', engine: 'B20B', hp: 126, notes: 'DOHC non-VTEC' }, { trim: 'EX', engine: 'B20Z2', hp: 146, notes: 'DOHC non-VTEC higher comp' }]},
+  ]},
+  { model: 'Acura NSX', years: [
+    { year: 1991, trims: [{ trim: 'Base', engine: 'C30A', hp: 270, notes: 'DOHC VTEC V6 3.0L' }]},
+    { year: 1995, trims: [{ trim: 'Base', engine: 'C30A', hp: 270, notes: 'DOHC VTEC V6 3.0L' }, { trim: 'T', engine: 'C30A', hp: 270, notes: 'Targa roof' }]},
+    { year: 1997, trims: [{ trim: 'Base', engine: 'C32B', hp: 290, notes: 'DOHC VTEC V6 3.2L' }, { trim: 'T', engine: 'C32B', hp: 290, notes: 'Targa roof' }]},
+    { year: 2001, trims: [{ trim: 'Base', engine: 'C32B', hp: 290, notes: 'DOHC VTEC V6 3.2L' }]},
+  ]},
+]
+
+type ProfileKey = string // "model|year|trim"
+
 // ---- Compatible vehicles ----------------------------------------------------
 const COMPAT = [
   { model:'Honda Civic / CRX / Del Sol', years:'1992-2000', engines:'D15B, D16Z6, D16Y7/8, B16A, B16A2' },
@@ -333,10 +463,26 @@ export default function Home() {
   const [chartFilterOpen, setChartFilterOpen] = useState(false)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
 
-  // Car profile modal
-  const [selectedCar, setSelectedCar]     = useState<string | null>(null)
-  const [carModalOpen, setCarModalOpen]   = useState(false)
-  const carModalRef                       = useRef<HTMLDivElement>(null)
+  // Car profile: model + year + trim selection, per-profile session storage
+  const [carModalOpen, setCarModalOpen]     = useState(false)
+  const [carModalStep, setCarModalStep]     = useState<'model' | 'year' | 'trim'>('model')
+  const [selectedModel, setSelectedModel]   = useState<string | null>(null)
+  const [selectedYear, setSelectedYear]     = useState<number | null>(null)
+  const [selectedTrim, setSelectedTrim]     = useState<string | null>(null)
+  // profileKey = "model|year|trim" - used to scope sessions per car
+  const [activeProfile, setActiveProfile]   = useState<ProfileKey | null>(null)
+  // perProfile sessions: { [profileKey]: LogSession[] }
+  const [profileSessions, setProfileSessions] = useState<Record<string, LogSession[]>>({})
+  const carModalRef                           = useRef<HTMLDivElement>(null)
+
+  // Derive selected car display name
+  const selectedCarDef = activeProfile ? (() => {
+    const [m, y, tr] = activeProfile.split('|')
+    const modelDef = CAR_CATALOG.find(c => c.model === m)
+    const yearDef  = modelDef?.years.find(y2 => y2.year === parseInt(y))
+    const trimDef  = yearDef?.trims.find(t => t.trim === tr)
+    return trimDef ? { model: m, year: parseInt(y), trim: tr, engine: trimDef.engine, hp: trimDef.hp, notes: trimDef.notes } : null
+  })() : null
 
   const t = (k: string): string => T[lang][k] ?? k
 
@@ -357,18 +503,20 @@ export default function Home() {
     return () => document.removeEventListener('mousedown', handler)
   }, [carModalOpen])
 
+  // Sessions scoped to active profile (or global if no profile)
+  const profileLocalSessions = activeProfile ? (profileSessions[activeProfile] ?? []) : localSessions
   const allSessions: LogSession[] = (() => {
     const map = new Map<string, LogSession>()
-    BASELINE.forEach(s => map.set(s.name, s))
-    dbSessions.forEach(s => map.set(s.name, s))
-    localSessions.forEach(s => map.set(s.name, s))
+    if (!activeProfile) BASELINE.forEach(s => map.set(s.name, s))
+    dbSessions.filter(s => !activeProfile || (s as any).profile === activeProfile).forEach(s => map.set(s.name, s))
+    profileLocalSessions.forEach(s => map.set(s.name, s))
     return Array.from(map.values())
   })()
 
-  const active    = activeIdx != null ? allSessions[activeIdx] : allSessions[allSessions.length - 1]
+  const active    = activeIdx != null ? (allSessions[activeIdx] ?? allSessions[allSessions.length - 1]) : allSessions[allSessions.length - 1]
   const alerts    = active ? generateAlerts(active, lang) : []
   const tlLabels  = allSessions.map(s => s.name)
-  const isNew     = (s: LogSession) => dbSessions.some(d => d.name === s.name) || localSessions.some(l => l.name === s.name)
+  const isNew     = (s: LogSession) => dbSessions.some(d => d.name === s.name) || profileLocalSessions.some(l => l.name === s.name)
   const hs        = active ? calcHealth(active) : null
   const hsColor   = hs != null ? scoreCol(hs) : '#475569'
 
@@ -394,11 +542,20 @@ export default function Home() {
         } catch { /* local only */ }
       } catch (e) { console.error(e) }
     }
-    setLocalSessions(prev => {
-      const m = new Map(prev.map(s => [s.name, s]))
-      added.forEach(s => m.set(s.name, s))
-      return Array.from(m.values())
-    })
+    if (activeProfile) {
+      setProfileSessions(prev => {
+        const existing = prev[activeProfile] ?? []
+        const m = new Map(existing.map(s => [s.name, s]))
+        added.forEach(s => m.set(s.name, s))
+        return { ...prev, [activeProfile]: Array.from(m.values()) }
+      })
+    } else {
+      setLocalSessions(prev => {
+        const m = new Map(prev.map(s => [s.name, s]))
+        added.forEach(s => m.set(s.name, s))
+        return Array.from(m.values())
+      })
+    }
     setActiveIdx(allSessions.length + added.length - 1)
     setUploading(false)
   }, [allSessions.length])
@@ -439,44 +596,85 @@ export default function Home() {
           <div style={{ width:1, height:18, background:'#1e2740' }} />
 
           {/* Car profile button */}
-          <div style={{ position:'relative' }} ref={carModalOpen ? carModalRef : null}>
+          <div style={{ position:'relative' }}>
             <button
-              onClick={() => setCarModalOpen(o => !o)}
-              style={{ display:'flex', alignItems:'center', gap:8, fontSize:11, padding:'4px 12px', border:'1px solid', borderColor: carModalOpen ? '#f97316' : '#1e2740', borderRadius:6, background: carModalOpen ? '#2a1a0a' : '#161c2a', color: selectedCar ? '#f97316' : '#64748b', cursor:'pointer', fontFamily:'IBM Plex Mono,monospace', fontWeight:600, letterSpacing:1 }}
+              onClick={() => { setCarModalOpen(o => !o); setCarModalStep('model') }}
+              style={{ display:'flex', alignItems:'center', gap:8, fontSize:11, padding:'4px 12px', border:'1px solid', borderColor: carModalOpen ? '#f97316' : '#1e2740', borderRadius:6, background: carModalOpen ? '#2a1a0a' : '#161c2a', color: activeProfile ? '#f97316' : '#64748b', cursor:'pointer', fontFamily:'IBM Plex Mono,monospace', fontWeight:600, letterSpacing:1 }}
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-              {selectedCar ?? t('no_car')}
+              {selectedCarDef ? `${selectedCarDef.year} ${selectedCarDef.model.split('/')[0].trim()} ${selectedCarDef.trim}` : t('no_car')}
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
 
-            {/* Car modal dropdown */}
             {carModalOpen && (
-              <div ref={carModalRef} style={{ position:'absolute', top:'calc(100% + 8px)', left:0, width:480, background:'#111827', border:'1px solid #1e2740', borderRadius:10, boxShadow:'0 8px 32px rgba(0,0,0,0.5)', zIndex:100, overflow:'hidden' }}>
-                <div style={{ padding:'14px 16px', borderBottom:'1px solid #1e2740', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                  <span style={{ fontSize:12, fontWeight:700, color:'#94a3b8', letterSpacing:2, textTransform:'uppercase', fontFamily:'IBM Plex Mono,monospace' }}>{t('car_profile')}</span>
-                  {selectedCar && (
-                    <button onClick={() => { setSelectedCar(null); setCarModalOpen(false) }} style={{ fontSize:10, color:'#475569', background:'none', border:'none', cursor:'pointer', fontFamily:'IBM Plex Mono,monospace' }}>Clear</button>
-                  )}
+              <div ref={carModalRef} style={{ position:'absolute', top:'calc(100% + 8px)', left:0, width:460, background:'#111827', border:'1px solid #1e2740', borderRadius:10, boxShadow:'0 8px 32px rgba(0,0,0,0.5)', zIndex:100, overflow:'hidden' }}>
+                {/* Modal header */}
+                <div style={{ padding:'12px 16px', borderBottom:'1px solid #1e2740', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                  <div style={{ display:'flex', gap:8 }}>
+                    {(['model','year','trim'] as const).map((step, i) => (
+                      <button key={step} onClick={() => { if(i === 0 || (i === 1 && selectedModel) || (i === 2 && selectedModel && selectedYear)) setCarModalStep(step) }}
+                        style={{ fontSize:10, padding:'2px 8px', borderRadius:4, border:'1px solid', borderColor: carModalStep === step ? '#f97316' : '#1e2740', background: carModalStep === step ? '#2a1a0a' : 'transparent', color: carModalStep === step ? '#f97316' : '#475569', cursor:'pointer', fontFamily:'IBM Plex Mono,monospace', fontWeight:700 }}>
+                        {step === 'model' ? 'Model' : step === 'year' ? (selectedYear ? `${selectedYear}` : 'Year') : (selectedTrim ? selectedTrim : 'Trim')}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{ display:'flex', gap:8 }}>
+                    {activeProfile && <button onClick={() => { setActiveProfile(null); setSelectedModel(null); setSelectedYear(null); setSelectedTrim(null); setActiveIdx(null); setCarModalOpen(false) }} style={{ fontSize:9, color:'#475569', background:'none', border:'1px solid #1e2740', borderRadius:3, cursor:'pointer', fontFamily:'IBM Plex Mono,monospace', padding:'2px 7px' }}>Clear profile</button>}
+                    <button onClick={() => setCarModalOpen(false)} style={{ fontSize:14, color:'#475569', background:'none', border:'none', cursor:'pointer', lineHeight:1 }}>x</button>
+                  </div>
                 </div>
-                <div style={{ maxHeight:320, overflowY:'auto' }}>
-                  {COMPAT.map((v, i) => (
-                    <div
-                      key={i}
-                      onClick={() => { setSelectedCar(v.model); setCarModalOpen(false) }}
-                      style={{ padding:'10px 16px', borderBottom:'1px solid #161c2a', cursor:'pointer', background: selectedCar === v.model ? '#1a2035' : 'transparent', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}
-                    >
-                      <div>
-                        <div style={{ fontSize:12, fontWeight:600, color: selectedCar === v.model ? '#f97316' : '#e2e8f0', marginBottom:2 }}>{v.model}</div>
-                        <div style={{ fontSize:10, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>{v.engines}</div>
+
+                {/* Step 1: Model */}
+                {carModalStep === 'model' && (
+                  <div style={{ maxHeight:300, overflowY:'auto' }}>
+                    {CAR_CATALOG.map((car) => (
+                      <div key={car.model} onClick={() => { setSelectedModel(car.model); setSelectedYear(null); setSelectedTrim(null); setCarModalStep('year') }}
+                        style={{ padding:'10px 16px', borderBottom:'1px solid #161c2a', cursor:'pointer', background: selectedModel === car.model ? '#1a2035' : 'transparent' }}>
+                        <div style={{ fontSize:12, fontWeight:600, color: selectedModel === car.model ? '#f97316' : '#e2e8f0' }}>{car.model}</div>
+                        <div style={{ fontSize:10, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>{car.years[0].year} - {car.years[car.years.length-1].year}</div>
                       </div>
-                      <div style={{ fontSize:9, color:'#334155', fontFamily:'IBM Plex Mono,monospace', whiteSpace:'nowrap' }}>{v.years}</div>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ padding:'10px 16px', borderTop:'1px solid #1e2740' }}>
-                  <p style={{ fontSize:10, color:'#334155', fontFamily:'IBM Plex Mono,monospace', lineHeight:1.6 }}>
-                    All Honda/Acura gasoline models 1992-2001 with 3-pin or 5-pin DLC connector are supported.
-                  </p>
+                    ))}
+                  </div>
+                )}
+
+                {/* Step 2: Year */}
+                {carModalStep === 'year' && selectedModel && (
+                  <div style={{ maxHeight:300, overflowY:'auto' }}>
+                    {(CAR_CATALOG.find(c => c.model === selectedModel)?.years ?? []).map((yd) => (
+                      <div key={yd.year} onClick={() => { setSelectedYear(yd.year); setSelectedTrim(null); setCarModalStep('trim') }}
+                        style={{ padding:'10px 16px', borderBottom:'1px solid #161c2a', cursor:'pointer', background: selectedYear === yd.year ? '#1a2035' : 'transparent', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                        <span style={{ fontSize:13, fontWeight:700, color: selectedYear === yd.year ? '#f97316' : '#e2e8f0', fontFamily:'IBM Plex Mono,monospace' }}>{yd.year}</span>
+                        <span style={{ fontSize:10, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>{yd.trims.length} trims</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Step 3: Trim */}
+                {carModalStep === 'trim' && selectedModel && selectedYear && (
+                  <div style={{ maxHeight:300, overflowY:'auto' }}>
+                    {(CAR_CATALOG.find(c => c.model === selectedModel)?.years.find(y => y.year === selectedYear)?.trims ?? []).map((td) => {
+                      const key = `${selectedModel}|${selectedYear}|${td.trim}`
+                      const isSelected = activeProfile === key
+                      return (
+                        <div key={td.trim} onClick={() => { setSelectedTrim(td.trim); setActiveProfile(key); setActiveIdx(null); setCarModalOpen(false) }}
+                          style={{ padding:'12px 16px', borderBottom:'1px solid #161c2a', cursor:'pointer', background: isSelected ? '#1a2035' : 'transparent' }}>
+                          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:3 }}>
+                            <span style={{ fontSize:13, fontWeight:700, color: isSelected ? '#f97316' : '#e2e8f0' }}>{td.trim}</span>
+                            <span style={{ fontSize:12, fontFamily:'IBM Plex Mono,monospace', color: isSelected ? '#f97316' : C.cyan, fontWeight:700 }}>{td.engine}</span>
+                          </div>
+                          <div style={{ display:'flex', gap:12 }}>
+                            <span style={{ fontSize:10, color:'#64748b', fontFamily:'IBM Plex Mono,monospace' }}>{td.hp} hp</span>
+                            <span style={{ fontSize:10, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>{td.notes}</span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                <div style={{ padding:'8px 16px', borderTop:'1px solid #1e2740' }}>
+                  <p style={{ fontSize:9, color:'#334155', fontFamily:'IBM Plex Mono,monospace' }}>Logs are scoped per profile. Switching profiles resets the log view.</p>
                 </div>
               </div>
             )}
@@ -512,7 +710,25 @@ export default function Home() {
         {/* SIDEBAR - only on overview */}
         {showSidebar && (
           <div style={{ width:200, flexShrink:0, background:'#111827', borderRight:'1px solid #1e2740', display:'flex', flexDirection:'column', overflow:'hidden' }}>
-            <div style={{ padding:'11px 14px 9px', borderBottom:'1px solid #1e2740', fontSize:10, letterSpacing:'2px', textTransform:'uppercase', color:'#475569', fontFamily:'IBM Plex Mono,monospace', fontWeight:700 }}>{t('sessions')}</div>
+            {/* Big health score circle */}
+            {hs != null && (
+              <button onClick={() => setTab('score')} style={{ display:'flex', flexDirection:'column', alignItems:'center', width:'100%', padding:'16px 14px 12px', background:'none', border:'none', cursor:'pointer', gap:4, borderBottom:'1px solid #1e2740' }}>
+                <div style={{ width:72, height:72, borderRadius:'50%', border:`3px solid ${hsColor}`, display:'flex', alignItems:'center', justifyContent:'center', background:`${hsColor}12` }}>
+                  <span style={{ fontSize:28, fontWeight:900, color:hsColor, fontFamily:'IBM Plex Mono,monospace', lineHeight:1 }}>{hs}</span>
+                </div>
+                <span style={{ fontSize:9, color:'#475569', fontFamily:'IBM Plex Mono,monospace', letterSpacing:1.5, textTransform:'uppercase' }}>health score</span>
+              </button>
+            )}
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 14px', borderBottom:'1px solid #1e2740' }}>
+              <span style={{ fontSize:10, letterSpacing:'2px', textTransform:'uppercase', color:'#475569', fontFamily:'IBM Plex Mono,monospace', fontWeight:700 }}>{t('sessions')}</span>
+              {allSessions.length > 0 && (
+                <button
+                  onClick={() => { if(activeProfile) { setProfileSessions(p => ({ ...p, [activeProfile]: [] })) } else { setLocalSessions([]); setDbSessions([]) }; setActiveIdx(null) }}
+                  style={{ fontSize:9, color:'#475569', background:'none', border:'1px solid #1e2740', borderRadius:3, cursor:'pointer', fontFamily:'IBM Plex Mono,monospace', padding:'2px 6px' }}>
+                  Clear
+                </button>
+              )}
+            </div>
             <div style={{ flex:1, overflowY:'auto' }}>
               {allSessions.map((s, i) => {
                 const isActive  = active?.name === s.name
@@ -614,31 +830,35 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Sections - 2 column layout when wide enough */}
+              {/* Diagnosis - always first, full width */}
+              {(() => {
+                const diagSec = SECTIONS.find(s => s.key === 'diag')!
+                const open = !collapsedSecs.has('diag')
+                return (
+                  <div style={{ marginBottom:4 }}>
+                    <SecHead title={t('sec_diag')} color={C.red} open={open} onToggle={() => toggleSec('diag')} />
+                    {open && (
+                      <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:8 }}>
+                        {alerts.map((a, idx) => (
+                          <div key={idx} style={{ display:'flex', gap:10, alignItems:'flex-start', padding:'10px 14px', borderRadius:8, border:`1px solid ${AC[a.type]}30`, background:`${AC[a.type]}0a` }}>
+                            <div style={{ fontSize:9, padding:'3px 7px', borderRadius:4, background:`${AC[a.type]}20`, color:AC[a.type], letterSpacing:1, flexShrink:0, fontFamily:'IBM Plex Mono,monospace', fontWeight:700 }}>{a.param}</div>
+                            <div>
+                              <div style={{ fontSize:12, fontWeight:700, color:AC[a.type], marginBottom:3 }}>{a.title}</div>
+                              <div style={{ fontSize:11, color:'#64748b', lineHeight:1.6 }}>{a.detail}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
+
+              {/* KPI sections - 2 column layout when wide enough */}
               <div style={{ columns:'2 400px', columnGap:20 }}>
-                {SECTIONS.map(sec => {
+                {SECTIONS.filter(sec => sec.key !== 'diag').map(sec => {
                   const open = !collapsedSecs.has(sec.key)
                   const params = sec.params.filter(p => visibleParams.has(p.id))
-                  if (sec.key === 'diag') {
-                    return (
-                      <div key={sec.key} style={{ breakInside:'avoid', marginBottom:4 }}>
-                        <SecHead title={t('sec_diag')} color={C.red} open={open} onToggle={() => toggleSec('diag')} />
-                        {open && (
-                          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-                            {alerts.map((a, idx) => (
-                              <div key={idx} style={{ display:'flex', gap:10, alignItems:'flex-start', padding:'10px 14px', borderRadius:8, border:`1px solid ${AC[a.type]}30`, background:`${AC[a.type]}0a` }}>
-                                <div style={{ fontSize:9, padding:'3px 7px', borderRadius:4, background:`${AC[a.type]}20`, color:AC[a.type], letterSpacing:1, flexShrink:0, fontFamily:'IBM Plex Mono,monospace', fontWeight:700 }}>{a.param}</div>
-                                <div>
-                                  <div style={{ fontSize:12, fontWeight:700, color:AC[a.type], marginBottom:3 }}>{a.title}</div>
-                                  <div style={{ fontSize:11, color:'#64748b', lineHeight:1.6 }}>{a.detail}</div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  }
                   if (params.length === 0 && !open) return null
                   return (
                     <div key={sec.key} style={{ breakInside:'avoid', marginBottom:4 }}>
@@ -706,6 +926,29 @@ export default function Home() {
                   </div>
                 </div>
               )}
+              {/* Health Score evolution chart - always first */}
+              <div style={{ marginBottom:28 }}>
+                <div style={{ borderBottom:'1px solid #1e2740', paddingBottom:10, marginBottom:16 }}>
+                  <span style={{ fontSize:13, fontWeight:700, color:'#e2e8f0', fontFamily:'IBM Plex Mono,monospace' }}>Health Score</span>
+                </div>
+                <div style={{ background:'#111827', border:'1px solid #1e2740', borderRadius:10, padding:'16px 18px' }}>
+                  <div style={{ display:'flex', gap:6, alignItems:'flex-end', height:90 }}>
+                    {allSessions.map((s, idx) => {
+                      const sScore = calcHealth(s)
+                      const sCol = scoreCol(sScore)
+                      const isAct = s.name === active?.name
+                      return (
+                        <div key={s.name} onClick={() => { setActiveIdx(idx); setTab('score') }} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:3, cursor:'pointer' }}>
+                          <div style={{ fontSize:9, fontFamily:'IBM Plex Mono,monospace', color:sCol, fontWeight:700 }}>{sScore}</div>
+                          <div style={{ width:'100%', height:`${sScore}%`, minHeight:3, background:sCol, borderRadius:'2px 2px 0 0', opacity: isAct ? 1 : 0.5, outline: isAct ? `1px solid ${sCol}` : 'none' }} />
+                          <div style={{ fontSize:7, color:'#334155', fontFamily:'IBM Plex Mono,monospace', textAlign:'center', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', width:'100%' }}>{s.name.split(' ')[0]}</div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+
               {chartGroups.map(grp => {
                 const charts = filteredCharts.filter(c => c.group === grp)
                 if (!charts.length) return null
