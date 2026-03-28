@@ -502,6 +502,7 @@ export default function Home(): React.ReactElement {
   const [localSessions, setLocalSessions]       = useState<LogSession[]>([])
   const [uploading, setUploading]               = useState(false)
   const [uploadProgress, setUploadProgress]     = useState<{current:number;total:number}|null>(null)
+  const [uploadFilePct, setUploadFilePct]       = useState(0)  // 0-100 for current file
   const [activeIdx, setActiveIdx]               = useState<number|null>(null)
   const [tab, setTab]                           = useState<Tab>('overview')
   const [lang, setLang]                         = useState<Lang>('en')
@@ -517,9 +518,13 @@ export default function Home(): React.ReactElement {
   // Session notes: { [profileKey]: { [sessionName]: string } }
   const [sessionNotes, setSessionNotes]         = useState<Record<string,Record<string,string>>>({})
   const [sessionDescs, setSessionDescs]         = useState<Record<string,Record<string,string>>>({})
+  // Maintenance changes: { profileKey: { sessionName: [{type:'upgrade'|'swap'|'fix', text:string}] } }
+  const [sessionChanges, setSessionChanges]     = useState<Record<string,Record<string,{type:string;text:string}[]>>>({})
   const [editingNote, setEditingNote]           = useState<string|null>(null)  // session name being edited
   const [compareIdx, setCompareIdx]             = useState<number|null>(null)   // index of session to compare with
   const [hoveredSession, setHoveredSession]     = useState<number|null>(null)
+  const [sidebarWidth, setSidebarWidth]         = useState(200)
+  const sidebarResizing                         = React.useRef(false)
   const [editLogSession, setEditLogSession]     = useState<string|null>(null)  // session name being edited in overlay
   const [editLogDesc, setEditLogDesc]           = useState<string>('')
   const allParamKeys                            = ['bat','alt_fr','eld_curr','fuel_flow','fuel_inst','inj_dur','inj_dc','inj_fr','map_psi','map_wot','iat','clv','ltft','stft','lambda','fls','iacv_dc','ign_adv','ign_lim','knock','ect','ect_hot','fan','iacv_dc2','rev','vss','lng_accel','km_est','vtec','egr','mil']
@@ -558,6 +563,8 @@ export default function Home(): React.ReactElement {
       if (Object.keys(notes).length) setSessionNotes(notes)
       const descs = JSON.parse(localStorage.getItem('hndsh_descs') || '{}')
       if (Object.keys(descs).length) setSessionDescs(descs)
+      const changes = JSON.parse(localStorage.getItem('hndsh_changes') || '{}')
+      if (Object.keys(changes).length) setSessionChanges(changes)
       // Show wizard on first visit
       if (!localStorage.getItem('hndsh_wizard_done')) setWizardOpen(true)
     } catch {}
@@ -586,6 +593,10 @@ export default function Home(): React.ReactElement {
     if (!hydrated) return
     try { localStorage.setItem('hndsh_descs', JSON.stringify(sessionDescs)) } catch {}
   }, [sessionDescs, hydrated])
+  useEffect(() => {
+    if (!hydrated) return
+    try { localStorage.setItem('hndsh_changes', JSON.stringify(sessionChanges)) } catch {}
+  }, [sessionChanges, hydrated])
 
   useEffect(() => {
     fetch('/api/sessions').then(r => r.json()).then((d: {sessions?: LogSession[]}) => {
@@ -642,15 +653,25 @@ export default function Home(): React.ReactElement {
   const AC: Record<string,string> = { bad:C.red, warn:C.orange, good:C.green, info:C.blue }
 
   // -- File upload -------------------------------------------------------
+  const MAX_FILE_MB = 50
   const handleFiles = useCallback(async (files: File[]) => {
     if (!files.length) return
+    // Filter oversized files
+    const tooBig = files.filter(f => f.size > MAX_FILE_MB * 1024 * 1024)
+    if (tooBig.length) {
+      alert(tooBig.map(f => `${f.name}: ${(f.size/1024/1024).toFixed(0)}mb (max ${MAX_FILE_MB}mb)`).join('\n'))
+      files = files.filter(f => f.size <= MAX_FILE_MB * 1024 * 1024)
+      if (!files.length) return
+    }
     setUploading(true)
+    setUploadFilePct(0)
     setUploadProgress({ current:0, total:files.length })
     const added: LogSession[] = []
     for (let fi = 0; fi < files.length; fi++) {
+      setUploadFilePct(0)
       setUploadProgress({ current:fi+1, total:files.length })
       try {
-        const { session } = await parseCSVFile(files[fi])
+        const { session } = await parseCSVFile(files[fi], (pct: number) => setUploadFilePct(pct))
         added.push(session)
         try {
           const res = await fetch('/api/sessions', {
@@ -1079,7 +1100,27 @@ export default function Home(): React.ReactElement {
 
         {/* SIDEBAR - only on overview when profile active */}
         {tab === 'overview' && activeProfileKey && (
-          <div style={{ width:200, flexShrink:0, background:'#111827', borderRight:'1px solid #1e2740', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+          <div style={{ width:sidebarWidth, flexShrink:0, background:'#111827', borderRight:'1px solid #1e2740', display:'flex', flexDirection:'column', overflow:'hidden', position:'relative' }}>
+            {/* Resize handle */}
+            <div
+              onMouseDown={(e: React.MouseEvent) => {
+                e.preventDefault()
+                sidebarResizing.current = true
+                const startX = e.clientX
+                const startW = sidebarWidth
+                const onMove = (mv: MouseEvent) => {
+                  if (!sidebarResizing.current) return
+                  const newW = Math.max(160, Math.min(380, startW + mv.clientX - startX))
+                  setSidebarWidth(newW)
+                }
+                const onUp = () => { sidebarResizing.current = false; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
+                document.addEventListener('mousemove', onMove)
+                document.addEventListener('mouseup', onUp)
+              }}
+              style={{ position:'absolute', top:0, right:0, width:5, height:'100%', cursor:'col-resize', zIndex:10, background:'transparent' }}
+              onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => (e.currentTarget.style.background = '#f9731620')}
+              onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => (e.currentTarget.style.background = 'transparent')}
+            />
             {/* Health score circle */}
             {hs != null && (
               <button onClick={() => setTab('score')} style={{ display:'flex', flexDirection:'column', alignItems:'center', width:'100%', padding:'16px 14px 12px', background:'none', border:'none', cursor:'pointer', gap:4, borderBottom:'1px solid #1e2740' }}>
@@ -1206,9 +1247,14 @@ export default function Home(): React.ReactElement {
                 <input id="csv-up" type="file" accept=".csv" multiple style={{ display:'none' }} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { const f = Array.from(e.target.files ?? []) as File[]; if (f.length) handleFiles(f); e.target.value = '' }} />
                 {uploading && uploadProgress ? (
                   <>
-                    <span style={{ fontSize:10, fontWeight:600, color:'#f97316', fontFamily:'IBM Plex Mono,monospace', textAlign:'center' }}>{uploadProgress.current}/{uploadProgress.total}</span>
+                    <div style={{ display:'flex', justifyContent:'space-between', width:'100%' }}>
+                      <span style={{ fontSize:9, color:'#f97316', fontFamily:'IBM Plex Mono,monospace', fontWeight:600 }}>
+                        {uploadProgress.current}/{uploadProgress.total} logs
+                      </span>
+                      <span style={{ fontSize:9, color:'#f97316', fontFamily:'IBM Plex Mono,monospace', fontWeight:700 }}>{uploadFilePct}%</span>
+                    </div>
                     <div style={{ width:'100%', height:4, background:'#1e2740', borderRadius:2, overflow:'hidden' }}>
-                      <div style={{ height:'100%', width:`${Math.round(uploadProgress.current/uploadProgress.total*100)}%`, background:'#f97316', borderRadius:2, transition:'width 0.3s ease' }} />
+                      <div style={{ height:'100%', width:`${uploadFilePct}%`, background:'#f97316', borderRadius:2, transition:'width 0.1s linear' }} />
                     </div>
                   </>
                 ) : (
@@ -1320,16 +1366,40 @@ export default function Home(): React.ReactElement {
                   <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:2 }}>
                     <h1 style={{ fontSize:20, fontWeight:800, color:'#f1f5f9' }}>{active ? displayName(active) : ''}</h1>
                     <button onClick={() => { setEditLogSession(active.name); setEditLogDesc((sessionDescs[activeProfileKey!] ?? {})[active.name] ?? '') }}
-                      style={{ fontSize:9, color:'#334155', background:'#1e2740', border:'1px solid #2a3040', borderRadius:4, cursor:'pointer', padding:'2px 8px', fontFamily:'IBM Plex Mono,monospace', flexShrink:0 }}>
-                      {lang === 'en' ? 'Edit log' : 'Editar log'}
+                      title={lang === 'en' ? 'Edit log' : 'Editar log'}
+                      style={{ background:'none', border:'none', cursor:'pointer', padding:4, color:'#334155', display:'flex', alignItems:'center', flexShrink:0, borderRadius:4, transition:'color 0.15s' }}
+                      onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => (e.currentTarget.style.color = '#f97316')}
+                      onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => (e.currentTarget.style.color = '#334155')}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                      </svg>
                     </button>
                   </div>
                   {active && origName(active) && (
                     <div style={{ fontSize:10, color:'#334155', fontFamily:'IBM Plex Mono,monospace', marginBottom:4, fontStyle:'italic' }}>{active.name}</div>
                   )}
                   {activeProfileKey && (sessionDescs[activeProfileKey] ?? {})[active.name] && (
-                    <div style={{ fontSize:13, color:'#94a3b8', lineHeight:1.6, marginBottom:8, maxWidth:600 }}>
+                    <div style={{ fontSize:12, color:'#94a3b8', lineHeight:1.6, marginBottom:8, maxWidth:600 }}>
                       {(sessionDescs[activeProfileKey] ?? {})[active.name]}
+                    </div>
+                  )}
+                  {activeProfileKey && ((sessionChanges[activeProfileKey] ?? {})[active.name] ?? []).length > 0 && (
+                    <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:8, marginBottom:12, maxWidth:700 }}>
+                      {(['upgrade','swap','fix'] as const).map(type => {
+                        const typeLabel = type === 'upgrade' ? 'UPGRADE' : type === 'swap' ? (lang==='en'?'SWAP':'TROCA') : (lang==='en'?'FIX':'CONSERTO')
+                        const typeColor = type === 'upgrade' ? '#c060ff' : type === 'swap' ? '#f97316' : '#00e060'
+                        const items2 = ((sessionChanges[activeProfileKey] ?? {})[active.name] ?? []).filter((c: {type:string;text:string}) => c.type === type && c.text.trim())
+                        if (!items2.length) return null
+                        return (
+                          <div key={type} style={{ background:'#0f1117', border:`1px solid ${typeColor}25`, borderRadius:8, padding:'10px 12px' }}>
+                            <div style={{ fontSize:9, fontWeight:700, color:typeColor, fontFamily:'IBM Plex Mono,monospace', letterSpacing:1.5, marginBottom:8 }}>{typeLabel}</div>
+                            {items2.map((item: {type:string;text:string}, idx3: number) => (
+                              <div key={idx3} style={{ fontSize:11, color:'#94a3b8', padding:'3px 0', borderBottom:'1px solid #1e2740', lineHeight:1.5 }}>{item.text}</div>
+                            ))}
+                          </div>
+                        )
+                      })}
                     </div>
                   )}
                   <span style={{ fontSize:11, letterSpacing:'1.5px', textTransform:'uppercase', color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>
@@ -1940,15 +2010,71 @@ export default function Home(): React.ReactElement {
                 {/* Description */}
                 <div>
                   <label style={{ fontSize:10, color:'#64748b', fontFamily:'IBM Plex Mono,monospace', display:'block', marginBottom:6, letterSpacing:1 }}>
-                    {lang === 'en' ? 'DESCRIPTION (shown below title in Overview)' : 'DESCRICAO (aparece abaixo do titulo no Overview)'}
+                    {lang === 'en' ? 'DESCRIPTION' : 'DESCRICAO'}
                   </label>
                   <textarea
                     defaultValue={currentDesc}
                     id="editLogDesc"
-                    rows={3}
-                    placeholder={lang === 'en' ? 'e.g. After coolant flush, new thermostat installed...' : 'ex: Apos troca do fluido, termostato novo instalado...'}
-                    style={{ width:'100%', background:'#161c2a', border:'1px solid #1e2740', borderRadius:6, padding:'8px 12px', color:'#e2e8f0', fontSize:12, fontFamily:'IBM Plex Mono,monospace', outline:'none', resize:'vertical', boxSizing:'border-box', lineHeight:1.6 }}
+                    rows={2}
+                    placeholder={lang === 'en' ? 'Brief description of the session...' : 'Descricao breve da sessao...'}
+                    style={{ width:'100%', background:'#161c2a', border:'1px solid #1e2740', borderRadius:6, padding:'8px 12px', color:'#e2e8f0', fontSize:12, fontFamily:'IBM Plex Mono,monospace', outline:'none', resize:'none', boxSizing:'border-box', lineHeight:1.6 }}
                   />
+                </div>
+                {/* Maintenance changes */}
+                <div>
+                  <label style={{ fontSize:10, color:'#64748b', fontFamily:'IBM Plex Mono,monospace', display:'block', marginBottom:6, letterSpacing:1 }}>
+                    {lang === 'en' ? 'MAINTENANCE / UPGRADES' : 'MANUTENCAO / UPGRADES'}
+                  </label>
+                  {(() => {
+                    const items = (sessionChanges[activeProfileKey ?? ''] ?? {})[sName] ?? []
+                    return (
+                      <div>
+                        {items.map((item: {type:string;text:string}, idx2: number) => (
+                          <div key={idx2} style={{ display:'flex', gap:6, alignItems:'center', marginBottom:5 }}>
+                            <select
+                              value={item.type}
+                              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                                const newItems = [...items]; newItems[idx2] = { ...item, type: e.target.value }
+                                setSessionChanges((prev: Record<string,Record<string,{type:string;text:string}[]>>) => ({
+                                  ...prev, [activeProfileKey ?? '']: { ...(prev[activeProfileKey ?? ''] ?? {}), [sName]: newItems }
+                                }))
+                              }}
+                              style={{ background:'#161c2a', border:'1px solid #1e2740', borderRadius:4, padding:'4px 6px', color:'#f97316', fontSize:9, fontFamily:'IBM Plex Mono,monospace', fontWeight:700, outline:'none', cursor:'pointer', flexShrink:0 }}>
+                              <option value="upgrade">UPGRADE</option>
+                              <option value="swap">{lang === 'en' ? 'SWAP' : 'TROCA'}</option>
+                              <option value="fix">{lang === 'en' ? 'FIX' : 'CONSERTO'}</option>
+                            </select>
+                            <input
+                              value={item.text}
+                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                const newItems = [...items]; newItems[idx2] = { ...item, text: e.target.value }
+                                setSessionChanges((prev: Record<string,Record<string,{type:string;text:string}[]>>) => ({
+                                  ...prev, [activeProfileKey ?? '']: { ...(prev[activeProfileKey ?? ''] ?? {}), [sName]: newItems }
+                                }))
+                              }}
+                              placeholder={lang === 'en' ? 'e.g. ProCooler radiator' : 'ex: Radiador ProCooler'}
+                              style={{ flex:1, background:'#161c2a', border:'1px solid #1e2740', borderRadius:4, padding:'4px 8px', color:'#e2e8f0', fontSize:11, fontFamily:'IBM Plex Mono,monospace', outline:'none' }}
+                            />
+                            <button onClick={() => {
+                              const newItems = items.filter((_item: {type:string;text:string}, i2: number) => i2 !== idx2)
+                              setSessionChanges((prev: Record<string,Record<string,{type:string;text:string}[]>>) => ({
+                                ...prev, [activeProfileKey ?? '']: { ...(prev[activeProfileKey ?? ''] ?? {}), [sName]: newItems }
+                              }))
+                            }} style={{ fontSize:10, color:'#dc2626', background:'none', border:'none', cursor:'pointer', padding:'0 2px', flexShrink:0 }}>x</button>
+                          </div>
+                        ))}
+                        <button onClick={() => {
+                          const newItems = [...items, { type:'swap', text:'' }]
+                          setSessionChanges((prev: Record<string,Record<string,{type:string;text:string}[]>>) => ({
+                            ...prev, [activeProfileKey ?? '']: { ...(prev[activeProfileKey ?? ''] ?? {}), [sName]: newItems }
+                          }))
+                        }}
+                          style={{ fontSize:10, color:'#64748b', background:'#0f1117', border:'1px dashed #1e2740', borderRadius:4, cursor:'pointer', padding:'4px 12px', fontFamily:'IBM Plex Mono,monospace', width:'100%', marginTop:2 }}>
+                          + {lang === 'en' ? 'Add item' : 'Adicionar item'}
+                        </button>
+                      </div>
+                    )
+                  })()}
                 </div>
                 {/* Actions */}
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:4 }}>
