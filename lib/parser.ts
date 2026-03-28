@@ -136,7 +136,7 @@ export function extractMetrics(rows: Row[], name: string): LogSession {
   const lnga   = getCol(rows, 'lnga')
   const map    = getCol(rows, 'map')
   const clv    = getCol(rows, 'clv')
-  const rev    = getCol(rows, 'rev')
+  const rev    = getCol(rows, 'rev').filter(v => v <= 8500)  // F22B1 redline ~6800; >8500 = sensor noise
   const egr    = getCol(rows, 'egr')
   const fan    = getCol(rows, 'fan')
   const ac     = getCol(rows, 'ac')
