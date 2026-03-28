@@ -400,6 +400,101 @@ function MiniDonut({ slices, size }: {
   )
 }
 
+// -- RouteMap: GPS track with speed-colored polyline -------------------------
+function RouteMap({ track, lang }: {
+  track: [number, number, number][]  // [lat, lon, speed]
+  lang: string
+}): React.ReactElement {
+  const mapRef = React.useRef<HTMLDivElement>(null)
+  const leafRef = React.useRef<unknown>(null)
+
+  React.useEffect(() => {
+    if (!mapRef.current || !track.length) return
+    // Dynamically load Leaflet from CDN
+    const link = document.createElement('link')
+    link.rel = 'stylesheet'
+    link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
+    document.head.appendChild(link)
+
+    const script = document.createElement('script')
+    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+    script.onload = () => {
+      const L = (window as unknown as {L: {
+        map: (el: HTMLElement, opts: object) => {setView: (c:[number,number],z:number)=>unknown; remove:()=>void}
+        tileLayer: (url: string, opts: object) => {addTo:(m:unknown)=>void}
+        polyline: (pts:[number,number][], opts: object) => {addTo:(m:unknown)=>void; getBounds:()=>unknown}
+        CircleMarker: new (latlng:[number,number], opts:object)=>{addTo:(m:unknown)=>void}
+        fitBounds: (b:unknown)=>void
+      }}).L
+      if (!mapRef.current) return
+      if (leafRef.current) (leafRef.current as {remove:()=>void}).remove()
+
+      const center: [number, number] = [track[0][0], track[0][1]]
+      const m = L.map(mapRef.current, { zoomControl: true, scrollWheelZoom: false })
+      leafRef.current = m
+      m.setView(center, 13)
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '? OpenStreetMap contributors',
+      }).addTo(m)
+
+      // Speed color: 0-30 blue, 30-60 orange, 60+ red
+      const speedColor = (sp: number): string => sp < 30 ? '#2060ff' : sp < 60 ? '#f97316' : '#ff3030'
+
+      // Draw colored segments
+      for (let i = 0; i < track.length - 1; i++) {
+        const [la, lo, sp] = track[i]
+        const [la2, lo2] = track[i + 1]
+        ;(L.polyline([[la, lo], [la2, lo2]], {
+          color: speedColor(sp), weight: 4, opacity: 0.85
+        }) as unknown as {addTo:(m:unknown)=>void}).addTo(m)
+      }
+
+      // Start and end markers
+      const startPt = track[0]
+      const endPt   = track[track.length - 1]
+      ;(new (L as unknown as {CircleMarker: new(latlng:[number,number],opts:object)=>object}).CircleMarker(
+        [startPt[0], startPt[1]], { radius: 7, color: '#00e060', fillColor: '#00e060', fillOpacity: 1, weight: 2 }
+      ) as unknown as {addTo:(m:unknown)=>void}).addTo(m)
+      ;(new (L as unknown as {CircleMarker: new(latlng:[number,number],opts:object)=>object}).CircleMarker(
+        [endPt[0], endPt[1]], { radius: 7, color: '#ff3030', fillColor: '#ff3030', fillOpacity: 1, weight: 2 }
+      ) as unknown as {addTo:(m:unknown)=>void}).addTo(m)
+
+      // Fit bounds
+      const allPts = track.map(([la, lo]) => [la, lo] as [number, number])
+      ;(m as unknown as {fitBounds:(b:[number,number][],opts:object)=>void}).fitBounds(allPts, { padding: [20, 20] })
+    }
+    document.head.appendChild(script)
+    return () => { if (leafRef.current) (leafRef.current as {remove:()=>void}).remove() }
+  }, [track])
+
+  return (
+    <div>
+      <div ref={mapRef} style={{ height:280, borderRadius:10, overflow:'hidden', border:'1px solid #1e2740' }} />
+      <div style={{ display:'flex', gap:14, marginTop:8, flexWrap:'wrap' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:5 }}>
+          <div style={{ width:20, height:4, background:'#2060ff', borderRadius:2 }} />
+          <span style={{ fontSize:10, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>&lt;30 km/h</span>
+        </div>
+        <div style={{ display:'flex', alignItems:'center', gap:5 }}>
+          <div style={{ width:20, height:4, background:'#f97316', borderRadius:2 }} />
+          <span style={{ fontSize:10, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>30-60 km/h</span>
+        </div>
+        <div style={{ display:'flex', alignItems:'center', gap:5 }}>
+          <div style={{ width:20, height:4, background:'#ff3030', borderRadius:2 }} />
+          <span style={{ fontSize:10, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>&gt;60 km/h</span>
+        </div>
+        <div style={{ display:'flex', alignItems:'center', gap:5, marginLeft:'auto' }}>
+          <div style={{ width:10, height:10, borderRadius:'50%', background:'#00e060' }} />
+          <span style={{ fontSize:10, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>{lang === 'en' ? 'Start' : 'Inicio'}</span>
+          <div style={{ width:10, height:10, borderRadius:'50%', background:'#ff3030', marginLeft:6 }} />
+          <span style={{ fontSize:10, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>{lang === 'en' ? 'End' : 'Fim'}</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // -- DiagList component ------------------------------------------------
 function DiagList({ alerts, AC }: { alerts: Alert[]; AC: Record<string,string> }): React.ReactElement {
   const [expanded, setExpanded] = React.useState<Set<number>>(new Set())
@@ -463,9 +558,9 @@ function Kpi({ label, value, unit, sub, color, prevValue, lowerIsBetter }: {
   return (
     <div style={{ background:'#1a1f2e', border:'1px solid #2a3040', borderRadius:8, padding:'12px 14px', position:'relative', overflow:'hidden' }}>
       <div style={{ position:'absolute', top:0, left:0, right:0, height:2, background:vc }} />
-      <div style={{ fontSize:10, letterSpacing:'1.5px', textTransform:'uppercase' as const, color:'#64748b', fontFamily:'IBM Plex Mono,monospace', fontWeight:600, marginBottom:8 }}>{label}</div>
+      <div style={{ fontSize:11, letterSpacing:'1px', textTransform:'uppercase' as const, color:'#64748b', fontFamily:'IBM Plex Mono,monospace', fontWeight:600, marginBottom:8 }}>{label}</div>
       <div style={{ display:'flex', alignItems:'baseline', gap:6 }}>
-        <div style={{ fontFamily:'IBM Plex Mono,monospace', fontSize:22, fontWeight:700, lineHeight:1, color:vc }}>
+        <div style={{ fontFamily:'IBM Plex Mono,monospace', fontSize:24, fontWeight:700, lineHeight:1, color:vc }}>
           {value ?? '--'}{unit && <span style={{ fontSize:11, color:'#64748b', marginLeft:2 }}>{unit}</span>}
         </div>
         {trend && (
@@ -476,7 +571,7 @@ function Kpi({ label, value, unit, sub, color, prevValue, lowerIsBetter }: {
           </div>
         )}
       </div>
-      {sub && <div style={{ fontSize:10, color:'#475569', fontFamily:'IBM Plex Mono,monospace', marginTop:6 }}>{sub}</div>}
+      {sub && <div style={{ fontSize:11, color:'#475569', fontFamily:'IBM Plex Mono,monospace', marginTop:6 }}>{sub}</div>}
     </div>
   )
 }
@@ -488,7 +583,7 @@ function SecHead({ title, color, open, onToggle }: {
   return (
     <button onClick={onToggle} style={{ display:'flex', alignItems:'center', gap:10, marginTop:24, marginBottom: open ? 14 : 4, width:'100%', background:'none', border:'none', cursor:'pointer', textAlign:'left', padding:0 }}>
       <div style={{ width:3, height:16, background:color, borderRadius:2 }} />
-      <span style={{ fontSize:11, fontWeight:700, letterSpacing:'2px', textTransform:'uppercase' as const, color:'#94a3b8', fontFamily:'IBM Plex Mono,monospace', flex:1 }}>{title}</span>
+      <span style={{ fontSize:13, fontWeight:700, letterSpacing:'1.5px', textTransform:'uppercase' as const, color:'#94a3b8', fontFamily:'IBM Plex Mono,monospace', flex:1 }}>{title}</span>
       <div style={{ flex:1, height:1, background:'#1e2740', maxWidth:200 }} />
       <span style={{ fontSize:11, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>{open ? 'v' : '>'}</span>
     </button>
@@ -505,7 +600,10 @@ export default function Home(): React.ReactElement {
   const [uploadFilePct, setUploadFilePct]       = useState(0)  // 0-100 for current file
   const [activeIdx, setActiveIdx]               = useState<number|null>(null)
   const [tab, setTab]                           = useState<Tab>('overview')
-  const [lang, setLang]                         = useState<Lang>('en')
+  const [lang, setLang]                         = useState<Lang>(() => {
+    if (typeof navigator !== 'undefined' && navigator.language.toLowerCase().startsWith('pt')) return 'pt'
+    return 'en'
+  })
   const [collapsedSecs, setCollapsedSecs]       = useState<Set<SecKey>>(new Set())
   const DEFAULT_SECTION_ORDER: SecKey[] = ['diag','elec','fuel','air','afr','ign','temp','idle','motion','act','perf']
   const [sectionOrder, setSectionOrder]         = useState<SecKey[]>(DEFAULT_SECTION_ORDER)
@@ -917,11 +1015,12 @@ export default function Home(): React.ReactElement {
       {/* TOPBAR */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 16px', height:52, background:'#111827', borderBottom:'1px solid #1e2740', flexShrink:0, zIndex:50 }}>
         <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-          {/* Logo */}
-          <div style={{ display:'flex', alignItems:'baseline', gap:3 }}>
+          {/* Logo - click to go home */}
+          <button onClick={() => { setTab('overview'); setActiveIdx(null) }}
+            style={{ background:'none', border:'none', cursor:'pointer', padding:0, display:'flex', alignItems:'baseline', gap:3 }}>
             <span style={{ fontSize:15, fontWeight:800, letterSpacing:3, color:'#f97316', fontFamily:'IBM Plex Mono,monospace' }}>HNDSH</span>
             <span style={{ fontSize:12, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>.meters</span>
-          </div>
+          </button>
           <div style={{ width:1, height:18, background:'#1e2740' }} />
 
           {/* Car profile button */}
@@ -1081,7 +1180,7 @@ export default function Home(): React.ReactElement {
           {(['overview','timeline','score'] as Tab[])
             .filter(tb => activeProfileKey || tb === 'overview')
             .map(tb => (
-              <button key={tb} onClick={() => setTab(tb)} style={{ padding:'0 16px', height:52, border:'none', borderBottom: tab===tb ? '2px solid #f97316' : '2px solid transparent', background:'transparent', color: tab===tb ? '#f97316' : '#64748b', fontSize:11, letterSpacing:2, textTransform:'uppercase', cursor:'pointer', fontWeight: tab===tb ? 700 : 400, fontFamily:'IBM Plex Mono,monospace' }}>
+              <button key={tb} onClick={() => setTab(tb)} style={{ padding:'0 16px', height:52, border:'none', borderBottom: tab===tb ? '2px solid #f97316' : '2px solid transparent', background:'transparent', color: tab===tb ? '#f97316' : '#64748b', fontSize:12, letterSpacing:2, textTransform:'uppercase', cursor:'pointer', fontWeight: tab===tb ? 700 : 400, fontFamily:'IBM Plex Mono,monospace' }}>
                 {tb === 'score' ? 'Score' : t(tb)}
               </button>
             ))}
@@ -1169,7 +1268,7 @@ export default function Home(): React.ReactElement {
                       <button onClick={() => setCollapsedMonths((prev: Set<string>) => {
                         const n = new Set(prev); n.has(grp.monthKey) ? n.delete(grp.monthKey) : n.add(grp.monthKey); return n
                       })} style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'6px 14px', background: hasActive ? '#1a1f2e' : '#0f1117', border:'none', borderBottom:'1px solid #161c2a', cursor:'pointer', textAlign:'left' }}>
-                        <span style={{ fontSize:9, fontWeight:700, letterSpacing:'1.5px', textTransform:'uppercase', color: hasActive ? '#f97316' : '#475569', fontFamily:'IBM Plex Mono,monospace' }}>
+                        <span style={{ fontSize:11, fontWeight:700, letterSpacing:'1px', textTransform:'uppercase', color: hasActive ? '#f97316' : '#475569', fontFamily:'IBM Plex Mono,monospace' }}>
                           {grp.label} <span style={{ color:'#334155', fontWeight:400 }}>({grp.items.length})</span>
                         </span>
                         <span style={{ fontSize:9, color:'#334155', transform: collapsed ? 'none' : 'rotate(90deg)', display:'inline-block', transition:'transform 0.15s' }}>{'>'}</span>
@@ -1190,7 +1289,7 @@ export default function Home(): React.ReactElement {
                     {isActive && <div style={{ position:'absolute', left:0, top:0, bottom:0, width:3, background:'#f97316' }} />}
                     <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:3 }}>
                       <span style={{ width:7, height:7, borderRadius:'50%', background:dot, flexShrink:0 }} />
-                      <span style={{ fontSize:11, fontWeight:700, color: isActive ? '#f97316' : (dateStr ? '#e2e8f0' : '#94a3b8'), overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1, fontFamily:'IBM Plex Mono,monospace' }}>
+                      <span style={{ fontSize:12, fontWeight:700, color: isActive ? '#f97316' : (dateStr ? '#e2e8f0' : '#94a3b8'), overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1, fontFamily:'IBM Plex Mono,monospace' }}>
                         {displayName(s)}
                       </span>
                       <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); setActiveIdx(i); setTab('score') }}
@@ -1364,7 +1463,7 @@ export default function Home(): React.ReactElement {
               <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:12, marginBottom:16, flexWrap:'wrap' }}>
                 <div>
                   <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:2 }}>
-                    <h1 style={{ fontSize:20, fontWeight:800, color:'#f1f5f9' }}>{active ? displayName(active) : ''}</h1>
+                    <h1 style={{ fontSize:22, fontWeight:800, color:'#f1f5f9' }}>{active ? displayName(active) : ''}</h1>
                     <button onClick={() => { setEditLogSession(active.name); setEditLogDesc((sessionDescs[activeProfileKey!] ?? {})[active.name] ?? '') }}
                       title={lang === 'en' ? 'Edit log' : 'Editar log'}
                       style={{ background:'none', border:'none', cursor:'pointer', padding:4, color:'#334155', display:'flex', alignItems:'center', flexShrink:0, borderRadius:4, transition:'color 0.15s' }}
@@ -1430,6 +1529,14 @@ export default function Home(): React.ReactElement {
                       </label>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* GPS Route Map */}
+              {active.gps_track && active.gps_track.length > 5 && (
+                <div style={{ marginBottom:8 }}>
+                  <SecHead title={lang === 'en' ? 'Route' : 'Percurso'} color="#4080ff" open={!collapsedSecs.has('diag')} onToggle={() => {}} />
+                  <RouteMap track={active.gps_track as [number,number,number][]} lang={lang} />
                 </div>
               )}
 
@@ -1499,7 +1606,7 @@ export default function Home(): React.ReactElement {
             <div>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20, gap:12 }}>
                 <div>
-                  <h1 style={{ fontSize:20, fontWeight:800, color:'#f1f5f9', marginBottom:4 }}>{t('timeline')}</h1>
+                  <h1 style={{ fontSize:22, fontWeight:800, color:'#f1f5f9', marginBottom:4 }}>{t('timeline')}</h1>
                   <span style={{ fontSize:11, letterSpacing:'1.5px', textTransform:'uppercase', color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>
                     {allSessions.length} {t('sessions')} - {filteredCharts.length} {t('charts_visible')}
                   </span>
@@ -1603,7 +1710,7 @@ export default function Home(): React.ReactElement {
           {activeProfileKey && tab === 'score' && active && (
             <div>
               <div style={{ marginBottom:20 }}>
-                <h1 style={{ fontSize:20, fontWeight:800, color:'#f1f5f9', marginBottom:4 }}>Engine Health Score</h1>
+                <h1 style={{ fontSize:22, fontWeight:800, color:'#f1f5f9', marginBottom:4 }}>Engine Health Score</h1>
                 <span style={{ fontSize:11, letterSpacing:'1.5px', textTransform:'uppercase', color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>{active.name} - weighted composite</span>
               </div>
               {(() => {
@@ -1735,7 +1842,7 @@ export default function Home(): React.ReactElement {
             {/* STEP 1: Overview */}
             {wizardStep === 1 && (
               <div style={{ padding:'24px 24px 8px' }}>
-                <h2 style={{ fontSize:20, fontWeight:800, color:'#f1f5f9', marginBottom:8, textAlign:'center' }}>
+                <h2 style={{ fontSize:22, fontWeight:800, color:'#f1f5f9', marginBottom:8, textAlign:'center' }}>
                   {lang === 'en' ? 'OBD1 telemetry for your Honda' : 'Telemetria OBD1 para o seu Honda'}
                 </h2>
                 <p style={{ fontSize:13, color:'#64748b', lineHeight:1.8, marginBottom:20, textAlign:'center' }}>
