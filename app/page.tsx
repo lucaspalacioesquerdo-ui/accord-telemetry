@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import React, { useEffect, useState, useCallback, useRef } from 'react'
 import TimelineChart from '@/components/TimelineChart'
 import { parseCSVFile, BASELINE } from '@/lib/parser'
-import { generateAlerts } from '@/lib/alerts'
+import { generateAlerts, type Alert } from '@/lib/alerts'
 import type { LogSession } from '@/lib/supabase'
 
 // ---- Types ------------------------------------------------------------------
@@ -26,8 +26,10 @@ const T: Record<Lang, Record<string,string>> = {
     all_logs:'All logs', sections:'Sections', collapse:'Collapse', expand:'Expand',
     upload_drag:'Drag CSV or click to import',
     upload_sub:'HondsH OBD1 - EN or PT - Multiple files',
-    car_profile:'Car Profile', select_car:'Select car profile',
-    no_car:'No car selected', change:'Change',
+    my_cars:'My Cars', add_car:'Add Car', no_car:'No car selected',
+    car_name_label:'Profile name (optional)', car_name_ph:'e.g. My Daily Driver',
+    saved_profiles:'Saved profiles', step_model:'Model', step_year:'Year', step_trim:'Trim',
+    clear_profile:'Remove profile', confirm_name:'Save profile',
     sec_elec:'Electrical & Charging', sec_fuel:'Fuel & Injection',
     sec_air:'Air / Intake / Load', sec_afr:'Mixture & Correction (AFR)',
     sec_ign:'Ignition', sec_temp:'Temperature & Cooling',
@@ -76,8 +78,10 @@ const T: Record<Lang, Record<string,string>> = {
     all_logs:'Todos os logs', sections:'Secoes', collapse:'Recolher', expand:'Expandir',
     upload_drag:'Arrastar CSV ou clicar para importar',
     upload_sub:'HondsH OBD1 - EN ou PT - Multiplos arquivos',
-    car_profile:'Perfil do Carro', select_car:'Selecionar perfil do carro',
-    no_car:'Nenhum carro selecionado', change:'Trocar',
+    my_cars:'Meus Carros', add_car:'Adicionar Carro', no_car:'Nenhum carro selecionado',
+    car_name_label:'Nome do perfil (opcional)', car_name_ph:'Ex.: Meu Carro',
+    saved_profiles:'Perfis salvos', step_model:'Modelo', step_year:'Ano', step_trim:'Versao',
+    clear_profile:'Remover perfil', confirm_name:'Salvar perfil',
     sec_elec:'Eletrica / Carregamento', sec_fuel:'Combustivel / Injecao',
     sec_air:'Ar / Admissao / Carga', sec_afr:'Mistura e Correcao (AFR)',
     sec_ign:'Ignicao', sec_temp:'Temperatura e Arrefecimento',
@@ -440,6 +444,53 @@ function SecHead({ title, color, open, onToggle }: { title:string; color:string;
   )
 }
 
+
+// ---- DiagList: compact collapsible alert cards ----------------------------
+function DiagList({ alerts, AC }: { alerts: Alert[]; AC: Record<string,string> }) {
+  const [expanded, setExpanded] = React.useState<Set<number>>(new Set())
+  const toggle = (i: number) => setExpanded(p => { const n = new Set(p); n.has(i) ? n.delete(i) : n.add(i); return n })
+
+  const typeIcon: Record<string, string> = { bad: 'x', warn: '!', good: 'v', info: 'i' }
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:6, marginBottom:8 }}>
+      {alerts.map((a, idx) => {
+        const col = AC[a.type]
+        const isOpen = expanded.has(idx)
+        return (
+          <div key={idx} style={{ border:`1px solid ${col}25`, borderRadius:8, overflow:'hidden' }}>
+            <button
+              onClick={() => toggle(idx)}
+              style={{ display:'flex', alignItems:'center', gap:10, width:'100%', padding:'9px 12px', background:`${col}08`, border:'none', cursor:'pointer', textAlign:'left' }}
+            >
+              {/* Type icon circle */}
+              <div style={{ width:18, height:18, borderRadius:'50%', border:`1.5px solid ${col}`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                <span style={{ fontSize:9, color:col, fontWeight:800, fontFamily:'IBM Plex Mono,monospace', lineHeight:1 }}>{typeIcon[a.type]}</span>
+              </div>
+              {/* Param tag */}
+              <span style={{ fontSize:9, padding:'2px 6px', borderRadius:3, background:`${col}18`, color:col, letterSpacing:1, flexShrink:0, fontFamily:'IBM Plex Mono,monospace', fontWeight:700 }}>{a.param}</span>
+              {/* Title */}
+              <span style={{ fontSize:11, fontWeight:600, color: a.type === 'good' ? '#64748b' : col, flex:1 }}>{a.title}</span>
+              {/* Expand chevron */}
+              <span style={{ fontSize:10, color:'#334155', transform: isOpen ? 'rotate(180deg)' : 'none', display:'inline-block', transition:'transform 0.15s' }}>v</span>
+            </button>
+            {isOpen && (
+              <div style={{ padding:'8px 12px 10px 40px', background:`${col}04`, borderTop:`1px solid ${col}15` }}>
+                <p style={{ fontSize:11, color:'#64748b', lineHeight:1.7, fontFamily:'IBM Plex Mono,monospace' }}>{a.detail}</p>
+                {a.correlation && (
+                  <div style={{ marginTop:6, fontSize:9, color:'#334155', fontFamily:'IBM Plex Mono,monospace', letterSpacing:1 }}>
+                    CORRELATION: {a.correlation}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 // ---- Main -------------------------------------------------------------------
 export default function Home() {
   // Core state
@@ -473,7 +524,11 @@ export default function Home() {
   const [activeProfile, setActiveProfile]   = useState<ProfileKey | null>(null)
   // perProfile sessions: { [profileKey]: LogSession[] }
   const [profileSessions, setProfileSessions] = useState<Record<string, LogSession[]>>({})
-  const carModalRef                           = useRef<HTMLDivElement>(null)
+  // Saved named profiles: { [profileKey]: displayName }
+  const [savedProfiles, setSavedProfiles]   = useState<Record<string, string>>({})
+  const [profileName, setProfileName]       = useState('')
+  const [carModalMode, setCarModalMode]     = useState<'list' | 'add'>('list')
+  const carModalRef                         = useRef<HTMLDivElement>(null)
 
   // Derive selected car display name
   const selectedCarDef = activeProfile ? (() => {
@@ -520,10 +575,17 @@ export default function Home() {
   const hs        = active ? calcHealth(active) : null
   const hsColor   = hs != null ? scoreCol(hs) : '#475569'
 
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null)
+
   const handleFiles = useCallback(async (files: File[]) => {
+    if (files.length === 0) return
     setUploading(true)
+    setUploadProgress({ current: 0, total: files.length })
     const added: LogSession[] = []
-    for (const file of files) {
+    // Process files sequentially to avoid race conditions
+    for (let fi = 0; fi < files.length; fi++) {
+      const file = files[fi]
+      setUploadProgress({ current: fi + 1, total: files.length })
       try {
         const { session } = await parseCSVFile(file)
         added.push(session)
@@ -539,8 +601,8 @@ export default function Home() {
               return [...prev, saved]
             })
           }
-        } catch { /* local only */ }
-      } catch (e) { console.error(e) }
+        } catch { /* save failed, local only */ }
+      } catch (e) { console.error('Parse error:', file.name, e) }
     }
     if (activeProfile) {
       setProfileSessions(prev => {
@@ -556,9 +618,10 @@ export default function Home() {
         return Array.from(m.values())
       })
     }
-    setActiveIdx(allSessions.length + added.length - 1)
+    if (added.length > 0) setActiveIdx(allSessions.length + added.length - 1)
     setUploading(false)
-  }, [allSessions.length])
+    setUploadProgress(null)
+  }, [allSessions.length, activeProfile])
 
   // Toggle helpers
   const toggleSec     = (k: SecKey)  => setCollapsedSecs(p => { const n = new Set(p); n.has(k) ? n.delete(k) : n.add(k); return n })
@@ -579,7 +642,8 @@ export default function Home() {
   }
 
   const AC: Record<string,string> = { bad:C.red, warn:C.orange, good:C.green, info:C.blue }
-  const showSidebar = tab === 'overview'
+  const showSidebar = tab === 'overview' && activeProfile != null
+  const showContent = activeProfile != null
 
   // ---- Render ---------------------------------------------------------------
   return (
@@ -598,11 +662,15 @@ export default function Home() {
           {/* Car profile button */}
           <div style={{ position:'relative' }}>
             <button
-              onClick={() => { setCarModalOpen(o => !o); setCarModalStep('model') }}
+              onClick={() => { setCarModalOpen(o => !o); setCarModalMode(activeProfile ? 'list' : 'add'); setCarModalStep('model') }}
               style={{ display:'flex', alignItems:'center', gap:8, fontSize:11, padding:'4px 12px', border:'1px solid', borderColor: carModalOpen ? '#f97316' : '#1e2740', borderRadius:6, background: carModalOpen ? '#2a1a0a' : '#161c2a', color: activeProfile ? '#f97316' : '#64748b', cursor:'pointer', fontFamily:'IBM Plex Mono,monospace', fontWeight:600, letterSpacing:1 }}
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-              {selectedCarDef ? `${selectedCarDef.year} ${selectedCarDef.model.split('/')[0].trim()} ${selectedCarDef.trim}` : t('no_car')}
+              {activeProfile && savedProfiles[activeProfile]
+                ? savedProfiles[activeProfile]
+                : selectedCarDef
+                  ? `${selectedCarDef.year} ${selectedCarDef.model.split('/')[0].trim()} ${selectedCarDef.trim}`
+                  : t('no_car')}
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
 
@@ -610,62 +678,49 @@ export default function Home() {
               <div ref={carModalRef} style={{ position:'absolute', top:'calc(100% + 8px)', left:0, width:460, background:'#111827', border:'1px solid #1e2740', borderRadius:10, boxShadow:'0 8px 32px rgba(0,0,0,0.5)', zIndex:100, overflow:'hidden' }}>
                 {/* Modal header */}
                 <div style={{ padding:'12px 16px', borderBottom:'1px solid #1e2740', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                  <div style={{ display:'flex', gap:8 }}>
-                    {(['model','year','trim'] as const).map((step, i) => (
-                      <button key={step} onClick={() => { if(i === 0 || (i === 1 && selectedModel) || (i === 2 && selectedModel && selectedYear)) setCarModalStep(step) }}
-                        style={{ fontSize:10, padding:'2px 8px', borderRadius:4, border:'1px solid', borderColor: carModalStep === step ? '#f97316' : '#1e2740', background: carModalStep === step ? '#2a1a0a' : 'transparent', color: carModalStep === step ? '#f97316' : '#475569', cursor:'pointer', fontFamily:'IBM Plex Mono,monospace', fontWeight:700 }}>
-                        {step === 'model' ? 'Model' : step === 'year' ? (selectedYear ? `${selectedYear}` : 'Year') : (selectedTrim ? selectedTrim : 'Trim')}
+                  <span style={{ fontSize:12, fontWeight:700, color:'#f97316', letterSpacing:2, textTransform:'uppercase', fontFamily:'IBM Plex Mono,monospace' }}>{t('my_cars')}</span>
+                  <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+                    {carModalMode === 'list' && (
+                      <button onClick={() => { setCarModalMode('add'); setCarModalStep('model'); setSelectedModel(null); setSelectedYear(null); setSelectedTrim(null); setProfileName('') }}
+                        style={{ fontSize:10, padding:'3px 10px', border:'1px solid #f97316', borderRadius:4, background:'transparent', color:'#f97316', cursor:'pointer', fontFamily:'IBM Plex Mono,monospace', fontWeight:600 }}>
+                        + {t('add_car')}
                       </button>
-                    ))}
-                  </div>
-                  <div style={{ display:'flex', gap:8 }}>
-                    {activeProfile && <button onClick={() => { setActiveProfile(null); setSelectedModel(null); setSelectedYear(null); setSelectedTrim(null); setActiveIdx(null); setCarModalOpen(false) }} style={{ fontSize:9, color:'#475569', background:'none', border:'1px solid #1e2740', borderRadius:3, cursor:'pointer', fontFamily:'IBM Plex Mono,monospace', padding:'2px 7px' }}>Clear profile</button>}
-                    <button onClick={() => setCarModalOpen(false)} style={{ fontSize:14, color:'#475569', background:'none', border:'none', cursor:'pointer', lineHeight:1 }}>x</button>
+                    )}
+                    {carModalMode === 'add' && Object.keys(savedProfiles).length > 0 && (
+                      <button onClick={() => setCarModalMode('list')} style={{ fontSize:10, padding:'3px 10px', border:'1px solid #1e2740', borderRadius:4, background:'transparent', color:'#64748b', cursor:'pointer', fontFamily:'IBM Plex Mono,monospace' }}>
+                        {lang === 'en' ? 'Back' : 'Voltar'}
+                      </button>
+                    )}
+                    <button onClick={() => setCarModalOpen(false)} style={{ fontSize:16, color:'#475569', background:'none', border:'none', cursor:'pointer', lineHeight:1, padding:'0 2px' }}>x</button>
                   </div>
                 </div>
 
-                {/* Step 1: Model */}
-                {carModalStep === 'model' && (
-                  <div style={{ maxHeight:300, overflowY:'auto' }}>
-                    {CAR_CATALOG.map((car) => (
-                      <div key={car.model} onClick={() => { setSelectedModel(car.model); setSelectedYear(null); setSelectedTrim(null); setCarModalStep('year') }}
-                        style={{ padding:'10px 16px', borderBottom:'1px solid #161c2a', cursor:'pointer', background: selectedModel === car.model ? '#1a2035' : 'transparent' }}>
-                        <div style={{ fontSize:12, fontWeight:600, color: selectedModel === car.model ? '#f97316' : '#e2e8f0' }}>{car.model}</div>
-                        <div style={{ fontSize:10, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>{car.years[0].year} - {car.years[car.years.length-1].year}</div>
+                {/* MODE: list of saved profiles */}
+                {carModalMode === 'list' && (
+                  <div style={{ maxHeight:320, overflowY:'auto' }}>
+                    {Object.keys(savedProfiles).length === 0 ? (
+                      <div style={{ padding:'24px 16px', textAlign:'center' }}>
+                        <div style={{ fontSize:12, color:'#475569', fontFamily:'IBM Plex Mono,monospace', marginBottom:12 }}>{lang === 'en' ? 'No saved profiles yet.' : 'Nenhum perfil salvo ainda.'}</div>
+                        <button onClick={() => { setCarModalMode('add'); setCarModalStep('model') }} style={{ fontSize:11, padding:'6px 16px', border:'1px solid #f97316', borderRadius:6, background:'transparent', color:'#f97316', cursor:'pointer', fontFamily:'IBM Plex Mono,monospace', fontWeight:600 }}>
+                          + {t('add_car')}
+                        </button>
                       </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Step 2: Year */}
-                {carModalStep === 'year' && selectedModel && (
-                  <div style={{ maxHeight:300, overflowY:'auto' }}>
-                    {(CAR_CATALOG.find(c => c.model === selectedModel)?.years ?? []).map((yd) => (
-                      <div key={yd.year} onClick={() => { setSelectedYear(yd.year); setSelectedTrim(null); setCarModalStep('trim') }}
-                        style={{ padding:'10px 16px', borderBottom:'1px solid #161c2a', cursor:'pointer', background: selectedYear === yd.year ? '#1a2035' : 'transparent', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                        <span style={{ fontSize:13, fontWeight:700, color: selectedYear === yd.year ? '#f97316' : '#e2e8f0', fontFamily:'IBM Plex Mono,monospace' }}>{yd.year}</span>
-                        <span style={{ fontSize:10, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>{yd.trims.length} trims</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Step 3: Trim */}
-                {carModalStep === 'trim' && selectedModel && selectedYear && (
-                  <div style={{ maxHeight:300, overflowY:'auto' }}>
-                    {(CAR_CATALOG.find(c => c.model === selectedModel)?.years.find(y => y.year === selectedYear)?.trims ?? []).map((td) => {
-                      const key = `${selectedModel}|${selectedYear}|${td.trim}`
-                      const isSelected = activeProfile === key
+                    ) : Object.entries(savedProfiles).map(([key, name]) => {
+                      const [m, y, tr] = key.split('|')
+                      const isActive = activeProfile === key
                       return (
-                        <div key={td.trim} onClick={() => { setSelectedTrim(td.trim); setActiveProfile(key); setActiveIdx(null); setCarModalOpen(false) }}
-                          style={{ padding:'12px 16px', borderBottom:'1px solid #161c2a', cursor:'pointer', background: isSelected ? '#1a2035' : 'transparent' }}>
-                          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:3 }}>
-                            <span style={{ fontSize:13, fontWeight:700, color: isSelected ? '#f97316' : '#e2e8f0' }}>{td.trim}</span>
-                            <span style={{ fontSize:12, fontFamily:'IBM Plex Mono,monospace', color: isSelected ? '#f97316' : C.cyan, fontWeight:700 }}>{td.engine}</span>
+                        <div key={key} style={{ padding:'12px 16px', borderBottom:'1px solid #161c2a', cursor:'pointer', background: isActive ? '#1a2035' : 'transparent', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}
+                          onClick={() => { setActiveProfile(key); setSelectedModel(m); setSelectedYear(parseInt(y)); setSelectedTrim(tr); setActiveIdx(null); setCarModalOpen(false) }}>
+                          <div>
+                            <div style={{ fontSize:13, fontWeight:700, color: isActive ? '#f97316' : '#e2e8f0', marginBottom:2 }}>{name || `${y} ${m.split('/')[0].trim()} ${tr}`}</div>
+                            <div style={{ fontSize:10, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>{y} - {m.split('/')[0].trim()} - {tr}</div>
                           </div>
-                          <div style={{ display:'flex', gap:12 }}>
-                            <span style={{ fontSize:10, color:'#64748b', fontFamily:'IBM Plex Mono,monospace' }}>{td.hp} hp</span>
-                            <span style={{ fontSize:10, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>{td.notes}</span>
+                          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+                            {isActive && <span style={{ fontSize:9, background:'#1a2a0a', color:C.green, padding:'2px 7px', borderRadius:3, fontFamily:'IBM Plex Mono,monospace', fontWeight:700 }}>ACTIVE</span>}
+                            <button onClick={e => { e.stopPropagation(); setSavedProfiles(p => { const n = {...p}; delete n[key]; return n }); if(activeProfile === key) { setActiveProfile(null); setActiveIdx(null) }; setProfileSessions(p => { const n = {...p}; delete n[key]; return n }) }}
+                              style={{ fontSize:9, color:'#dc2626', background:'none', border:'1px solid #7f1d1d', borderRadius:3, cursor:'pointer', fontFamily:'IBM Plex Mono,monospace', padding:'2px 6px' }}>
+                              x
+                            </button>
                           </div>
                         </div>
                       )
@@ -673,8 +728,96 @@ export default function Home() {
                   </div>
                 )}
 
-                <div style={{ padding:'8px 16px', borderTop:'1px solid #1e2740' }}>
-                  <p style={{ fontSize:9, color:'#334155', fontFamily:'IBM Plex Mono,monospace' }}>Logs are scoped per profile. Switching profiles resets the log view.</p>
+                {/* MODE: add new profile - step breadcrumbs */}
+                {carModalMode === 'add' && (
+                  <>
+                    <div style={{ display:'flex', gap:6, padding:'8px 16px', borderBottom:'1px solid #1e2740' }}>
+                      {(['model','year','trim'] as const).map((step, i) => (
+                        <button key={step}
+                          onClick={() => { if(i===0 || (i===1&&selectedModel) || (i===2&&selectedModel&&selectedYear)) setCarModalStep(step) }}
+                          style={{ fontSize:10, padding:'2px 8px', borderRadius:4, border:'1px solid', borderColor: carModalStep===step ? '#f97316' : '#1e2740', background: carModalStep===step ? '#2a1a0a' : 'transparent', color: carModalStep===step ? '#f97316' : '#475569', cursor:'pointer', fontFamily:'IBM Plex Mono,monospace', fontWeight:700 }}>
+                          {i===0 ? t('step_model') : i===1 ? (selectedYear ? `${selectedYear}` : t('step_year')) : (selectedTrim || t('step_trim'))}
+                        </button>
+                      ))}
+                    </div>
+
+                    {carModalStep === 'model' && (
+                      <div style={{ maxHeight:260, overflowY:'auto' }}>
+                        {CAR_CATALOG.map(car => (
+                          <div key={car.model} onClick={() => { setSelectedModel(car.model); setSelectedYear(null); setSelectedTrim(null); setCarModalStep('year') }}
+                            style={{ padding:'10px 16px', borderBottom:'1px solid #161c2a', cursor:'pointer', background: selectedModel===car.model ? '#1a2035' : 'transparent' }}>
+                            <div style={{ fontSize:12, fontWeight:600, color: selectedModel===car.model ? '#f97316' : '#e2e8f0' }}>{car.model}</div>
+                            <div style={{ fontSize:10, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>{car.years[0].year} - {car.years[car.years.length-1].year}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {carModalStep === 'year' && selectedModel && (
+                      <div style={{ maxHeight:260, overflowY:'auto' }}>
+                        {(CAR_CATALOG.find(c=>c.model===selectedModel)?.years??[]).map(yd => (
+                          <div key={yd.year} onClick={() => { setSelectedYear(yd.year); setSelectedTrim(null); setCarModalStep('trim') }}
+                            style={{ padding:'10px 16px', borderBottom:'1px solid #161c2a', cursor:'pointer', background: selectedYear===yd.year ? '#1a2035' : 'transparent', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                            <span style={{ fontSize:13, fontWeight:700, color: selectedYear===yd.year ? '#f97316' : '#e2e8f0', fontFamily:'IBM Plex Mono,monospace' }}>{yd.year}</span>
+                            <span style={{ fontSize:10, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>{yd.trims.length} {lang==='en'?'trims':'versoes'}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {carModalStep === 'trim' && selectedModel && selectedYear && (
+                      <div>
+                        <div style={{ maxHeight:200, overflowY:'auto' }}>
+                          {(CAR_CATALOG.find(c=>c.model===selectedModel)?.years.find(y=>y.year===selectedYear)?.trims??[]).map(td => {
+                            const key = `${selectedModel}|${selectedYear}|${td.trim}`
+                            const isSel = selectedTrim === td.trim
+                            return (
+                              <div key={td.trim} onClick={() => setSelectedTrim(td.trim)}
+                                style={{ padding:'10px 16px', borderBottom:'1px solid #161c2a', cursor:'pointer', background: isSel ? '#1a2035' : 'transparent' }}>
+                                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:2 }}>
+                                  <span style={{ fontSize:12, fontWeight:700, color: isSel ? '#f97316' : '#e2e8f0' }}>{td.trim}</span>
+                                  <span style={{ fontSize:11, fontFamily:'IBM Plex Mono,monospace', color: C.cyan, fontWeight:700 }}>{td.engine} - {td.hp}hp</span>
+                                </div>
+                                <div style={{ fontSize:10, color:'#475569', fontFamily:'IBM Plex Mono,monospace' }}>{td.notes}</div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                        {/* Profile name input + save */}
+                        {selectedTrim && (
+                          <div style={{ padding:'12px 16px', borderTop:'1px solid #1e2740', background:'#0f1117' }}>
+                            <div style={{ fontSize:10, color:'#64748b', fontFamily:'IBM Plex Mono,monospace', marginBottom:6 }}>{t('car_name_label')}</div>
+                            <div style={{ display:'flex', gap:8 }}>
+                              <input
+                                type="text" value={profileName} onChange={e => setProfileName(e.target.value)}
+                                placeholder={t('car_name_ph')}
+                                style={{ flex:1, background:'#161c2a', border:'1px solid #1e2740', borderRadius:5, padding:'6px 10px', color:'#e2e8f0', fontSize:12, fontFamily:'IBM Plex Mono,monospace', outline:'none' }}
+                              />
+                              <button
+                                onClick={() => {
+                                  const key = `${selectedModel}|${selectedYear}|${selectedTrim}`
+                                  const name = profileName.trim() || `${selectedYear} ${selectedModel!.split('/')[0].trim()} ${selectedTrim}`
+                                  setSavedProfiles(p => ({ ...p, [key]: name }))
+                                  setActiveProfile(key)
+                                  setActiveIdx(null)
+                                  setCarModalOpen(false)
+                                  setCarModalMode('list')
+                                }}
+                                style={{ padding:'6px 14px', background:'#f97316', border:'none', borderRadius:5, color:'#000', fontSize:11, fontFamily:'IBM Plex Mono,monospace', fontWeight:700, cursor:'pointer' }}>
+                                {t('confirm_name')}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+
+                <div style={{ padding:'6px 16px', borderTop:'1px solid #1e2740' }}>
+                  <p style={{ fontSize:9, color:'#334155', fontFamily:'IBM Plex Mono,monospace' }}>
+                    {lang==='en' ? 'Each profile has its own log history.' : 'Cada perfil tem seu proprio historico de logs.'}
+                  </p>
                 </div>
               </div>
             )}
@@ -689,7 +832,7 @@ export default function Home() {
 
         {/* Tabs + lang */}
         <div style={{ display:'flex', alignItems:'center', height:52 }}>
-          {(['overview','timeline','table','score','compat'] as Tab[]).map(tb => (
+          {(['overview','timeline','table','score','compat'] as Tab[]).filter(tb => activeProfile || tb === 'overview' || tb === 'compat').map(tb => (
             <button key={tb} onClick={() => setTab(tb)} style={{ padding:'0 16px', height:52, border:'none', borderBottom: tab===tb ? '2px solid #f97316' : '2px solid transparent', background:'transparent', color: tab===tb ? '#f97316' : '#64748b', fontSize:11, letterSpacing:2, textTransform:'uppercase', cursor:'pointer', fontWeight: tab===tb ? 700 : 400, fontFamily:'IBM Plex Mono,monospace' }}>
               {tb === 'score' ? 'Score' : tb === 'compat' ? 'Compat' : t(tb)}
             </button>
@@ -769,9 +912,21 @@ export default function Home() {
                 style={{ border:'1.5px dashed #1e2740', borderRadius:8, padding:'12px 8px', display:'flex', flexDirection:'column', alignItems:'center', gap:5, cursor:'pointer' }}
               >
                 <input id="csv-up" type="file" accept=".csv" multiple style={{ display:'none' }} onChange={e => { const f = Array.from(e.target.files || []); if (f.length) handleFiles(f); e.target.value = '' }} />
+              {uploading && uploadProgress ? (
+                <>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  <span style={{ fontSize:10, fontWeight:600, color:'#f97316', fontFamily:'IBM Plex Mono,monospace', textAlign:'center' }}>{uploadProgress.current}/{uploadProgress.total} files...</span>
+                  <div style={{ width:'100%', height:4, background:'#1e2740', borderRadius:2, overflow:'hidden' }}>
+                    <div style={{ height:'100%', width:`${Math.round((uploadProgress.current/uploadProgress.total)*100)}%`, background:'#f97316', borderRadius:2, transition:'width 0.3s ease' }} />
+                  </div>
+                </>
+              ) : (
+                <>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                 <span style={{ fontSize:10, fontWeight:600, color:'#64748b', fontFamily:'IBM Plex Mono,monospace', textAlign:'center' }}>{uploading ? 'Processing...' : t('upload_drag')}</span>
                 <span style={{ fontSize:9, color:'#334155', fontFamily:'IBM Plex Mono,monospace', textAlign:'center', lineHeight:1.5 }}>{t('upload_sub')}</span>
+                </>
+              )}
               </div>
             </div>
           </div>
@@ -780,8 +935,35 @@ export default function Home() {
         {/* CONTENT */}
         <div style={{ flex:1, overflowY:'auto', padding:'20px 24px' }}>
 
+        {/* CONTENT */}
+        <div style={{ flex:1, overflowY:'auto', padding:'20px 24px' }}>
+
+          {/* ---- WELCOME (no profile) ---- */}
+          {!activeProfile && (
+            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', gap:24, textAlign:'center' }}>
+              <div style={{ fontSize:48, color:'#f97316', fontFamily:'IBM Plex Mono,monospace', fontWeight:900 }}>HNDSH</div>
+              <div>
+                <h1 style={{ fontSize:24, fontWeight:800, color:'#f1f5f9', marginBottom:8 }}>{lang === 'en' ? 'Welcome to HNDSH.meters' : 'Bem-vindo ao HNDSH.meters'}</h1>
+                <p style={{ fontSize:14, color:'#64748b', maxWidth:400, lineHeight:1.7 }}>
+                  {lang === 'en'
+                    ? 'Select your car profile to start analyzing your OBD1 logs.'
+                    : 'Selecione o perfil do seu carro para comecar a analisar seus logs OBD1.'}
+                </p>
+              </div>
+              <button
+                onClick={() => { setCarModalOpen(true); setCarModalMode(Object.keys(savedProfiles).length > 0 ? 'list' : 'add'); setCarModalStep('model') }}
+                style={{ display:'flex', alignItems:'center', gap:10, padding:'14px 28px', background:'#f97316', border:'none', borderRadius:10, color:'#000', fontSize:14, fontFamily:'IBM Plex Mono,monospace', fontWeight:800, cursor:'pointer', letterSpacing:1 }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                {t('my_cars')}
+              </button>
+              <p style={{ fontSize:11, color:'#334155', fontFamily:'IBM Plex Mono,monospace' }}>
+                {lang === 'en' ? 'All Honda/Acura OBD1 1992-2001' : 'Todos Honda/Acura OBD1 1992-2001'}
+              </p>
+            </div>
+          )}
+
           {/* ---- OVERVIEW ---- */}
-          {tab === 'overview' && active && (
+          {activeProfile && tab === 'overview' && active && (
             <div>
               {/* Header row */}
               <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:12, marginBottom:16, flexWrap:'wrap' }}>
@@ -838,17 +1020,7 @@ export default function Home() {
                   <div style={{ marginBottom:4 }}>
                     <SecHead title={t('sec_diag')} color={C.red} open={open} onToggle={() => toggleSec('diag')} />
                     {open && (
-                      <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:8 }}>
-                        {alerts.map((a, idx) => (
-                          <div key={idx} style={{ display:'flex', gap:10, alignItems:'flex-start', padding:'10px 14px', borderRadius:8, border:`1px solid ${AC[a.type]}30`, background:`${AC[a.type]}0a` }}>
-                            <div style={{ fontSize:9, padding:'3px 7px', borderRadius:4, background:`${AC[a.type]}20`, color:AC[a.type], letterSpacing:1, flexShrink:0, fontFamily:'IBM Plex Mono,monospace', fontWeight:700 }}>{a.param}</div>
-                            <div>
-                              <div style={{ fontSize:12, fontWeight:700, color:AC[a.type], marginBottom:3 }}>{a.title}</div>
-                              <div style={{ fontSize:11, color:'#64748b', lineHeight:1.6 }}>{a.detail}</div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                      <DiagList alerts={alerts} AC={AC} />
                     )}
                   </div>
                 )
@@ -886,7 +1058,7 @@ export default function Home() {
           )}
 
           {/* ---- TIMELINE ---- */}
-          {tab === 'timeline' && (
+          {activeProfile && tab === 'timeline' && (
             <div>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20, gap:12 }}>
                 <div>
@@ -981,7 +1153,7 @@ export default function Home() {
           )}
 
           {/* ---- TABLE ---- */}
-          {tab === 'table' && (
+          {activeProfile && tab === 'table' && (
             <div>
               <div style={{ marginBottom:20 }}>
                 <h1 style={{ fontSize:20, fontWeight:800, color:'#f1f5f9', marginBottom:4 }}>{t('table')}</h1>
@@ -1029,7 +1201,7 @@ export default function Home() {
           )}
 
           {/* ---- SCORE ---- */}
-          {tab === 'score' && active && (() => {
+          {activeProfile && tab === 'score' && active && (() => {
             const sc = calcHealth(active)
             const col = scoreCol(sc)
             const label = sc >= 80 ? 'HEALTHY' : sc >= 55 ? 'NEEDS ATTENTION' : 'CRITICAL'
