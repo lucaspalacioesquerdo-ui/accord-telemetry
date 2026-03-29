@@ -62,7 +62,7 @@ const T: Record<Lang, Record<string,string>> = {
     ch_ltft:'LTFT Long Term Fuel Trim', ch_stft:'STFT Extreme Correction',
     ch_lambda:'Lambda (O2)', ch_iacv:'IACV Idle Air Control',
     ch_ect:'ECT Coolant Temp', ch_iat:'IAT Intake Air Temp',
-    ch_bat:'Battery', ch_vtec:'VTEC Active Time',
+    ch_bat:'Battery', ch_vtec:'VTEC Active Time', ch_vtec_rpm:'VTEC Avg RPM',
     ch_adv:'Ignition Advance', ch_knock:'Knock Events',
     ch_map:'MAP Manifold Pressure', ch_clv:'Calculated Load Value',
     ch_rev:'Engine RPM max', ch_inj:'Injection Duration',
@@ -105,7 +105,7 @@ const T: Record<Lang, Record<string,string>> = {
     ch_ltft:'LTFT Trim Longo Prazo', ch_stft:'STFT Correcao Extrema',
     ch_lambda:'Lambda (Sonda O2)', ch_iacv:'IACV Marcha Lenta',
     ch_ect:'ECT Temperatura Motor', ch_iat:'IAT Temperatura Admissao',
-    ch_bat:'Bateria', ch_vtec:'VTEC Ativo',
+    ch_bat:'Bateria', ch_vtec:'VTEC Ativo', ch_vtec_rpm:'VTEC RPM medio',
     ch_adv:'Avanco Ignicao', ch_knock:'Eventos Knock',
     ch_map:'MAP Pressao Coletor', ch_clv:'Valor Calculado Carga',
     ch_rev:'Rotacao Maxima', ch_inj:'Duracao Injecao',
@@ -214,6 +214,7 @@ const CHART_DEFS: ChartDef[] = [
   {id:'vmax',group:'motion',titleKey:'ch_vmax',unit:'km/h',yMin:0,datasets:[{label:'Speed',field:'vss_max',color:C.blue}]},
   {id:'km',group:'motion',titleKey:'ch_km',unit:'km',yMin:0,datasets:[{label:'Dist',field:'km_estimated',color:C.teal}]},
   {id:'vtec',group:'motion',titleKey:'ch_vtec',unit:'%',yMin:0,datasets:[{label:'VTEC',field:'vtec_pct',color:C.purple}]},
+  {id:'vtec_rpm',group:'motion',titleKey:'ch_vtec_rpm',unit:'rpm',yMin:0,datasets:[{label:'VTEC RPM',field:'vtec_rpm_mean',color:'#60a0ff'}]},
   {id:'egr',group:'act',titleKey:'ch_egr',unit:'%',datasets:[{label:'EGR',field:'egr_active_pct',color:C.gray}]},
 ]
 
@@ -1130,7 +1131,7 @@ export default function Home(): React.ReactElement {
           {show('vss')       && <Kpi label={lang==='en'?'Top Speed':'Veloc. Max.'}  value={fmt(v.vss_max,0)} unit="km/h" color="#2060ff" />}
           {show('lng_accel') && <Kpi label={t('lng_accel')} value={fmt(v.lng_accel_max,3)} unit="G" sub={`brake ${fmt(v.lng_accel_min,3)}G`} color="#80a8ff" />}
           {show('km_est')    && <Kpi label={t('km_est')}    value={fmt(v.km_estimated,1)} unit="km"                                    color="#2060e0" />}
-          {show('vtec')      && <Kpi label={lang==='en'?'VTEC Active':'VTEC Ativo'} value={fmt(v.vtec_pct)} unit="%" color="#60a0ff" />}
+          {show('vtec')      && <Kpi label={lang==='en'?'VTEC Active':'VTEC Ativo'} value={fmt(v.vtec_pct)} unit="%" color="#60a0ff" sub={v.vtec_rpm_mean != null ? `avg ${fmt(v.vtec_rpm_mean, 0)} rpm` : undefined} />}
         </div>
       )
       case 'act': return (
@@ -1586,6 +1587,7 @@ export default function Home(): React.ReactElement {
                   {key:'bat_mean',         label:'BAT avg',       unit:'V',    lowerBetter:false},
                   {key:'knock_events',     label:'Knock',         unit:'',     lowerBetter:true},
                   {key:'vtec_pct',         label:'VTEC',          unit:'%',    lowerBetter:false},
+          {key:'vtec_rpm_mean',     label:'VTEC RPM avg',  unit:'rpm',  lowerBetter:false},
                   {key:'inst_consumption', label:'km/l',          unit:'km/l', lowerBetter:false},
                   {key:'vss_max',          label:'Top Speed',     unit:'km/h', lowerBetter:false},
                 ]
