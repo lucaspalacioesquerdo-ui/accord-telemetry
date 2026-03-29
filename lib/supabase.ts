@@ -22,6 +22,7 @@ export interface LogSession {
   iacv_mean: number | null; iacv_max: number | null
   knock_events: number | null; knock_max: number | null
   vtec_pct: number | null
+  vtec_rpm_mean: number | null   // avg RPM while VTEC is engaged
   map_mean: number | null; map_max: number | null; map_wot: number | null
   clv_mean: number | null
   rev_mean: number | null; rev_max: number | null
