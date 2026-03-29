@@ -503,11 +503,11 @@ function RouteMap({ track, lang }: {
       const [rMin,  rMax]  = minMax(4)
 
       const getColor = (pt: [number, number, number, number, number]): string => {
-        // speed: slow=green, fast=red
-        if (overlay === 'speed') return gradientColor(normalize(pt[2], spMin, spMax))
-        // temp: cool=green, hot=red (higher = worse = red)
+        // speed: slow=red, fast=green (inverted ' speed is good)
+        if (overlay === 'speed') return gradientColor(1 - normalize(pt[2], spMin, spMax))
+        // temp: cool=green, hot=red
         if (overlay === 'temp')  return gradientColor(normalize(pt[3], tMin,  tMax))
-        // rpm: low=green, high=red (higher = more stress = red)
+        // rpm: low=green, high=red
         return gradientColor(normalize(pt[4], rMin, rMax))
       }
 
@@ -545,9 +545,9 @@ function RouteMap({ track, lang }: {
   const mid = (a: number, b: number) => Math.round((a + b) / 2)
   const legends: Record<string, { color: string; label: string }[]> = {
     speed: [
-      { color: '#00c040', label: `${sMin} km/h` },
+      { color: '#ff2020', label: `${sMin} km/h` },
       { color: '#ffe000', label: `${mid(sMin,sMax)} km/h` },
-      { color: '#ff2020', label: `${sMax} km/h` },
+      { color: '#00c040', label: `${sMax} km/h` },
     ],
     temp: [
       { color: '#00c040', label: `${tMin2}C` },
@@ -607,28 +607,66 @@ function RouteMap({ track, lang }: {
 
 // -- DiagList component ------------------------------------------------
 function DiagList({ alerts, AC }: { alerts: Alert[]; AC: Record<string,string> }): React.ReactElement {
-  const [expanded, setExpanded] = React.useState<Set<number>>(new Set())
-  const toggle = (i: number): void => setExpanded((p: Set<number>) => {
+  const [expanded,  setExpanded]  = React.useState<Set<number>>(new Set())
+  const [dismissed, setDismissed] = React.useState<Set<number>>(new Set())
+  const toggle  = (i: number): void => setExpanded((p: Set<number>) => {
     const n = new Set(p); n.has(i) ? n.delete(i) : n.add(i); return n
   })
-  const icon: Record<string,string> = { bad:'x', warn:'!', good:'v', info:'i' }
+  const dismiss = (e: React.MouseEvent, i: number): void => {
+    e.stopPropagation()
+    setDismissed((p: Set<number>) => { const n = new Set(p); n.add(i); return n })
+  }
+  // Sort: bad first, then warn, then good/info
+  const order: Record<string,number> = { bad:0, warn:1, info:2, good:3 }
+  const sorted = alerts
+    .map((a, i) => ({ a, i }))
+    .filter(({ i }) => !dismissed.has(i))
+    .sort((x, y) => (order[x.a.type] ?? 9) - (order[y.a.type] ?? 9))
+
+  const typeIcon: Record<string, React.ReactElement> = {
+    bad:  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>,
+    warn: <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
+    good: <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
+    info: <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>,
+  }
+
+  if (!sorted.length) return <div style={{ fontSize:11, color:D.muted, padding:'8px 0' }}>{' '}</div>
+
   return (
-    <div style={{ display:'flex', flexDirection:'column', gap:6, marginBottom:8 }}>
-      {alerts.map((a, idx) => {
+    <div style={{ display:'flex', flexDirection:'column', gap:5, marginBottom:8 }}>
+      {sorted.map(({ a, i }) => {
         const col = AC[a.type]
-        const open = expanded.has(idx)
+        const open = expanded.has(i)
+        const isBad = a.type === 'bad'
         return (
-          <div key={idx} style={{ border:`1px solid ${col}25`, borderRadius:8, overflow:'hidden' }}>
-            <button onClick={() => toggle(idx)} style={{ display:'flex', alignItems:'center', gap:10, width:'100%', padding:'9px 12px', background:`${col}08`, border:'none', cursor:'pointer', textAlign:'left' }}>
-              <div style={{ width:18, height:18, borderRadius:'50%', border:`1.5px solid ${col}`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                <span style={{ fontSize:9, color:col, fontWeight:800, fontFamily:'inherit', lineHeight:1 }}>{icon[a.type]}</span>
-              </div>
-              <span style={{ fontSize:9, padding:'2px 6px', borderRadius:3, background:`${col}18`, color:col, letterSpacing:1, flexShrink:0, fontFamily:'inherit', fontWeight:700 }}>{a.param}</span>
-              <span style={{ fontSize:11, fontWeight:600, color: a.type === 'good' ? D.muted : col, flex:1 }}>{a.title}</span>
-              <span style={{ fontSize:10, color:D.dim, transform: open ? 'rotate(180deg)' : 'none', display:'inline-block', transition:'transform 0.15s' }}>v</span>
-            </button>
+          <div key={i} style={{
+            border:`1px solid ${col}${isBad ? '40' : '20'}`,
+            borderLeft:`3px solid ${col}`,
+            borderRadius:6, overflow:'hidden',
+            background: isBad ? `${col}08` : `${col}04`,
+          }}>
+            <div style={{ display:'flex', alignItems:'center', gap:8, padding: isBad ? '10px 12px' : '8px 12px' }}>
+              {/* icon */}
+              <button onClick={() => toggle(i)} style={{ display:'flex', alignItems:'center', justifyContent:'center', width:22, height:22, borderRadius:'50%', border:`1.5px solid ${col}50`, background:`${col}15`, flexShrink:0, cursor:'pointer', color:col, padding:0, outline:'none', boxSizing:'border-box' as const }}>
+                {typeIcon[a.type] ?? typeIcon.info}
+              </button>
+              {/* badge */}
+              <span style={{ fontSize:8, padding:'2px 6px', borderRadius:3, background:`${col}20`, color:col, letterSpacing:1.5, flexShrink:0, fontFamily:'inherit', fontWeight:800 }}>{a.param}</span>
+              {/* title */}
+              <button onClick={() => toggle(i)} style={{ fontSize: isBad ? 12 : 11, fontWeight: isBad ? 700 : 500, color: a.type === 'good' ? D.muted : col, flex:1, background:'none', border:'none', cursor:'pointer', textAlign:'left', padding:0, fontFamily:'inherit' }}>
+                {a.title}
+              </button>
+              {/* dismiss x */}
+              <button onClick={(e: React.MouseEvent) => dismiss(e, i)} title="Dismiss" style={{ fontSize:11, color:D.dim, background:'none', border:'none', cursor:'pointer', padding:'0 2px', lineHeight:1, flexShrink:0, fontFamily:'inherit', opacity:0.6 }}
+                onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => (e.currentTarget.style.opacity = '1')}
+                onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => (e.currentTarget.style.opacity = '0.6')}>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+              {/* chevron */}
+              <svg onClick={() => toggle(i)} style={{ cursor:'pointer', transform: open ? 'rotate(180deg)' : 'none', transition:'transform 0.15s', flexShrink:0 }} width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={D.dim} strokeWidth="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
             {open && (
-              <div style={{ padding:'8px 12px 10px 40px', background:`${col}04`, borderTop:`1px solid ${col}15` }}>
+              <div style={{ padding:'6px 12px 10px 44px', borderTop:`1px solid ${col}15` }}>
                 <p style={{ fontSize:11, color:D.muted, lineHeight:1.7, fontFamily:'inherit' }}>{a.detail}</p>
               </div>
             )}
@@ -1529,7 +1567,7 @@ export default function Home(): React.ReactElement {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
                 {t('my_cars')}
               </button>
-              <p style={{ fontSize:10, color:D.muted, fontFamily:'inherit', display:'flex', alignItems:'center', gap:10, marginTop:4 }}>Honda/Acura OBD1 1992-2001</p>
+              <p style={{ fontSize:10, color:D.muted, fontFamily:'inherit', display:'flex', alignItems:'center', gap:12, marginTop:6, flexWrap:'wrap' as const }}>Honda/Acura OBD1 1992-2001</p>
             </div>
           )}
 
@@ -1605,7 +1643,7 @@ export default function Home(): React.ReactElement {
               <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:12, marginBottom:16, flexWrap:'wrap' }}>
                 <div>
                   <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:2 }}>
-                    <h1 style={{ fontSize:32, fontWeight:900, color:D.text, letterSpacing:'-1.5px', lineHeight:1, fontFamily:'inherit' }}>{active ? displayName(active) : ''}</h1>
+                    <h1 style={{ fontSize:40, fontWeight:900, color:D.text, letterSpacing:'-2px', lineHeight:1, fontFamily:'inherit' }}>{active ? displayName(active) : ''}</h1>
                     <button onClick={() => { setEditLogSession(active.name); setEditLogDesc((sessionDescs[activeProfileKey!] ?? {})[active.name] ?? '') }}
                       title={lang === 'en' ? 'Edit log' : 'Editar log'}
                       style={{ background:'none', border:'none', cursor:'pointer', padding:4, color:D.dim, display:'flex', alignItems:'center', flexShrink:0, borderRadius:4, transition:'color 0.15s' }}
@@ -1621,7 +1659,7 @@ export default function Home(): React.ReactElement {
                     <div style={{ fontSize:10, color:D.dim, fontFamily:'inherit', marginBottom:4, fontStyle:'italic' }}>{active.name}</div>
                   )}
                   {activeProfileKey && (sessionDescs[activeProfileKey] ?? {})[active.name] && (
-                    <div style={{ fontSize:11, color:D.textSub, lineHeight:1.6, marginBottom:8, maxWidth:600 }}>
+                    <div style={{ fontSize:12, color:D.accent, lineHeight:1.5, marginBottom:8, maxWidth:600, fontWeight:500 }}>
                       {(sessionDescs[activeProfileKey] ?? {})[active.name]}
                     </div>
                   )}
@@ -1632,9 +1670,17 @@ export default function Home(): React.ReactElement {
                         const typeColor = type === 'upgrade' ? '#c060ff' : type === 'swap' ? '#f97316' : '#00e060'
                         const items2 = ((sessionChanges[activeProfileKey] ?? {})[active.name] ?? []).filter((c: {type:string;text:string}) => c.type === type && c.text.trim())
                         if (!items2.length) return null
+                        const typeIcon2 = type === 'upgrade'
+                          ? <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="17 11 12 6 7 11"/><polyline points="17 18 12 13 7 18"/></svg>
+                          : type === 'swap'
+                          ? <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+                          : <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
                         return (
-                          <div key={type} style={{ background:D.bg, border:`1px solid ${typeColor}25`, borderRadius:8, padding:'10px 12px' }}>
-                            <div style={{ fontSize:9, fontWeight:700, color:typeColor, fontFamily:'inherit', letterSpacing:1.5, marginBottom:8 }}>{typeLabel}</div>
+                          <div key={type} style={{ background:'#0e0e0e', border:`1px solid ${typeColor}30`, borderTop:`2px solid ${typeColor}`, borderRadius:6, padding:'10px 12px' }}>
+                            <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:8 }}>
+                              <span style={{ color:typeColor }}>{typeIcon2}</span>
+                              <span style={{ fontSize:8, fontWeight:800, color:typeColor, fontFamily:'inherit', letterSpacing:2 }}>{typeLabel}</span>
+                            </div>
                             {items2.map((item: {type:string;text:string}, idx3: number) => (
                               <div key={idx3} style={{ fontSize:11, color:D.textSub, padding:'3px 0', borderBottom:`1px solid ${D.bdr}`, lineHeight:1.5 }}>{item.text}</div>
                             ))}
@@ -1748,7 +1794,7 @@ export default function Home(): React.ReactElement {
             <div>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20, gap:12 }}>
                 <div>
-                  <h1 style={{ fontSize:32, fontWeight:900, color:D.text, letterSpacing:'-1.5px', lineHeight:1, fontFamily:'inherit', marginBottom:4 }}>{t('timeline')}</h1>
+                  <h1 style={{ fontSize:40, fontWeight:900, color:D.text, letterSpacing:'-2px', lineHeight:1, fontFamily:'inherit', marginBottom:4 }}>{t('timeline')}</h1>
                   <span style={{ fontSize:11, letterSpacing:'1.5px', textTransform:'uppercase', color:D.muted, fontFamily:'inherit' }}>
                     {allSessions.length} {t('sessions')} - {filteredCharts.length} {t('charts_visible')}
                   </span>
@@ -1808,15 +1854,27 @@ export default function Home(): React.ReactElement {
                 const collapsed = collapsedGroups.has(grp)
                 return (
                   <div key={grp} style={{ marginBottom:28 }}>
-                    <button onClick={() => toggleGroup(grp)} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', width:'100%', background:'none', border:'none', borderBottom:`1px solid ${D.bdr}`, paddingBottom:10, marginBottom: collapsed ? 0 : 16, cursor:'pointer', textAlign:'left' }}>
-                      <span style={{ fontSize:13, fontWeight:700, color:D.text, fontFamily:'inherit' }}>{CHART_GROUPS[grp] ?? grp}</span>
+                    <button onClick={() => toggleGroup(grp)} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', width:'100%', background:'none', border:'none', borderBottom:`1px solid ${D.bdr}`, paddingBottom:10, marginBottom: collapsed ? 0 : 16, cursor:'pointer', textAlign:'left', padding:'4px 0 10px' }}>
                       <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                        <span style={{ fontSize:10, color:D.muted, fontFamily:'inherit' }}>{charts.length} charts</span>
-                        <span style={{ fontSize:12, color:D.muted, display:'inline-block', transform: collapsed ? 'rotate(-90deg)' : 'none' }}>v</span>
+                        <span style={{ color:D.muted }}>
+                          {grp==='elec'?<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                          :grp==='fuel'?<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5"/></svg>
+                          :grp==='air'?<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2"/></svg>
+                          :grp==='afr'?<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                          :grp==='ign'?<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                          :grp==='temp'?<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>
+                          :grp==='motion'?<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="3" width="15" height="13" rx="2"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                          :<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/></svg>}
+                        </span>
+                        <span style={{ fontSize:11, fontWeight:700, color:D.text, letterSpacing:'1px', textTransform:'uppercase' as const, fontFamily:'inherit' }}>{CHART_GROUPS[grp] ?? grp}</span>
+                      </div>
+                      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                        <span style={{ fontSize:9, color:D.muted, fontFamily:'inherit', letterSpacing:1 }}>{charts.length} charts</span>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={D.muted} strokeWidth="2.5" style={{ transform: collapsed ? 'rotate(-90deg)' : 'none', transition:'transform 0.15s' }}><polyline points="6 9 12 15 18 9"/></svg>
                       </div>
                     </button>
                     {!collapsed && (
-                      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(480px,1fr))', gap:14 }}>
+                      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(340px,1fr))', gap:10 }}>
                         {charts.map(c => {
                           const chartProps = {
                             title: t(c.titleKey),
@@ -1852,7 +1910,7 @@ export default function Home(): React.ReactElement {
           {activeProfileKey && tab === 'score' && active && (
             <div>
               <div style={{ marginBottom:20 }}>
-                <h1 style={{ fontSize:32, fontWeight:900, color:D.text, letterSpacing:'-1.5px', lineHeight:1, fontFamily:'inherit', marginBottom:4 }}>Engine Health Score</h1>
+                <h1 style={{ fontSize:40, fontWeight:900, color:D.text, letterSpacing:'-2px', lineHeight:1, fontFamily:'inherit', marginBottom:4 }}>Engine Health Score</h1>
                 <span style={{ fontSize:11, letterSpacing:'1.5px', textTransform:'uppercase', color:D.muted, fontFamily:'inherit' }}>{active.name} - weighted composite</span>
               </div>
               {(() => {
@@ -1871,26 +1929,34 @@ export default function Home(): React.ReactElement {
                 ]
                 return (
                   <>
-                    <div style={{ background:'#111111', border:`1px solid ${col}40`, borderRadius:14, padding:'28px 32px', marginBottom:20, display:'flex', alignItems:'center', gap:40, flexWrap:'wrap' }}>
-                      <div style={{ textAlign:'center', minWidth:110 }}>
-                        <div style={{ fontSize:72, fontWeight:900, color:col, fontFamily:'inherit', lineHeight:1 }}>{sc}</div>
-                        <div style={{ fontSize:10, letterSpacing:3, color:col, fontFamily:'inherit', fontWeight:700, marginTop:6 }}>{label}</div>
-                        <div style={{ fontSize:9, color:D.dim, fontFamily:'inherit', marginTop:3 }}>out of 100</div>
+                    <div style={{ background:'#0e0e0e', border:`1px solid ${col}35`, borderTop:`3px solid ${col}`, borderRadius:10, padding:'28px 32px', marginBottom:16, display:'flex', alignItems:'flex-start', gap:48, flexWrap:'wrap' }}>
+                      {/* Hero number */}
+                      <div style={{ textAlign:'center', minWidth:120 }}>
+                        <div style={{ fontSize:88, fontWeight:900, color:col, fontFamily:'inherit', lineHeight:1, letterSpacing:'-4px' }}>{sc}</div>
+                        <div style={{ fontSize:11, letterSpacing:4, color:col, fontFamily:'inherit', fontWeight:800, marginTop:8, textTransform:'uppercase' as const }}>{label}</div>
+                        <div style={{ fontSize:9, color:D.dim, fontFamily:'inherit', marginTop:4 }}>out of 100</div>
                       </div>
-                      <div style={{ flex:1, minWidth:280, display:'flex', flexDirection:'column', gap:10 }}>
+                      {/* Score bars with context */}
+                      <div style={{ flex:1, minWidth:280, display:'flex', flexDirection:'column', gap:8 }}>
                         {breakdown.map(b => {
                           const range = b.bad - b.good
                           const raw = range > 0 ? Math.min(1, Math.max(0, ((b.val??0) - b.good) / range)) : 0
                           const bScore = Math.round((1-raw)*100)
                           const bCol = scoreCol(bScore)
+                          const valDisplay = b.val != null ? (b.val > 100 ? Math.round(b.val) : b.val.toFixed(1)) : '--'
                           return (
-                            <div key={b.key} style={{ display:'grid', gridTemplateColumns:'60px 1fr 42px 50px', alignItems:'center', gap:10 }}>
-                              <span style={{ fontSize:10, fontFamily:'inherit', color:D.textSub, letterSpacing:1 }}>{b.key}</span>
-                              <div style={{ height:4, background:D.bdr, borderRadius:2, overflow:'hidden' }}>
-                                <div style={{ height:'100%', width:`${bScore}%`, background:bCol, borderRadius:2 }} />
+                            <div key={b.key}>
+                              <div style={{ display:'grid', gridTemplateColumns:'60px 1fr 38px 40px', alignItems:'center', gap:10, marginBottom:3 }}>
+                                <span style={{ fontSize:10, fontFamily:'inherit', color:D.text, fontWeight:700, letterSpacing:0.5 }}>{b.key}</span>
+                                <div style={{ height:5, background:D.bdr, borderRadius:3, overflow:'hidden' }}>
+                                  <div style={{ height:'100%', width:`${bScore}%`, background:bCol, borderRadius:3, transition:'width 0.4s ease' }} />
+                                </div>
+                                <span style={{ fontSize:11, fontFamily:'inherit', color:bCol, fontWeight:800, textAlign:'right' }}>{bScore}</span>
+                                <span style={{ fontSize:9, color:D.accent, fontFamily:'inherit', textAlign:'right', fontWeight:700 }}>{b.weight}%</span>
                               </div>
-                              <span style={{ fontSize:10, fontFamily:'inherit', color:bCol, fontWeight:700, textAlign:'right' }}>{bScore}</span>
-                              <span style={{ fontSize:9, color:D.dim, fontFamily:'inherit', textAlign:'right' }}>w:{b.weight}%</span>
+                              <div style={{ fontSize:9, color:D.muted, fontFamily:'inherit', paddingLeft:0, marginBottom:2 }}>
+                                {b.desc} ' {lang==='en'?'value':'valor'}: {valDisplay} &nbsp;|&nbsp; ok: &lt;{b.good} &nbsp;{lang==='en'?'bad':'ruim'}: &gt;{b.bad}
+                              </div>
                             </div>
                           )
                         })}
@@ -1905,13 +1971,16 @@ export default function Home(): React.ReactElement {
                       />
                     </div>
                     {/* Formula explanation - collapsible */}
-                    <div style={{ marginTop:20, background:D.bg, border:`1px solid ${D.bdr}`, borderRadius:10, overflow:'hidden' }}>
+                    <div style={{ marginTop:16, background:'#0e0e0e', border:`1px solid ${D.bdr}`, borderRadius:8, overflow:'hidden' }}>
                       <button onClick={() => setFormulaOpen((o: boolean) => !o)}
                         style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 20px', background:'none', border:'none', cursor:'pointer', textAlign:'left' }}>
-                        <span style={{ fontSize:11, color:D.muted, fontFamily:'inherit' }}>
-                          {lang==='en' ? 'Click to understand the score' : 'Clique para entender o score'}
-                        </span>
-                        <span style={{ fontSize:11, color:D.muted, fontFamily:'inherit', display:'inline-block', transition:'transform 0.2s', transform: formulaOpen ? 'rotate(180deg)' : 'none' }}>v</span>
+                        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={D.accent} strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                          <span style={{ fontSize:12, color:D.text, fontFamily:'inherit', fontWeight:600 }}>
+                            {lang==='en' ? 'How is the score calculated?' : 'Como o score e calculado?'}
+                          </span>
+                        </div>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={D.muted} strokeWidth="2.5" style={{ display:'inline-block', transition:'transform 0.2s', transform: formulaOpen ? 'rotate(180deg)' : 'none' }}><polyline points="6 9 12 15 18 9"/></svg>
                       </button>
                       {formulaOpen && (
                         <div style={{ padding:'0 20px 18px' }}>
@@ -1984,7 +2053,7 @@ export default function Home(): React.ReactElement {
             {/* STEP 1: Overview */}
             {wizardStep === 1 && (
               <div style={{ padding:'24px 24px 8px' }}>
-                <h2 style={{ fontSize:32, fontWeight:900, color:D.text, letterSpacing:'-1.5px', lineHeight:1, fontFamily:'inherit', marginBottom:8, textAlign:'center' }}>
+                <h2 style={{ fontSize:40, fontWeight:900, color:D.text, letterSpacing:'-2px', lineHeight:1, fontFamily:'inherit', marginBottom:8, textAlign:'center' }}>
                   {lang === 'en' ? 'OBD1 telemetry for your Honda' : 'Telemetria OBD1 para o seu Honda'}
                 </h2>
                 <p style={{ fontSize:13, color:D.muted, lineHeight:1.8, marginBottom:20, textAlign:'center' }}>
@@ -2173,7 +2242,7 @@ export default function Home(): React.ReactElement {
                       <div style={{ fontSize:13, fontWeight:700, color:D.muted, fontFamily:'inherit', marginBottom:4 }}>
                         {lang === 'en' ? 'Drop CSV here or click to browse' : 'Solte o CSV aqui ou clique para escolher'}
                       </div>
-                      <div style={{ fontSize:10, color:D.muted, fontFamily:'inherit', display:'flex', alignItems:'center', gap:10, marginTop:4 }}>
+                      <div style={{ fontSize:10, color:D.muted, fontFamily:'inherit', display:'flex', alignItems:'center', gap:12, marginTop:6, flexWrap:'wrap' as const }}>
                         {lang === 'en' ? 'Exported from HondaSH app (.csv)' : 'Exportado pelo app HondaSH (.csv)'}
                       </div>
                     </div>
