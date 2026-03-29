@@ -231,6 +231,19 @@ export function extractMetrics(rows: Row[], name: string): LogSession {
     knock_events:     clean(knock).filter(v => v > 0.1).length,
     knock_max:        r2(max(knock)),
     vtec_pct:         r2(pct(vtec, v => v === 1)),
+    vtec_rpm_mean:    (() => {
+      // Average RPM while VTEC solenoid is engaged (S-VT = 1), clamped to sane range
+      const revRaw = getCol(rows, 'rev')
+      const vtecRaw = getCol(rows, 'vtec')
+      const n = Math.min(revRaw.length, vtecRaw.length)
+      const vals: number[] = []
+      for (let i = 0; i < n; i++) {
+        if (vtecRaw[i] === 1 && isFinite(revRaw[i]) && revRaw[i] > 0 && revRaw[i] <= 8500)
+          vals.push(revRaw[i])
+      }
+      if (!vals.length) return null
+      return r2(vals.reduce((a, b) => a + b, 0) / vals.length)
+    })(),
     map_mean:         r2(avg(map)),
     map_max:          r2(max(map)),
     map_wot:          r2(mapWot),
