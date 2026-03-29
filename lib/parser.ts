@@ -35,6 +35,7 @@ const COL: Record<string, string[]> = {
   brake:   ['Brake Switch (BKSW) []', 'Interruptor do freio (BKSW) []'],
   lat:     ['GPS Latitude [°]', 'Latitude GPS [°]'],
   lon:     ['GPS Longitude [°]', 'Longitude GPS [°]'],
+  fuel_r:  ['Pump Relay - Fuel (R-FL) []', 'Relé da bomba - Combustível (R-FL) []'],
 }
 
 type Row = Record<string, number | string>
@@ -111,36 +112,47 @@ function calcAccelTime(vssArr: number[], timeArr: number[], targetKph: number): 
 }
 
 export function extractMetrics(rows: Row[], name: string): LogSession {
-  const ect    = getCol(rows, 'ect')
-  const iat    = getCol(rows, 'iat')
-  const ltft   = getCol(rows, 'ltft')
-  const stft   = getCol(rows, 'stft')
-  const lam    = getCol(rows, 'lambda').map(v => (v > 0 && v < 5) ? v : NaN)
-  const adv    = getCol(rows, 'adv')
-  const ignLim = getCol(rows, 'ign_lim')
-  const iacv   = getCol(rows, 'iacv')
-  const flow   = getCol(rows, 'flow').map(v => v > 0 ? v : NaN)
-  const inj    = getCol(rows, 'inj')
-  const injDc  = getCol(rows, 'inj_dc')
-  const injFr  = getCol(rows, 'inj_fr')
-  const bat    = getCol(rows, 'bat')
-  const altFr  = getCol(rows, 'alt_fr')
-  const vtec   = getCol(rows, 'vtec')
-  const knock  = getCol(rows, 'knock')
-  const mil    = getCol(rows, 'mil')
-  const cl     = getCol(rows, 'cl')
-  const vss    = getCol(rows, 'vss')
-  const eld    = getCol(rows, 'eld')
-  const time   = getCol(rows, 'time')
-  const inst   = getCol(rows, 'inst').map(v => (v > 0 && v < 80) ? v : NaN)
-  const lnga   = getCol(rows, 'lnga')
-  const map    = getCol(rows, 'map')
-  const clv    = getCol(rows, 'clv')
-  const rev    = getCol(rows, 'rev').filter(v => v <= 8500)  // F22B1 redline ~6800; >8500 = sensor noise
-  const egr    = getCol(rows, 'egr')
-  const fan    = getCol(rows, 'fan')
-  const ac     = getCol(rows, 'ac')
-  const brake  = getCol(rows, 'brake')
+  // Engine-on mask: R-FL (Pump Relay Fuel) = 1 means engine running.
+  // Rows where R-FL = 0 are pre/post-start artifacts (frozen sensor values,
+  // battery discharge readings, STFT=-100 etc.) that skew health metrics.
+  // We NaN-out affected columns for those rows, but keep time/VSS/GPS intact.
+  const fuelRelay    = getCol(rows, 'fuel_r')
+  const engineOnMask = fuelRelay.length > 0
+    ? fuelRelay.map(v => v === 1)
+    : rows.map(() => true)  // if column missing, treat all rows as engine-on
+  const maskArr = <T extends number>(arr: T[]): number[] =>
+    arr.map((v, i) => engineOnMask[i] ? v : NaN)
+
+  const ect    = maskArr(getCol(rows, 'ect'))
+  const iat    = maskArr(getCol(rows, 'iat'))
+  const ltft   = maskArr(getCol(rows, 'ltft'))
+  const stft   = maskArr(getCol(rows, 'stft'))
+  const lam    = maskArr(getCol(rows, 'lambda')).map(v => (v > 0 && v < 5) ? v : NaN)
+  const adv    = maskArr(getCol(rows, 'adv'))
+  const ignLim = maskArr(getCol(rows, 'ign_lim'))
+  const iacv   = maskArr(getCol(rows, 'iacv'))
+  const flow   = maskArr(getCol(rows, 'flow')).map(v => v > 0 ? v : NaN)
+  const inj    = maskArr(getCol(rows, 'inj'))
+  const injDc  = maskArr(getCol(rows, 'inj_dc'))
+  const injFr  = maskArr(getCol(rows, 'inj_fr'))
+  const bat    = maskArr(getCol(rows, 'bat'))
+  const altFr  = maskArr(getCol(rows, 'alt_fr'))
+  const vtec   = maskArr(getCol(rows, 'vtec'))
+  const knock  = maskArr(getCol(rows, 'knock'))
+  const mil    = getCol(rows, 'mil')   // MIL uses its own 2-min filter below
+  const cl     = maskArr(getCol(rows, 'cl'))
+  const vss    = getCol(rows, 'vss')   // VSS unmasked: used for km/accel/GPS
+  const eld    = maskArr(getCol(rows, 'eld'))
+  const time   = getCol(rows, 'time')  // time unmasked: duration/GPS
+  const inst   = maskArr(getCol(rows, 'inst')).map(v => (v > 0 && v < 80) ? v : NaN)
+  const lnga   = getCol(rows, 'lnga')  // accel unmasked
+  const map    = maskArr(getCol(rows, 'map'))
+  const clv    = maskArr(getCol(rows, 'clv'))
+  const rev    = maskArr(getCol(rows, 'rev')).map(v => v <= 8500 ? v : NaN)
+  const egr    = maskArr(getCol(rows, 'egr'))
+  const fan    = maskArr(getCol(rows, 'fan'))
+  const ac     = maskArr(getCol(rows, 'ac'))
+  const brake  = getCol(rows, 'brake') // brake unmasked
 
   const durationMin = time.length > 1
     ? (time[time.length - 1] - time[0]) / 60000
